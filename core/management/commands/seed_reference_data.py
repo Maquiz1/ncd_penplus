@@ -31,7 +31,7 @@ LAB_TESTS = [
     ('hba1c', 'HbA1c', 'Blood (EDTA)', '%', '4.0–5.6'),
     ('fbg', 'Fasting blood glucose', 'Blood', 'mmol/L', '3.9–5.5'),
     ('rbg', 'Random blood glucose', 'Blood', 'mmol/L', '< 11.1'),
-    ('creat', 'Serum creatinine', 'Serum', 'µmol/L', '53–115'),
+    ('creat', 'Serum creatinine', 'Serum', 'mg/dL', '0.6–1.3'),
     ('lipids', 'Lipid profile (total cholesterol)', 'Serum', 'mmol/L', '< 5.2'),
     ('cbc', 'Full blood count (Hb)', 'Blood (EDTA)', 'g/dL', '12–17'),
     ('hb-electro', 'Hb electrophoresis', 'Blood (EDTA)', '', 'HbAA'),

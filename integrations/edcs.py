@@ -107,6 +107,10 @@ OUTCOMES = {'1': ('active', ''), '2': ('ltfu', 'Defaulted (EDCS)'), '3': ('other
 STUDY_STATUS = {'active': 'active', 'ltfu': 'ltfu', 'other': 'other', 'transferred_out': 'transferred',
                 'deceased': 'deceased'}
 MED_ACTIONS = {'1': 'continue', '2': 'start', '3': 'stop', '4': 'not_eligible'}
+# EDCS uses these as 'not done / missing' in lab fields (e.g. 93 of 96 sodium values are 98 or 99).
+MISSING_LAB_VALUES = {'0', '00', '000', '0.0', '98', '99', '98.0', '99.0', '-', '--', '.', 'n/a', 'na'}
+# A hospital ID shared by this many patients is a placeholder (e.g. "Kth001"), not a real identifier.
+PLACEHOLDER_ID_THRESHOLD = 5
 ECHO_FIELDS = ['echo', 'lv', 'mitral', 'rv', 'pericardial', 'ivc', 'thrombus', 'congenital_defect', 'echo_specify',
                'echo_other2']
 
@@ -272,6 +276,8 @@ class Importer:
         our_districts = {d.name.casefold(): d for d in District.objects.all()}
         our_wards = {(w.district_id, w.name.casefold().replace(' ', '')): w for w in Ward.objects.select_related('district')}
         self.patients = {}
+        id_use = Counter(text(r['hospital_id']).casefold() for r in self.rows('clients') if text(r['hospital_id']))
+        placeholders = {v for v, n in id_use.items() if n >= PLACEHOLDER_ID_THRESHOLD} | {'0', '00', '000'}
         for row in self.rows('clients'):
             existing = Patient.all_objects.filter(old_id=row['id']).first()
             if existing:
@@ -308,6 +314,9 @@ class Importer:
             patient.save(update_fields=['old_id'])
             for id_type, value in (('hospital', text(row['hospital_id'])), ('edcs_study', text(row['study_id']))):
                 if not value:
+                    continue
+                if id_type == 'hospital' and value.casefold() in placeholders:
+                    self.issue('placeholder_hospital_id_not_imported', f'{value}: old ID {row["id"]} ({patient.patient_number})')
                     continue
                 issuer = facility
                 if PatientIdentifier.objects.filter(id_type=id_type, value=value, issuer=facility).exists():
@@ -545,6 +554,9 @@ class Importer:
                           diastolic_bp=decimal(row.get('dystolic'), 250), pulse=decimal(row.get('pr'), 300))
             if not any(v is not None for v in values.values()):
                 continue
+            for column in ('pr', 'weight', 'height', 'systolic', 'dystolic'):
+                if text(row.get(column)) in ('98', '99'):
+                    self.issue('vitals_value_98_or_99_review', f'vital {row["id"]} {column}={row[column]}')
             for key in ('systolic_bp', 'diastolic_bp', 'pulse'):
                 values[key] = int(values[key]) if values[key] is not None else None
             vitals = Vitals.objects.create(encounter=encounter, taken_at=encounter.encounter_date,
@@ -578,7 +590,11 @@ class Importer:
                     continue
                 for column, test_code in columns.items():
                     raw = text(row.get(column))
-                    if raw and raw != '0':
+                    if raw.casefold() in MISSING_LAB_VALUES:
+                        if raw:
+                            self.counts['lab values skipped (0/98/99 missing codes)'] += 1
+                        continue
+                    if raw:
                         self.add_lab(f'{table}.{column}', row, patient, test_code, raw, date)
         for row, patient in self.active_rows('results'):
             date = self.row_date(row, 'visit_date')

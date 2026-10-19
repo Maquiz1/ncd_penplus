@@ -29,3 +29,44 @@ def send_activation_email(user):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
     )
+
+
+def pending_activation(users, migrated_only=False):
+    """Active accounts with an email address that have never set a password."""
+    from django.contrib.contenttypes.models import ContentType
+
+    from integrations.models import ExternalRecord
+
+    users = users.filter(is_active=True).exclude(email='').exclude(username='edcs_import')
+    pending = [u for u in users.order_by('username') if not u.has_usable_password()]
+    if migrated_only:
+        ct = ContentType.objects.get_for_model(users.model)
+        migrated = set(ExternalRecord.objects.filter(source='penplus_edcs', table='user', content_type=ct)
+                       .values_list('object_id', flat=True))
+        pending = [u for u in pending if str(u.pk) in migrated]
+    return pending
+
+
+def send_bulk_activation(users, actor=None, request=None):
+    """Send activation links one by one; one bad address never stops the rest."""
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    from audit.models import AuditEvent
+    from audit.services import log_event
+
+    sent, failed = [], []
+    for user in users:
+        try:
+            validate_email(user.email)
+            send_activation_email(user)
+        except ValidationError:
+            failed.append((user, 'invalid email address'))
+            continue
+        except Exception as exc:  # noqa: BLE001 - report delivery problems per account
+            failed.append((user, str(exc)[:200]))
+            continue
+        sent.append(user)
+        log_event(actor=actor, request=request, action=AuditEvent.Action.ACCOUNT, obj=user,
+                  reason='Activation link sent (bulk)')
+    return sent, failed

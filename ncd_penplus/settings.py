@@ -13,6 +13,24 @@ from django.contrib.messages import constants as message_constants
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def load_env_file(path):
+    """Load KEY=VALUE lines from a .env file. Real environment variables take precedence."""
+    if not path.exists():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in '\'"':
+            value = value[1:-1]
+        os.environ.setdefault(key.strip(), value)
+
+
+load_env_file(BASE_DIR / '.env')
+
+
 def env_bool(name, default=False):
     return os.environ.get(name, str(default)).strip().lower() in {'1', 'true', 'yes', 'on'}
 
@@ -88,27 +106,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ncd_penplus.wsgi.application'
 
-# PostgreSQL is the target database; SQLite is used when POSTGRES_DB is not set.
-if os.environ.get('POSTGRES_DB'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ['POSTGRES_DB'],
-            'USER': os.environ.get('POSTGRES_USER', ''),
-            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
-            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-            'ATOMIC_REQUESTS': True,
-        }
-    }
+# Database is chosen in .env: DB_ENGINE = mysql (default), postgresql or sqlite.
+DB_ENGINE = os.environ.get('DB_ENGINE', 'mysql').lower()
+if DB_ENGINE == 'sqlite':
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3',
+                             'ATOMIC_REQUESTS': True}}
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'ENGINE': {'mysql': 'django.db.backends.mysql',
+                       'postgresql': 'django.db.backends.postgresql'}[DB_ENGINE],
+            'NAME': os.environ.get('DB_NAME', 'ncd_penplus'),
+            'USER': os.environ.get('DB_USER', 'ncd_penplus'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '3306' if DB_ENGINE == 'mysql' else '5432'),
             'ATOMIC_REQUESTS': True,
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '60')),
+            'TEST': {'NAME': os.environ.get('DB_TEST_NAME', f"test_{os.environ.get('DB_NAME', 'ncd_penplus')}")},
         }
     }
+    if DB_ENGINE == 'mysql':
+        DATABASES['default']['OPTIONS'] = {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES', time_zone='+00:00'",
+        }
+        DATABASES['default']['TEST'].update({'CHARSET': 'utf8mb4', 'COLLATION': 'utf8mb4_unicode_ci'})
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -157,6 +180,10 @@ LEGACY_EDCS = {
     'password': os.environ.get('EDCS_DB_PASSWORD', ''),
     'database': os.environ.get('EDCS_DB_NAME', 'penplus'),
 }
+
+# MySQL cannot create partial ("one open record per patient") unique constraints. Those rules are also
+# enforced in model validation and in the services that change them (enrollments, facility transfers).
+SILENCED_SYSTEM_CHECKS = ['models.W036'] if DB_ENGINE == 'mysql' else []
 
 MESSAGE_TAGS = {message_constants.ERROR: 'danger'}
 

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Duplicate review{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Possible duplicate patients</h1>
+<p class="text-body-secondary small">Patients sharing an identifier, or the same name and date of birth. Open each record to decide: correct the identifier, or soft-delete the duplicate after moving its information. Nothing is merged automatically.</p>
+{% for title, members in groups %}
+<div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">{{ title }}</div><div class="table-responsive"><table class="table table-sm mb-0">
+  <thead><tr><th>Patient ID</th><th>Old ID</th><th>Name</th><th>Sex / age</th><th>Date of birth</th><th>Phone</th><th>Facility</th><th>Registered</th></tr></thead>
+  <tbody>{% for p in members %}<tr><td><a href="{{ p.get_absolute_url }}">{{ p.patient_number }}</a></td><td>{{ p.old_id|default:"—" }}</td><td>{{ p.full_name }}</td><td>{{ p.get_sex_display }}, {{ p.age }}</td><td>{{ p.date_of_birth|date:"d M Y" }}</td><td>{{ p.phone }}</td><td>{{ p.current_facility }}</td><td>{{ p.registration_date|date:"d M Y" }}</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% empty %}
+<div class="card card-body text-body-secondary">No possible duplicates found.</div>
+{% endfor %}
+{% endblock %}

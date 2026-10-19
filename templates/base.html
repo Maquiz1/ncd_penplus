@@ -85,6 +85,7 @@
             {% if perms.users.view_user %}<a class="nav-link {% if 'staff' in path %}active{% endif %}" href="{% url 'users:list' %}"><i class="bi bi-person-badge"></i> Staff</a>{% endif %}
             {% if perms.facilities.view_facility %}<a class="nav-link {% if path == '/facilities/' %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Facilities</a>{% endif %}
             {% if perms.audit.view_auditevent %}<a class="nav-link {% if 'audit' in path %}active{% endif %}" href="{% url 'audit:list' %}"><i class="bi bi-shield-check"></i> Audit trail</a>{% endif %}
+            {% if perms.patients.change_patient and can_view_identity %}<a class="nav-link {% if 'duplicates' in path %}active{% endif %}" href="{% url 'patients:duplicates' %}"><i class="bi bi-people"></i> Duplicate review</a>{% endif %}
             {% if perms.patients.restore_patient %}<a class="nav-link {% if 'deleted' in path %}active{% endif %}" href="{% url 'patients:deleted' %}"><i class="bi bi-trash3"></i> Deleted patients</a>{% endif %}
             {% endif %}
           </nav>

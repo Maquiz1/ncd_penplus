@@ -4,5 +4,7 @@ sqlparse==0.6.0
 typing_extensions==4.16.0
 # Reads the previous PEN-Plus EDCS MySQL database during migration:
 PyMySQL==1.1.1
-# PostgreSQL driver (needed when POSTGRES_DB is set):
+# MySQL driver (DB_ENGINE=mysql, the default):
+mysqlclient==2.2.7
+# PostgreSQL driver (only if DB_ENGINE=postgresql):
 # psycopg[binary]==3.2.10

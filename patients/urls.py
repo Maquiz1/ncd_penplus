@@ -8,6 +8,7 @@ urlpatterns = [
     path('', views.PatientListView.as_view(), name='list'),
     path('register/', views.PatientCreateView.as_view(), name='create'),
     path('deleted/', views.DeletedPatientListView.as_view(), name='deleted'),
+    path('duplicates/', views.PossibleDuplicatesView.as_view(), name='duplicates'),
     path('transfers/', views.TransferListView.as_view(), name='transfers'),
     path('transfers/<int:pk>/<str:action>/', views.TransferActionView.as_view(), name='transfer_action'),
     path('<int:pk>/', views.PatientDetailView.as_view(), name='detail'),

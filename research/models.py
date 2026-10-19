@@ -141,5 +141,11 @@ class StudyEnrollment(TimeStampedModel):
                 errors['consent'] = 'Enrollment requires a consent record with decision "Consented".'
         if self.status not in ('pending', 'active') and not self.outcome_date:
             errors['outcome_date'] = 'An outcome date is required when closing the enrollment.'
+        if self.patient_id and self.study_id and self.status in ('pending', 'active'):
+            # Checked here as well as by the partial unique constraint, which MySQL cannot create.
+            open_elsewhere = StudyEnrollment.objects.filter(patient_id=self.patient_id, study_id=self.study_id,
+                                                            status__in=['pending', 'active']).exclude(pk=self.pk)
+            if open_elsewhere.exists():
+                errors['study'] = 'The patient already has an open enrollment in this study.'
         if errors:
             raise ValidationError(errors)

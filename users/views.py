@@ -13,7 +13,7 @@ from facilities.scope import facilities_for_user
 
 from .forms import StaffAssignmentForm, StaffCreateForm, StaffUpdateForm
 from .models import User
-from .services import send_activation_email
+from .services import pending_activation, send_activation_email, send_bulk_activation
 
 
 def staff_in_scope(user):
@@ -181,3 +181,29 @@ class AssignmentEndView(PermissionRequiredMixin, View):
                   reason=f'Scope ended for {staff.username}')
         messages.success(request, 'Scope assignment ended.')
         return redirect('users:detail', pk=pk)
+
+
+class StaffBulkActivationView(PermissionRequiredMixin, View):
+    """Send set-password links to every staff account in scope that has not been activated yet."""
+
+    permission_required = 'users.change_user'
+    template_name = 'users/bulk_activation.html'
+
+    def pending(self, request):
+        return pending_activation(staff_in_scope(request.user), migrated_only=request.GET.get('migrated') == '1'
+                                  or request.POST.get('migrated') == '1')
+
+    def get(self, request):
+        from django.shortcuts import render
+        migrated = request.GET.get('migrated') == '1'
+        return render(request, self.template_name, {'pending': self.pending(request), 'migrated': migrated})
+
+    def post(self, request):
+        sent, failed = send_bulk_activation(self.pending(request), request.user, request)
+        if sent:
+            messages.success(request, f'Activation links sent to {len(sent)} staff member(s).')
+        for user, reason in failed:
+            messages.error(request, f'{user.username}: not sent ({reason}).')
+        if not sent and not failed:
+            messages.info(request, 'No staff accounts are waiting for activation.')
+        return redirect('users:list')

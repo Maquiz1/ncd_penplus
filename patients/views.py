@@ -285,3 +285,29 @@ class TransferActionView(PermissionRequiredMixin, View):
         except ValueError as exc:
             messages.error(request, str(exc))
         return redirect('patients:transfers')
+
+
+class PossibleDuplicatesView(PermissionRequiredMixin, View):
+    """Groups of patients sharing an identifier value or name + date of birth, for manual review."""
+
+    permission_required = ('patients.change_patient', 'patients.view_patient_identity')
+
+    def get(self, request):
+        from django.db.models import Count
+
+        patients = Patient.objects.in_scope(request.user)
+        groups = []
+        shared = (PatientIdentifier.objects.filter(patient__in=patients).values('id_type', 'value')
+                  .annotate(n=Count('patient', distinct=True)).filter(n__gt=1).order_by('-n', 'value'))
+        for row in shared[:200]:
+            members = patients.filter(identifiers__id_type=row['id_type'], identifiers__value=row['value']).distinct()
+            label = dict(PatientIdentifier.IdType.choices).get(row['id_type'], row['id_type'])
+            groups.append((f'Same {label}: {row["value"]}', members.select_related('current_facility')))
+        same_person = (patients.values('first_name', 'last_name', 'date_of_birth').annotate(n=Count('id'))
+                       .filter(n__gt=1).order_by('last_name'))
+        for row in same_person[:200]:
+            members = patients.filter(first_name=row['first_name'], last_name=row['last_name'],
+                                      date_of_birth=row['date_of_birth'])
+            groups.append((f'Same name and date of birth: {row["first_name"]} {row["last_name"]}, '
+                           f'{row["date_of_birth"]:%d %b %Y}', members.select_related('current_facility')))
+        return render(request, 'patients/duplicates.html', {'groups': groups})
