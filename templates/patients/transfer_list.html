@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Transfers{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Transfers</h1>
+<form class="d-flex flex-wrap gap-2 mb-3" method="get">
+  <div class="btn-group" role="group">
+    <a class="btn btn-outline-primary {% if request.GET.direction == 'in' %}active{% endif %}" href="?direction=in">Incoming</a>
+    <a class="btn btn-outline-primary {% if request.GET.direction == 'out' %}active{% endif %}" href="?direction=out">Outgoing</a>
+    <a class="btn btn-outline-primary {% if not request.GET.direction or request.GET.direction == 'all' %}active{% endif %}" href="?">All</a>
+  </div>
+  <input type="hidden" name="direction" value="{{ request.GET.direction|default:'all' }}">
+  <select class="form-select w-auto" name="status" onchange="this.form.submit()"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Patient</th><th>From</th><th>To</th><th>Requested</th><th>Effective</th><th>Reason</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+  <tbody>{% for t in object_list %}<tr>
+    <td>{% if t.patient.current_facility_id in my_facility_ids %}<a href="{{ t.patient.get_absolute_url }}">{{ t.patient }}</a>{% else %}{{ t.patient }}{% endif %}</td>
+    <td>{{ t.from_facility }}</td><td>{{ t.to_facility }}</td><td>{{ t.request_date|date:"d M Y" }}</td><td>{{ t.effective_date|date:"d M Y"|default:"—" }}</td><td class="small">{{ t.reason }}</td>
+    <td>{% status_badge t.status t.get_status_display %}</td>
+    <td class="text-end text-nowrap">{% if perms.patients.change_patienttransfer %}
+      {% if t.from_facility_id in my_facility_ids %}
+        {% if t.status == 'requested' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'patients:transfer_action' t.pk 'approve' %}">Approve</a>{% endif %}
+        {% if t.status == 'approved' %}<a class="btn btn-sm btn-primary" href="{% url 'patients:transfer_action' t.pk 'send' %}">Send</a>{% endif %}
+        {% if t.status == 'requested' or t.status == 'approved' %}<a class="btn btn-sm btn-outline-danger" href="{% url 'patients:transfer_action' t.pk 'cancel' %}">Cancel</a>{% endif %}
+      {% endif %}
+      {% if t.to_facility_id in my_facility_ids and t.status == 'sent' %}
+        <a class="btn btn-sm btn-success" href="{% url 'patients:transfer_action' t.pk 'receive' %}">Receive</a>
+        <a class="btn btn-sm btn-outline-danger" href="{% url 'patients:transfer_action' t.pk 'reject' %}">Reject</a>
+      {% endif %}
+    {% endif %}</td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No transfers.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

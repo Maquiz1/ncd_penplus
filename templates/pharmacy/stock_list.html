@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Stock batches{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Stock batches</h1>
+  <div class="d-flex gap-2">
+    {% if perms.pharmacy.view_stockmovement %}<a class="btn btn-outline-secondary" href="{% url 'pharmacy:movement_list' %}"><i class="bi bi-journal-text"></i> Stock ledger</a>{% endif %}
+    {% if perms.pharmacy.add_stockbatch %}<a class="btn btn-primary" href="{% url 'pharmacy:stock_receive' %}"><i class="bi bi-box-arrow-in-down"></i> Receive stock</a>{% endif %}
+  </div>
+</div>
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item"><a class="nav-link {% if view == 'in_stock' %}active{% endif %}" href="?view=in_stock">Usable stock</a></li>
+  <li class="nav-item"><a class="nav-link {% if view == 'expiring' %}active{% endif %}" href="?view=expiring">Expiring ≤ {{ warning_days }} days</a></li>
+  <li class="nav-item"><a class="nav-link {% if view == 'expired' %}active{% endif %}" href="?view=expired">Expired, not written off</a></li>
+  <li class="nav-item"><a class="nav-link {% if view == 'all' %}active{% endif %}" href="?view=all">All batches</a></li>
+</ul>
+<form class="row g-2 mb-3" method="get">
+  <input type="hidden" name="view" value="{{ view }}">
+  <div class="col-md-4"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-md-4"><select class="form-select" name="medication"><option value="">All medicines</option>{% for m in medications %}<option value="{{ m.pk }}" {% if request.GET.medication == m.pk|stringformat:"s" %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Medicine</th><th>Facility</th><th>Batch</th><th>Expiry</th><th>Received</th><th>Supplier</th><th class="text-end">On hand</th><th class="text-end"></th></tr></thead>
+  <tbody>{% for b in object_list %}<tr>
+    <td>{{ b.medication }}</td><td>{{ b.facility }}</td><td><code>{{ b.batch_number }}</code></td>
+    <td>{{ b.expiry_date|date:"d M Y" }} {% if b.is_expired %}<span class="badge text-bg-danger">Expired</span>{% elif b.expires_soon %}<span class="badge text-bg-warning">Expires soon</span>{% endif %}</td>
+    <td>{{ b.received_date|date:"d M Y" }}</td><td>{{ b.supplier }}</td>
+    <td class="text-end fw-semibold">{{ b.quantity_on_hand }} <span class="fw-normal small text-body-secondary">{{ b.medication.dispensing_unit }}</span></td>
+    <td class="text-end text-nowrap">
+      {% if perms.pharmacy.view_stockmovement %}<a class="btn btn-sm btn-link" href="{% url 'pharmacy:movement_list' %}?batch={{ b.pk }}">Ledger</a>{% endif %}
+      {% if perms.pharmacy.adjust_stock %}<a class="btn btn-sm {% if b.is_expired %}btn-danger{% else %}btn-outline-secondary{% endif %}" href="{% url 'pharmacy:stock_adjust' b.pk %}">{% if b.is_expired %}Write off{% else %}Adjust{% endif %}</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No batches.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

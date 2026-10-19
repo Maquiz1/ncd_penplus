@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}{{ object.version.definition.name }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ object.version.definition.name }} <span class="badge text-bg-light">v{{ object.version.number }}</span> {% status_badge object.status object.get_status_display %}</h1>
+    <div class="small text-body-secondary">Created {{ object.created_at|date:"d M Y H:i" }}{% if object.submitted_by %} · submitted by {{ object.submitted_by }} {{ object.submitted_at|date:"d M Y H:i" }}{% endif %}{% if object.reviewed_by %} · reviewed by {{ object.reviewed_by }} {{ object.reviewed_at|date:"d M Y H:i" }}{% endif %}</div>
+    {% if object.encounter %}<a class="small" href="{{ object.encounter.get_absolute_url }}">Back to encounter</a>{% endif %}
+  </div>
+  {% if object.is_editable and perms.crf.change_formsubmission %}<a class="btn btn-primary" href="{% url 'crf:submission_update' object.pk %}"><i class="bi bi-pencil"></i> Continue / correct</a>{% endif %}
+</div>
+{% if object.review_comment %}<div class="alert alert-{% if object.status == 'returned' %}warning{% else %}light border{% endif %}"><strong>Reviewer comment:</strong> {{ object.review_comment }}</div>{% endif %}
+{% if object.status == 'not_applicable' %}<div class="alert alert-secondary">Marked not applicable: {{ object.not_applicable_reason }}</div>{% else %}
+<div class="card shadow-sm mb-3"><div class="table-responsive"><table class="table mb-0">
+  <tbody>{% regroup rows by 0 as grouped %}{% for group in grouped %}
+    <tr class="table-light"><th colspan="2">{{ group.grouper.title }}</th></tr>
+    {% for section, spec, value in group.list %}<tr><td class="w-50">{{ spec.label }}{% if spec.unit %} <span class="text-body-secondary">({{ spec.unit }})</span>{% endif %}<div class="small text-body-secondary"><code>{{ spec.key }}</code></div></td><td>{% if value is None or value == '' %}<span class="text-body-secondary">—</span>{% else %}{{ value }}{% endif %}</td></tr>{% endfor %}
+  {% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% if perms.crf.review_formsubmission and object.status == 'submitted' or perms.crf.review_formsubmission and object.status == 'under_review' %}
+<div class="card shadow-sm" style="max-width: 640px;"><div class="card-header bg-body fw-semibold">Review</div><div class="card-body">
+  <form method="post" action="{% url 'crf:submission_review' object.pk %}">{% csrf_token %}
+    <div class="mb-2">{{ review_form.decision.label_tag }}<select class="form-select" name="decision">{% for v, l in review_form.fields.decision.choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="mb-2"><label class="form-label">Comment</label>{{ review_form.comment }}</div>
+    <button class="btn btn-primary">Save review</button>
+  </form>
+</div></div>
+{% endif %}
+{% endblock %}

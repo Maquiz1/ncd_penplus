@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Form builder{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Form builder</h1>
+  {% if perms.crf.add_formdefinition %}<a class="btn btn-primary" href="{% url 'crf:definition_create' %}"><i class="bi bi-plus"></i> New form</a>{% endif %}
+</div>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Form</th><th>Applicability</th><th>Stages</th><th>Locations</th><th>Published</th><th>Draft</th><th>Active</th></tr></thead>
+  <tbody>{% for d in object_list %}<tr>
+    <td><a href="{{ d.get_absolute_url }}" class="fw-semibold">{{ d.name }}</a><div class="small text-body-secondary">{{ d.code }}</div></td>
+    <td>{{ d.get_applicability_display }}{% if d.diseases.all %}<div class="small">{{ d.diseases.all|join:", " }}</div>{% endif %}{% if d.study %}<div class="small">{{ d.study.code }}</div>{% endif %}</td>
+    <td class="small">{{ d.stage_labels|join:", " }}</td><td class="small">{{ d.location_labels|join:", " }}</td>
+    <td>{% with v=d.published_version %}{% if v %}<a href="{{ v.get_absolute_url }}">v{{ v.number }}</a>{% else %}—{% endif %}{% endwith %}</td>
+    <td>{% with v=d.draft_version %}{% if v %}<a href="{{ v.get_absolute_url }}">v{{ v.number }} draft</a>{% else %}—{% endif %}{% endwith %}</td>
+    <td>{{ d.is_active|yesno:"Yes,No" }}</td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No forms yet.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

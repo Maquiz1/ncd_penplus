@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}{{ object.code }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+  <div><h1 class="h3 mb-0">{{ object.code }} {% status_badge object.status object.get_status_display %}</h1><div class="text-body-secondary">{{ object.title }}</div></div>
+  {% if perms.research.change_study %}<a class="btn btn-outline-secondary" href="{% url 'research:study_update' object.pk %}"><i class="bi bi-pencil"></i> Edit</a>{% endif %}
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-5"><div class="card shadow-sm h-100"><div class="card-body"><dl class="row dl-compact mb-0">
+    <dt class="col-5">Protocol</dt><dd class="col-7">{{ object.protocol_number|default:"—" }}</dd>
+    <dt class="col-5">PI</dt><dd class="col-7">{{ object.principal_investigator|default:"—" }}</dd>
+    <dt class="col-5">Period</dt><dd class="col-7">{{ object.start_date|date:"d M Y"|default:"?" }} – {{ object.end_date|date:"d M Y"|default:"ongoing" }}</dd>
+    <dt class="col-5">Consent version</dt><dd class="col-7">{{ object.current_consent_version|default:"—" }}</dd>
+    <dt class="col-5">Diseases</dt><dd class="col-7">{{ object.diseases.all|join:", "|default:"—" }}</dd>
+    <dt class="col-5">Sites</dt><dd class="col-7">{{ object.sites.all|join:", "|default:"—" }}</dd>
+  </dl></div></div></div>
+  <div class="col-lg-7"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Eligibility criteria</div><div class="card-body small" style="white-space: pre-line;">{{ object.eligibility_criteria|default:"Not documented." }}</div></div></div>
+</div>
+<div class="card shadow-sm">
+  <div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Participants in your scope ({{ enrollments|length }})</span>
+    <form method="get"><select class="form-select form-select-sm" name="status" onchange="this.form.submit()"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></form></div>
+  <div class="table-responsive"><table class="table table-hover mb-0">
+    <thead class="table-light"><tr><th>Participant ID</th><th>Patient</th><th>Facility</th><th>Enrolled</th><th>Status</th><th>Outcome</th></tr></thead>
+    <tbody>{% for e in enrollments %}<tr><td>{{ e.participant_id }}</td><td><a href="{{ e.patient.get_absolute_url }}#research">{{ e.patient }}</a></td><td>{{ e.facility }}</td><td>{{ e.enrollment_date|date:"d M Y" }}</td><td>{% status_badge e.status e.get_status_display %}</td><td class="small">{% if e.outcome_date %}{{ e.outcome_date|date:"d M Y" }} – {{ e.outcome_reason }}{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No participants.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+  <div>
+    <h1 class="h3 mb-0">Welcome, {{ user.get_full_name|default:user.username }}</h1>
+    <div class="text-body-secondary small">{{ today|date:"l, j F Y" }} · Access scope: {{ scope }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if perms.patients.add_patient and can_view_identity %}<a href="{% url 'patients:create' %}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Register patient</a>{% endif %}
+    {% if perms.patients.view_patient %}<a href="{% url 'patients:list' %}" class="btn btn-outline-primary"><i class="bi bi-search"></i> Find patient</a>{% endif %}
+  </div>
+</div>
+
+{% if scope == 'No assigned scope' %}
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Your account has no facility or geographic assignment yet, so no patient data is visible. Ask a facility administrator to assign your scope.</div>
+{% endif %}
+
+{% if stats %}
+<div class="row g-3 mb-4">
+  {% with s=stats %}
+  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'patients:list' %}"><div class="text-body-secondary small"><i class="bi bi-people"></i> Patients</div><div class="stat-value">{{ s.patients_total }}</div><div class="small text-success">+{{ s.patients_new_month }} this month</div></a></div></div>
+  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'clinical:enrollment_list' %}?status=active"><div class="text-body-secondary small"><i class="bi bi-journal-medical"></i> In care programmes</div><div class="stat-value">{{ s.programme_active }}</div></a></div></div>
+  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'research:study_list' %}"><div class="text-body-secondary small"><i class="bi bi-mortarboard"></i> In research studies</div><div class="stat-value">{{ s.study_active }}</div></a></div></div>
+  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'encounters:appointment_list' %}?view=today"><div class="text-body-secondary small"><i class="bi bi-calendar-check"></i> Appointments today</div><div class="stat-value">{{ s.appointments_today }}</div></a></div></div>
+  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100 border-danger-subtle"><a class="card-body" href="{% url 'encounters:appointment_list' %}?view=overdue"><div class="text-body-secondary small"><i class="bi bi-exclamation-circle"></i> Overdue visits</div><div class="stat-value text-danger">{{ s.appointments_overdue }}</div></a></div></div>
+  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'encounters:admission_list' %}"><div class="text-body-secondary small"><i class="bi bi-hospital"></i> Inpatients</div><div class="stat-value">{{ s.inpatients }}</div></a></div></div>
+  {% endwith %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body fw-semibold"><i class="bi bi-list-task"></i> Work queues</div>
+      <ul class="list-group list-group-flush">
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'encounters:encounter_list' %}">Open / incomplete encounters <span class="badge text-bg-primary rounded-pill">{{ stats.encounters_open }}</span></a>
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'laboratory:lab_worklist' %}">Lab orders awaiting specimen / result <span class="badge text-bg-primary rounded-pill">{{ stats.labs_pending }}</span></a>
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'laboratory:lab_worklist' %}?status=resulted">Lab results to review <span class="badge text-bg-warning rounded-pill">{{ stats.labs_to_review }}</span></a>
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'laboratory:investigation_worklist' %}">ECG / echo / imaging pending <span class="badge text-bg-primary rounded-pill">{{ stats.investigations_pending }}</span></a>
+        {% if perms.pharmacy.view_prescription %}<a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'pharmacy:prescription_list' %}">Prescriptions to dispense <span class="badge text-bg-primary rounded-pill">{{ stats.prescriptions_pending }}</span></a>{% endif %}
+        {% if perms.pharmacy.view_stockbatch %}<a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'pharmacy:medication_list' %}">Medicines below reorder level <span class="badge text-bg-warning rounded-pill">{{ stats.low_stock }}</span></a>
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'pharmacy:stock_list' %}?view=expired">Expired batches to write off <span class="badge text-bg-danger rounded-pill">{{ stats.expired_batches }}</span></a>{% endif %}
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'crf:submission_list' %}">Forms awaiting review <span class="badge text-bg-warning rounded-pill">{{ stats.forms_to_review }}</span></a>
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'encounters:appointment_list' %}?view=reconcile">Historical visits to reconcile <span class="badge text-bg-secondary rounded-pill">{{ stats.appointments_reconcile }}</span></a>
+        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'patients:transfers' %}?direction=in&status=sent">Incoming transfers to receive <span class="badge text-bg-info rounded-pill">{{ stats.transfers_incoming }}</span></a>
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-body fw-semibold"><i class="bi bi-journal-medical"></i> Active programme enrollments by disease</div>
+      <div class="card-body">
+        {% for row in stats.programmes_by_disease %}
+          <div class="d-flex justify-content-between small mb-1"><span>{{ row.programme__disease__name }}</span><span class="fw-semibold">{{ row.n }}</span></div>
+          <div class="progress mb-2" role="progressbar" aria-label="{{ row.programme__disease__name }}" style="height: 8px;"><div class="progress-bar" style="width: {% widthratio row.n stats.programme_active 100 %}%"></div></div>
+        {% empty %}<p class="text-body-secondary mb-0">No active enrollments yet.</p>{% endfor %}
+      </div>
+    </div>
+    <div class="card shadow-sm">
+      <div class="card-header bg-body fw-semibold"><i class="bi bi-search-heart"></i> Screening (all time)</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Disease</th><th class="text-end">Screened</th><th class="text-end">Positive</th></tr></thead>
+          <tbody>
+          {% for row in stats.screening_by_disease %}<tr><td>{{ row.disease__name }}</td><td class="text-end">{{ row.total }}</td><td class="text-end">{{ row.positive }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="text-body-secondary">No screenings recorded.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card shadow-sm"><div class="card-body">
+  <p class="mb-0">Use the menu to open the parts of the system your role allows.</p>
+</div></div>
+{% endif %}
+{% endblock %}

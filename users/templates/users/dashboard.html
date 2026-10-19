@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard · NCD PEN-Plus{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Dashboard</h1>
+  <p>Welcome, {{ user.get_full_name|default:user.get_username }}.</p>
+</div>
+<div class="grid">
+  <div class="card"><div>Patients</div><div class="stat">0</div></div>
+  <div class="card"><div>Visits this month</div><div class="stat">0</div></div>
+  <div class="card"><div>Follow-ups due</div><div class="stat">0</div></div>
+</div>
+{% endblock %}

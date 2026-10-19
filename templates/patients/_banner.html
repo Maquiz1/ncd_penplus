@@ -1,0 +1,11 @@
+{% load ncd %}
+<div class="card border-primary-subtle bg-primary-subtle mb-3 patient-banner">
+  <div class="card-body py-2 d-flex flex-wrap align-items-center gap-3">
+    <a href="{% url 'patients:detail' patient.pk %}" class="fw-semibold fs-5 text-decoration-none"><i class="bi bi-person-vcard"></i> {{ patient.patient_number }}</a>
+    <span>{% patient_name patient %}</span>
+    <span class="text-body-secondary">{{ patient.get_sex_display }}, {{ patient.age }} y</span>
+    <span class="text-body-secondary"><i class="bi bi-geo-alt"></i> {{ patient.current_facility }}</span>
+    {% if patient.is_deceased %}{% status_badge 'deceased' %}{% endif %}
+    {% if patient.status == 'inactive' %}{% status_badge 'inactive' %}{% endif %}
+  </div>
+</div>

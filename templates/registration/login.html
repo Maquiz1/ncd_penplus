@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block auth_content %}
+<div class="card shadow-sm">
+  <div class="card-body p-4">
+    <h2 class="h5 mb-3">Sign in</h2>
+    {% if form.errors %}<div class="alert alert-danger py-2">Invalid username or password, or the account is inactive.</div>{% endif %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label" for="id_username">Username</label>
+        <input class="form-control" type="text" name="username" id="id_username" autofocus autocomplete="username" required value="{{ form.username.value|default:'' }}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="id_password">Password</label>
+        <input class="form-control" type="password" name="password" id="id_password" autocomplete="current-password" required>
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn btn-primary w-100" type="submit"><i class="bi bi-box-arrow-in-right"></i> Sign in</button>
+    </form>
+    <div class="text-center mt-3"><a href="{% url 'password_reset' %}" class="small">Forgot your password?</a></div>
+  </div>
+</div>
+{% endblock %}

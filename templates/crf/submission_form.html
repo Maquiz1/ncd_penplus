@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ version.definition.name }}{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header bg-body">
+    <h1 class="h5 mb-0">{{ version.definition.name }} <span class="badge text-bg-light">v{{ version.number }}</span></h1>
+    <div class="small text-body-secondary">{% if encounter %}Encounter: {{ encounter.get_stage_display }} on {{ encounter.encounter_date|date:"d M Y" }}{% else %}Not linked to an encounter{% endif %}{% if submission and submission.status == 'returned' %} · <span class="text-danger">Returned: {{ submission.review_comment }}</span>{% endif %}</div>
+  </div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if encounter %}<input type="hidden" name="encounter" value="{{ encounter.pk }}">{% endif %}
+    <div class="card-body">
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      {% for section, fields in form.sections %}
+        <fieldset class="mb-4">
+          <legend class="h6 border-bottom pb-1">{{ section.title }}</legend>
+          {% if section.help_text %}<p class="small text-body-secondary">{{ section.help_text }}</p>{% endif %}
+          <div class="row g-3">{% for field in fields %}{% include "crf/_dynamic_field.html" %}{% endfor %}</div>
+        </fieldset>
+      {% endfor %}
+    </div>
+    <div class="card-footer bg-body d-flex flex-wrap gap-2">
+      <button class="btn btn-primary" name="action" value="submit"><i class="bi bi-send"></i> Submit</button>
+      <button class="btn btn-outline-primary" name="action" value="draft"><i class="bi bi-save"></i> Save draft</button>
+      <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Cancel</a>
+      <span class="small text-body-secondary ms-auto align-self-center">Drafts can be saved with required fields missing.</span>
+    </div>
+  </form>
+</div>
+{% endblock %}

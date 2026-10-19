@@ -1,0 +1,287 @@
+from django.contrib import messages
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views import View
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
+
+from audit.models import AuditEvent
+from audit.services import log_event
+from core.forms import ReasonForm
+from core.mixins import AuditedUpdateMixin, PatientChildCreateMixin
+from facilities.scope import default_facility, facilities_for_user
+
+from .forms import PatientForm, PatientIdentifierForm, PatientTransferForm, RecordDeathForm, TransferActionForm
+from .models import Patient, PatientIdentifier, PatientTransfer
+from .services import apply_transfer_action, record_death, register_patient
+
+
+def search_patients(queryset, query, can_view_identity):
+    """Search by patient ID/identifiers; names and phones only when identity access is granted."""
+    condition = Q(patient_number__icontains=query)
+    if query.isdigit():
+        condition |= Q(old_id=int(query))
+    if can_view_identity:
+        condition |= Q(identifiers__value__iexact=query)
+        for term in query.split():
+            condition |= Q(first_name__icontains=term) | Q(last_name__icontains=term) | Q(middle_name__icontains=term)
+        condition |= Q(phone__icontains=query) | Q(alternate_phone__icontains=query)
+    return queryset.filter(condition).distinct()
+
+
+class PatientListView(PermissionRequiredMixin, ListView):
+    permission_required = 'patients.view_patient'
+    template_name = 'patients/patient_list.html'
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = Patient.objects.in_scope(self.request.user).select_related('current_facility')
+        params = self.request.GET
+        if params.get('q'):
+            qs = search_patients(qs, params['q'].strip(), self.request.user.has_perm('patients.view_patient_identity'))
+        if params.get('status'):
+            qs = qs.filter(status=params['status'])
+        if params.get('facility'):
+            qs = qs.filter(current_facility_id=params['facility'])
+        return qs
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(facilities=facilities_for_user(self.request.user),
+                                        statuses=Patient.Status.choices, **kwargs)
+
+
+class PatientCreateView(PermissionRequiredMixin, CreateView):
+    permission_required = ('patients.add_patient', 'patients.view_patient_identity')
+    form_class = PatientForm
+    template_name = 'patients/patient_form.html'
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), 'user': self.request.user}
+
+    def get_initial(self):
+        return {'registration_facility': default_facility(self.request.user)}
+
+    def form_valid(self, form):
+        patient = register_patient(form.save(commit=False), self.request.user)
+        self.object = patient
+        log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=patient,
+                  reason='Registered after duplicate review' if form.duplicates else '')
+        messages.success(self.request, f'Patient registered with ID {patient.patient_number}.')
+        return redirect(patient.get_absolute_url())
+
+
+class PatientDetailView(PermissionRequiredMixin, DetailView):
+    permission_required = 'patients.view_patient'
+    template_name = 'patients/patient_detail.html'
+
+    def get_queryset(self):
+        return Patient.objects.in_scope(self.request.user).select_related(
+            'current_facility', 'registration_facility', 'residence_district')
+
+    def get_context_data(self, **kwargs):
+        from crf.services import applicable_versions
+
+        p = self.object
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(
+            patient=p,
+            identifiers=p.identifiers.select_related('issuer'),
+            prescreenings=p.prescreenings.select_related('facility'),
+            screenings=p.screenings.select_related('disease', 'facility', 'screened_by'),
+            diagnoses=p.diagnoses.select_related('disease', 'clinician'),
+            programme_enrollments=p.programme_enrollments.select_related('programme__disease', 'facility'),
+            eligibility=p.study_eligibility.select_related('study'),
+            consents=p.consents.select_related('study'),
+            study_enrollments=p.study_enrollments.select_related('study', 'facility'),
+            appointments=p.appointments.select_related('facility', 'plan').order_by('scheduled_date')[:100],
+            plans=p.followup_plans.select_related('facility'),
+            encounters=p.encounters.select_related('facility', 'staff').order_by('-encounter_date')[:50],
+            admissions=p.admissions.select_related('facility'),
+            lab_orders=p.lab_orders.select_related('test', 'facility').order_by('-ordered_at'),
+            investigations=p.investigations.select_related('facility').order_by('-requested_at'),
+            submissions=p.form_submissions.select_related('version__definition', 'encounter').order_by('-created_at'),
+            medication_records=p.medication_records.select_related('encounter')[:200],
+            prescriptions=p.prescriptions.select_related('medication', 'facility', 'prescriber')
+            .prefetch_related('dispensings__batch'),
+            transfers=p.transfers.select_related('from_facility', 'to_facility'),
+            assignments=p.facility_assignments.select_related('facility'),
+            available_forms=applicable_versions(p),
+            open_transfer=p.transfers.filter(status__in=['requested', 'approved', 'sent']).first(),
+        )
+        return ctx
+
+
+class PatientUpdateView(PermissionRequiredMixin, AuditedUpdateMixin, UpdateView):
+    permission_required = ('patients.change_patient', 'patients.view_patient_identity')
+    form_class = PatientForm
+    template_name = 'patients/patient_form.html'
+
+    def get_queryset(self):
+        return Patient.objects.in_scope(self.request.user)
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), 'user': self.request.user}
+
+
+class PatientSoftDeleteView(PermissionRequiredMixin, View):
+    permission_required = 'patients.delete_patient'
+
+    def get(self, request, pk):
+        patient = get_object_or_404(Patient.objects.in_scope(request.user), pk=pk)
+        return render(request, 'confirm_action.html', {
+            'title': f'Delete patient {patient}', 'patient': patient, 'form': ReasonForm(),
+            'message': 'The record is hidden from routine lists but kept with its full history. '
+                       'Authorized users can restore it.',
+            'button': 'Delete record', 'button_class': 'btn-danger', 'cancel_url': patient.get_absolute_url()})
+
+    def post(self, request, pk):
+        patient = get_object_or_404(Patient.objects.in_scope(request.user), pk=pk)
+        form = ReasonForm(request.POST)
+        if not form.is_valid():
+            return render(request, 'confirm_action.html', {'title': f'Delete patient {patient}', 'form': form,
+                                                           'patient': patient, 'button': 'Delete record',
+                                                           'button_class': 'btn-danger',
+                                                           'cancel_url': patient.get_absolute_url()})
+        patient.soft_delete(request.user, form.cleaned_data['reason'])
+        log_event(request=request, action=AuditEvent.Action.DELETE, obj=patient, reason=form.cleaned_data['reason'])
+        messages.success(request, f'Patient {patient} deleted. It can be restored from Deleted patients.')
+        return redirect('patients:list')
+
+
+class DeletedPatientListView(PermissionRequiredMixin, ListView):
+    permission_required = 'patients.restore_patient'
+    template_name = 'patients/deleted_list.html'
+    paginate_by = 25
+
+    def get_queryset(self):
+        return Patient.all_objects.in_scope(self.request.user).filter(is_deleted=True).select_related(
+            'current_facility', 'deleted_by')
+
+
+class PatientRestoreView(PermissionRequiredMixin, View):
+    permission_required = 'patients.restore_patient'
+
+    def post(self, request, pk):
+        patient = get_object_or_404(Patient.all_objects.in_scope(request.user), pk=pk, is_deleted=True)
+        patient.restore()
+        log_event(request=request, action=AuditEvent.Action.RESTORE, obj=patient)
+        messages.success(request, f'Patient {patient} restored.')
+        return redirect(patient.get_absolute_url())
+
+
+class PatientRecordDeathView(PermissionRequiredMixin, View):
+    permission_required = 'patients.record_death'
+
+    def get_patient(self, request, pk):
+        return get_object_or_404(Patient.objects.in_scope(request.user), pk=pk, vital_status='alive')
+
+    def render_form(self, request, patient, form):
+        return render(request, 'confirm_action.html', {
+            'title': 'Record death', 'patient': patient, 'form': form, 'button': 'Record death',
+            'button_class': 'btn-danger', 'cancel_url': patient.get_absolute_url(),
+            'message': 'Active programme and study enrollments will be closed as deceased, and future '
+                       'appointments and undispensed prescriptions cancelled.'})
+
+    def get(self, request, pk):
+        return self.render_form(request, self.get_patient(request, pk), RecordDeathForm())
+
+    def post(self, request, pk):
+        patient = self.get_patient(request, pk)
+        form = RecordDeathForm(request.POST)
+        if not form.is_valid():
+            return self.render_form(request, patient, form)
+        record_death(patient, form.cleaned_data['date_of_death'], form.cleaned_data['cause'], request.user, request)
+        messages.success(request, 'Death recorded.')
+        return redirect(patient.get_absolute_url())
+
+
+class IdentifierCreateView(PatientChildCreateMixin, CreateView):
+    permission_required = ('patients.add_patientidentifier', 'patients.view_patient_identity')
+    model = PatientIdentifier
+    form_class = PatientIdentifierForm
+    title = 'Add identifier'
+
+
+class TransferCreateView(PatientChildCreateMixin, CreateView):
+    permission_required = 'patients.add_patienttransfer'
+    model = PatientTransfer
+    form_class = PatientTransferForm
+    title = 'Request transfer out'
+    success_tab = '#transfers'
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        from facilities.models import Facility
+        form.fields['to_facility'].queryset = Facility.objects.filter(is_active=True).exclude(
+            pk=self.patient.current_facility_id)
+        return form
+
+    def form_valid(self, form):
+        if self.patient.transfers.filter(status__in=['requested', 'approved', 'sent']).exists():
+            messages.error(self.request, 'This patient already has an open transfer.')
+            return redirect(self.patient.get_absolute_url())
+        form.instance.from_facility = self.patient.current_facility
+        return super().form_valid(form)
+
+
+class TransferListView(PermissionRequiredMixin, ListView):
+    permission_required = 'patients.view_patienttransfer'
+    template_name = 'patients/transfer_list.html'
+    paginate_by = 25
+
+    def get_queryset(self):
+        facilities = facilities_for_user(self.request.user)
+        qs = PatientTransfer.objects.select_related('patient', 'from_facility', 'to_facility')
+        direction = self.request.GET.get('direction', 'all')
+        if direction == 'in':
+            qs = qs.filter(to_facility__in=facilities)
+        elif direction == 'out':
+            qs = qs.filter(from_facility__in=facilities)
+        else:
+            qs = qs.filter(Q(to_facility__in=facilities) | Q(from_facility__in=facilities))
+        if self.request.GET.get('status'):
+            qs = qs.filter(status=self.request.GET['status'])
+        return qs
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(statuses=PatientTransfer.Status.choices,
+                                        my_facility_ids=set(facilities_for_user(self.request.user).values_list('pk', flat=True)),
+                                        **kwargs)
+
+
+class TransferActionView(PermissionRequiredMixin, View):
+    permission_required = 'patients.change_patienttransfer'
+
+    def dispatch(self, request, *args, **kwargs):
+        if kwargs['action'] not in PatientTransfer.TRANSITIONS:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_transfer(self, request, pk, action):
+        transfer = get_object_or_404(PatientTransfer.objects.select_related('patient', 'from_facility', 'to_facility'), pk=pk)
+        side = PatientTransfer.TRANSITIONS[action][2]
+        facility = transfer.from_facility if side == 'from' else transfer.to_facility
+        if not facilities_for_user(request.user).filter(pk=facility.pk).exists():
+            raise PermissionDenied('Only staff at the %s facility can %s this transfer.' % (
+                'sending' if side == 'from' else 'receiving', action))
+        return transfer
+
+    def get(self, request, pk, action):
+        transfer = self.get_transfer(request, pk, action)
+        return render(request, 'confirm_action.html', {
+            'title': f'{action.title()} transfer', 'form': TransferActionForm(), 'button': action.title(),
+            'message': f'{transfer.patient}: {transfer.from_facility} → {transfer.to_facility}',
+            'cancel_url': reverse('patients:transfers')})
+
+    def post(self, request, pk, action):
+        transfer = self.get_transfer(request, pk, action)
+        form = TransferActionForm(request.POST)
+        form.is_valid()
+        try:
+            apply_transfer_action(transfer, action, request.user, request, form.cleaned_data.get('notes', ''))
+            messages.success(request, f'Transfer {PatientTransfer.TRANSITIONS[action][1]}.')
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        return redirect('patients:transfers')

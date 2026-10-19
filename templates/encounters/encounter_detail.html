@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Encounter{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ object.get_stage_display }} encounter {% status_badge object.status object.get_status_display %}</h1>
+    <div class="text-body-secondary small">{{ object.encounter_date|date:"l d M Y H:i" }} · {{ object.facility }} · {{ object.get_location_type_display }}{% if object.home_visit_outcome %} ({{ object.get_home_visit_outcome_display }}){% endif %} · {% if object.appointment %}Scheduled ({{ object.appointment.scheduled_date|date:"d M Y" }}){% else %}Unscheduled{% endif %} · {{ object.staff }}</div>
+    {% if object.programme_enrollment or object.study_enrollment %}<div class="small">Context: {{ object.programme_enrollment.programme|default:"" }} {{ object.study_enrollment|default:"" }}</div>{% endif %}
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if perms.encounters.add_vitals %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:vitals_add' object.pk %}"><i class="bi bi-heart-pulse"></i> Vitals</a>{% endif %}
+    {% if perms.clinical.add_screening %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:screening_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-search-heart"></i> Screening</a>{% endif %}
+    {% if perms.clinical.add_diagnosis %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:diagnosis_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-clipboard2-plus"></i> Diagnosis</a>{% endif %}
+    {% if perms.laboratory.add_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:lab_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-droplet-half"></i> Lab</a>{% endif %}
+    {% if perms.laboratory.add_investigationorder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:investigation_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-activity"></i> ECG/Echo/Imaging</a>{% endif %}
+    {% if perms.pharmacy.add_prescription %}<a class="btn btn-sm btn-outline-primary" href="{% url 'pharmacy:prescription_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-capsule"></i> Prescribe</a>{% endif %}
+    {% if perms.encounters.change_encounter %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'encounters:encounter_update' object.pk %}"><i class="bi bi-pencil"></i> Edit / close</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-7">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-body fw-semibold"><i class="bi bi-ui-checks"></i> Forms for this encounter</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Form</th><th>Required</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+        <tbody>{% for row in form_status %}<tr>
+          <td>{{ row.definition.name }} <span class="badge text-bg-light">v{{ row.version.number }}</span></td>
+          <td>{{ row.required|yesno:"Required,Optional" }}</td>
+          <td>{% for s in row.submissions %}<a href="{{ s.get_absolute_url }}">{% status_badge s.status s.get_status_display %}</a> {% empty %}{% if row.required %}<span class="badge text-bg-danger">Missing</span>{% else %}<span class="text-body-secondary small">Not started</span>{% endif %}{% endfor %}</td>
+          <td class="text-end text-nowrap">{% if perms.crf.add_formsubmission %}
+            {% if not row.submissions or row.definition.is_repeatable %}<a class="btn btn-sm btn-primary" href="{% url 'crf:submission_add' patient.pk row.version.pk %}?encounter={{ object.pk }}">Fill in</a>
+            {% if not row.submissions %}<button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#na-{{ row.version.pk }}">N/A</button>{% endif %}{% endif %}
+          {% endif %}</td></tr>
+          <tr class="collapse" id="na-{{ row.version.pk }}"><td colspan="4"><form method="post" action="{% url 'crf:submission_not_applicable' object.pk row.version.pk %}" class="d-flex gap-2">{% csrf_token %}<input class="form-control form-control-sm" name="reason" placeholder="Reason this form does not apply" required><button class="btn btn-sm btn-secondary">Mark not applicable</button></form></td></tr>
+        {% empty %}<tr><td colspan="4" class="text-body-secondary">No published forms apply to this encounter's type and location.</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Clinical notes</div><div class="card-body">
+      <dl class="mb-0 dl-compact"><dt>Chief complaint</dt><dd>{{ object.chief_complaint|default:"—" }}</dd><dt>Notes</dt><dd style="white-space: pre-line;">{{ object.clinical_notes|default:"—" }}</dd><dt>Plan / next steps</dt><dd style="white-space: pre-line;">{{ object.plan_notes|default:"—" }}</dd></dl>
+    </div></div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Vital signs</div>
+      {% for v in vitals %}<div class="card-body border-bottom small">
+        <div class="text-body-secondary">{{ v.taken_at|date:"H:i" }}</div>
+        BP <strong>{{ v.systolic_bp|default:"–" }}/{{ v.diastolic_bp|default:"–" }}</strong> · Pulse {{ v.pulse|default:"–" }} · Temp {{ v.temperature_c|default:"–" }} · SpO₂ {{ v.spo2|default:"–" }}%<br>
+        Weight {{ v.weight_kg|default:"–" }} kg · Height {{ v.height_cm|default:"–" }} cm · BMI {{ v.bmi|default:"–" }} · RBG {{ v.blood_glucose|default:"–" }}
+      </div>{% empty %}<div class="card-body text-body-secondary small">Not recorded.</div>{% endfor %}
+    </div>
+    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Screening &amp; diagnoses</div><ul class="list-group list-group-flush small">
+      {% for s in screenings %}<li class="list-group-item">{{ s.disease }} screening {% status_badge s.result %}</li>{% endfor %}
+      {% for d in diagnoses %}<li class="list-group-item">{{ d.description }} {% status_badge d.status d.get_status_display %}</li>{% endfor %}
+      {% if not screenings and not diagnoses %}<li class="list-group-item text-body-secondary">None recorded at this encounter.</li>{% endif %}
+    </ul></div>
+    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Orders</div><ul class="list-group list-group-flush small">
+      {% for o in lab_orders %}<li class="list-group-item d-flex justify-content-between"><span>{{ o.test.name }}{% if o.result_value %}: <strong class="{% if o.is_abnormal %}text-danger{% endif %}">{{ o.result_value }} {{ o.result_unit }}</strong>{% endif %}</span>{% status_badge o.status o.get_status_display %}</li>{% endfor %}
+      {% for i in investigations %}<li class="list-group-item d-flex justify-content-between"><span>{{ i.get_modality_display }}: {{ i.description }}</span>{% status_badge i.status i.get_status_display %}</li>{% endfor %}
+      {% for rx in prescriptions %}<li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-capsule"></i> {{ rx.medication }} {{ rx.dose }} {{ rx.frequency }} (×{{ rx.quantity }})</span>{% status_badge rx.status rx.get_status_display %}</li>{% endfor %}
+      {% if not lab_orders and not investigations and not prescriptions %}<li class="list-group-item text-body-secondary">No orders. Pending results do not block form completion.</li>{% endif %}
+    </ul></div>
+  </div>
+</div>
+{% endblock %}

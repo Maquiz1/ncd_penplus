@@ -1,0 +1,25 @@
+Hello {{ user.get_full_name|default:user.username }},
+
+Monthly enrollment report for {{ report.start|date:"F Y" }} ({{ report.start|date:"d M Y" }} – {{ report.end|date:"d M Y" }}).
+Access scope: {{ scope }}
+Generated: {{ generated|date:"d M Y H:i" }} ({{ tz }})
+
+SUMMARY
+- New patients registered: {{ report.new_patients }}
+- New clinical programme enrollments: {{ report.programme_total }} ({{ report.programme_unique_patients }} unique patients)
+{% for row in report.programme_by_disease_facility %}    {{ row.programme__disease__name }} @ {{ row.facility__name }}: {{ row.n }}
+{% endfor %}
+RESEARCH (reported separately)
+- New study enrollments: {{ report.research_total }}
+{% for row in report.research_by_study_facility %}    {{ row.study__code }} @ {{ row.facility__name }}: {{ row.n }}
+{% endfor %}
+TRANSFERS
+- Transfer-in events: {{ report.transfers_in }}
+- Transfer-out events: {{ report.transfers_out }}
+
+FOLLOW-UP AND DATA QUALITY
+{% for status, n in report.appointments_by_status.items %}- Appointments {{ status }}: {{ n }}
+{% endfor %}- Open/incomplete encounters: {{ report.incomplete_encounters }}
+- Forms awaiting review: {{ report.forms_awaiting_review }}
+
+This email contains aggregate figures only. Patient-level detail is available after signing in: {{ site_url }}

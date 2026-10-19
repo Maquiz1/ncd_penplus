@@ -1,0 +1,17 @@
+body { background-color: var(--bs-body-bg); }
+.auth-wrapper { min-height: 100vh; background: linear-gradient(160deg, var(--bs-primary-bg-subtle), var(--bs-body-bg)); }
+@media (min-width: 992px) {
+  aside .offcanvas-lg { position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
+}
+.sidebar-nav .nav-link { color: var(--bs-body-color); padding: .4rem 1rem; border-left: 3px solid transparent; display: flex; gap: .6rem; align-items: center; }
+.sidebar-nav .nav-link:hover { background: var(--bs-secondary-bg); }
+.sidebar-nav .nav-link.active { border-left-color: var(--bs-primary); background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); font-weight: 600; }
+.sidebar-heading { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--bs-secondary-color); padding: .9rem 1rem .25rem; }
+.stat-card .stat-value { font-size: 1.9rem; font-weight: 700; line-height: 1.1; }
+.stat-card a { text-decoration: none; color: inherit; }
+.table td, .table th { vertical-align: middle; }
+.nav-tabs .nav-link { white-space: nowrap; }
+.tab-scroll { overflow-x: auto; flex-wrap: nowrap; }
+.dl-compact dt { font-weight: 500; color: var(--bs-secondary-color); }
+.dl-compact dd { margin-bottom: .4rem; }
+[data-show-if].is-hidden { display: none; }

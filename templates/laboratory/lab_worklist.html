@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Laboratory{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Laboratory worklist</h1>
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item"><a class="nav-link {% if current_status == 'pending' %}active{% endif %}" href="?status=pending">Pending</a></li>
+  <li class="nav-item"><a class="nav-link {% if current_status == 'resulted' %}active{% endif %}" href="?status=resulted">To review</a></li>
+  <li class="nav-item"><a class="nav-link {% if current_status == 'reviewed' %}active{% endif %}" href="?status=reviewed">Reviewed</a></li>
+  <li class="nav-item"><a class="nav-link {% if current_status == '' %}active{% endif %}" href="?status=">All</a></li>
+</ul>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Ordered</th><th>Patient</th><th>Test</th><th>Priority</th><th>Specimen</th><th>Result</th><th>Status</th><th class="text-end">Next step</th></tr></thead>
+  <tbody>{% for o in object_list %}<tr>
+    <td>{{ o.ordered_at|date:"d M H:i" }}</td><td><a href="{{ o.patient.get_absolute_url }}#labs">{{ o.patient }}</a><div class="small">{% patient_name o.patient %}</div></td><td>{{ o.test.name }}</td>
+    <td>{% if o.priority == 'urgent' %}<span class="badge text-bg-danger">Urgent</span>{% else %}Routine{% endif %}</td>
+    <td>{{ o.specimen_id|default:"—" }}</td>
+    <td>{% if o.result_value %}<span class="{% if o.is_abnormal %}text-danger fw-semibold{% endif %}">{{ o.result_value }} {{ o.result_unit }}</span>{% if o.turnaround_hours is not None %} <span class="small text-body-secondary">({{ o.turnaround_hours }} h)</span>{% endif %}{% else %}—{% endif %}</td>
+    <td>{% status_badge o.status o.get_status_display %}</td>
+    <td class="text-end text-nowrap">{% if perms.laboratory.change_laborder %}{% with nxt=request.get_full_path|urlencode %}
+      {% if o.status == 'ordered' %}<a class="btn btn-sm btn-primary" href="{% url 'laboratory:lab_action' o.pk 'collect' %}?next={{ nxt }}">Collect</a>{% endif %}
+      {% if o.status == 'collected' %}<a class="btn btn-sm btn-primary" href="{% url 'laboratory:lab_action' o.pk 'result' %}?next={{ nxt }}">Enter result</a>{% endif %}
+      {% if o.status == 'resulted' and perms.laboratory.review_laborder %}<a class="btn btn-sm btn-success" href="{% url 'laboratory:lab_action' o.pk 'review' %}?next={{ nxt }}">Review</a>{% endif %}
+      {% if o.status == 'ordered' or o.status == 'collected' %}<a class="btn btn-sm btn-outline-danger" href="{% url 'laboratory:lab_action' o.pk 'cancel' %}?next={{ nxt }}">Cancel</a>{% endif %}
+    {% endwith %}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No orders.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

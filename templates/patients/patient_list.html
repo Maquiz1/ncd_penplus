@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Patient register{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0">Patient register</h1>
+  <div class="d-flex gap-2">
+    {% if perms.reporting.export_data %}<a class="btn btn-outline-secondary" href="{% url 'reporting:export_patients' %}"><i class="bi bi-download"></i> Export CSV</a>{% endif %}
+    {% if perms.patients.add_patient and can_view_identity %}<a class="btn btn-primary" href="{% url 'patients:create' %}"><i class="bi bi-person-plus"></i> Register patient</a>{% endif %}
+  </div>
+</div>
+<form class="card card-body shadow-sm mb-3" method="get">
+  <div class="row g-2">
+    <div class="col-md-5"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Patient ID, old ID{% if can_view_identity %}, name, phone or other identifier{% endif %}"></div>
+    <div class="col-md-3"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><select class="form-select" name="status"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    <div class="col-md-2 d-grid"><button class="btn btn-primary"><i class="bi bi-search"></i> Search</button></div>
+  </div>
+  {% if not can_view_identity %}<div class="form-text">Your role cannot see identity fields, so search works by patient ID only.</div>{% endif %}
+</form>
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light"><tr><th>Patient ID</th><th>Name</th><th>Sex</th><th>Age</th><th>Current facility</th><th>Registered</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for p in object_list %}
+        <tr>
+          <td><a href="{{ p.get_absolute_url }}" class="fw-semibold">{{ p.patient_number }}</a>{% if p.old_id %}<div class="small text-body-secondary">old {{ p.old_id }}</div>{% endif %}</td>
+          <td>{% patient_name p %}</td>
+          <td>{{ p.get_sex_display }}</td><td>{{ p.age }}</td>
+          <td>{{ p.current_facility }}</td><td>{{ p.registration_date|date:"d M Y" }}</td>
+          <td>{% status_badge p.status %}{% if p.is_deceased %} {% status_badge 'deceased' %}{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-center text-body-secondary py-4">No patients found{% if request.GET.q %} for “{{ request.GET.q }}”{% endif %}.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "_pagination.html" %}
+{% endblock %}

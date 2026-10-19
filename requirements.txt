@@ -1,0 +1,8 @@
+asgiref==3.12.1
+Django==5.2.18
+sqlparse==0.6.0
+typing_extensions==4.16.0
+# Reads the previous PEN-Plus EDCS MySQL database during migration:
+PyMySQL==1.1.1
+# PostgreSQL driver (needed when POSTGRES_DB is set):
+# psycopg[binary]==3.2.10

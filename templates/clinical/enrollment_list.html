@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Programme enrollments{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Clinical programme enrollments</h1>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-4"><select class="form-select" name="programme"><option value="">All programmes</option>{% for p in programmes %}<option value="{{ p.pk }}" {% if request.GET.programme == p.pk|stringformat:"s" %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><select class="form-select" name="status"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Patient</th><th>Programme</th><th>Facility</th><th>Enrolled</th><th>Status</th><th>Outcome</th></tr></thead>
+  <tbody>{% for e in object_list %}<tr><td><a href="{{ e.patient.get_absolute_url }}#clinical">{{ e.patient }}</a></td><td>{{ e.programme }}</td><td>{{ e.facility }}</td><td>{{ e.enrollment_date|date:"d M Y" }}</td><td>{% status_badge e.status e.get_status_display %}</td><td class="small">{% if e.outcome_date %}{{ e.outcome_date|date:"d M Y" }} – {{ e.outcome_reason }}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No enrollments.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

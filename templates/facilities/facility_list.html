@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Facilities{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Facilities in your scope</h1>
+  {% if perms.facilities.add_facility and user.is_staff %}<a class="btn btn-outline-secondary" href="{% url 'admin:facilities_facility_changelist' %}"><i class="bi bi-gear"></i> Manage facilities</a>{% endif %}
+</div>
+<form class="mb-3" method="get"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Search facilities"></form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table mb-0">
+  <thead class="table-light"><tr><th>Facility</th><th>Code</th><th>Type</th><th>District</th><th>Region</th><th>Zone</th><th>Research site</th><th>Active</th></tr></thead>
+  <tbody>{% for f in object_list %}<tr><td>{{ f.name }}</td><td>{{ f.code }}</td><td>{{ f.get_facility_type_display }}</td><td>{{ f.district.name }}</td><td>{{ f.district.region }}</td><td>{{ f.district.region.zone }}</td><td>{{ f.is_research_site|yesno:"Yes,No" }}</td><td>{{ f.is_active|yesno:"Yes,No" }}</td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No facilities in your scope.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

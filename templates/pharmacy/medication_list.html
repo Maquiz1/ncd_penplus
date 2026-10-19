@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Medicines{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Medicine catalogue &amp; stock</h1>
+  <div class="d-flex gap-2">
+    {% if perms.pharmacy.add_stockbatch %}<a class="btn btn-primary" href="{% url 'pharmacy:stock_receive' %}"><i class="bi bi-box-arrow-in-down"></i> Receive stock</a>{% endif %}
+    {% if perms.pharmacy.add_medication %}<a class="btn btn-outline-primary" href="{% url 'pharmacy:medication_create' %}"><i class="bi bi-plus"></i> Add medicine</a>{% endif %}
+  </div>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-4"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Search medicine"></div>
+  <div class="col-md-4"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="show"><option value="">Active only</option><option value="all" {% if request.GET.show == 'all' %}selected{% endif %}>Include inactive</option></select></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+{% if low_stock %}
+<div class="alert alert-warning">
+  <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle"></i> Below reorder level ({{ low_stock|length }})</div>
+  <ul class="mb-0 small">{% for facility, med, on_hand in low_stock|slice:":15" %}<li>{{ med }} at {{ facility }}: {{ on_hand }} {{ med.dispensing_unit }}(s), reorder level {{ med.reorder_level }}</li>{% endfor %}{% if low_stock|length > 15 %}<li>… and {{ low_stock|length|add:"-15" }} more</li>{% endif %}</ul>
+</div>
+{% endif %}
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Medicine</th><th>Form</th><th>Unit</th><th class="text-end">Usable stock</th><th class="text-end">Expired (to write off)</th><th class="text-end">Reorder level</th><th></th></tr></thead>
+  <tbody>{% for m in object_list %}<tr>
+    <td><span class="fw-semibold">{{ m.name }}</span> {{ m.strength }}{% if not m.is_active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+    <td>{{ m.get_dosage_form_display }}</td><td>{{ m.dispensing_unit }}</td>
+    <td class="text-end"><a href="{% url 'pharmacy:stock_list' %}?medication={{ m.pk }}{% if request.GET.facility %}&facility={{ request.GET.facility }}{% endif %}" class="{% if m.on_hand == 0 %}text-danger fw-semibold{% endif %}">{{ m.on_hand }}</a></td>
+    <td class="text-end">{% if m.expired_on_hand %}<a class="text-danger" href="{% url 'pharmacy:stock_list' %}?view=expired&medication={{ m.pk }}">{{ m.expired_on_hand }}</a>{% else %}0{% endif %}</td>
+    <td class="text-end">{{ m.reorder_level }}</td>
+    <td class="text-end text-nowrap">{% if perms.pharmacy.add_stockbatch %}<a class="btn btn-sm btn-outline-primary" href="{% url 'pharmacy:stock_receive' %}?medication={{ m.pk }}">Receive</a>{% endif %}
+      {% if perms.pharmacy.change_medication %}<a class="btn btn-sm btn-link" href="{% url 'pharmacy:medication_update' m.pk %}">Edit</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No medicines in the catalogue.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

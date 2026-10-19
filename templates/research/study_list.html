@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Studies{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Research studies</h1>
+  {% if perms.research.add_study %}<a class="btn btn-primary" href="{% url 'research:study_create' %}"><i class="bi bi-plus"></i> New study</a>{% endif %}
+</div>
+<div class="row g-3">
+{% for s in object_list %}
+  <div class="col-md-6 col-xl-4"><div class="card shadow-sm h-100"><div class="card-body">
+    <div class="d-flex justify-content-between"><h2 class="h6 mb-1"><a href="{{ s.get_absolute_url }}">{{ s.code }}</a></h2>{% status_badge s.status s.get_status_display %}</div>
+    <p class="mb-2">{{ s.title }}</p>
+    <div class="small text-body-secondary">PI: {{ s.principal_investigator|default:"—" }} · Protocol {{ s.protocol_number|default:"—" }}</div>
+    <div class="small text-body-secondary">Diseases: {{ s.diseases.all|join:", "|default:"—" }}</div>
+  </div></div></div>
+{% empty %}
+  <div class="col-12"><div class="card card-body text-body-secondary">No studies configured.</div></div>
+{% endfor %}
+</div>
+{% endblock %}

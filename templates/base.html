@@ -1,0 +1,123 @@
+{% load static %}<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ title|default:"NCD System" }}{% endblock %} · NCD System</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%230d6efd' d='M8 1.3 1 4.5v3.2c0 3.7 3 6.6 7 7 4-.4 7-3.3 7-7V4.5z'/></svg>">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+{% if user.is_authenticated %}
+<nav class="navbar navbar-dark bg-primary sticky-top shadow-sm px-3">
+  <button class="btn btn-link text-white d-lg-none p-0 me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Menu">
+    <i class="bi bi-list fs-3"></i>
+  </button>
+  <a class="navbar-brand fw-semibold me-auto" href="{% url 'dashboard' %}"><i class="bi bi-heart-pulse-fill me-1"></i> NCD System</a>
+  {% if perms.patients.view_patient %}
+  <form class="d-none d-md-flex me-3" role="search" action="{% url 'patients:list' %}">
+    <input class="form-control form-control-sm" type="search" name="q" placeholder="Find patient (ID{% if can_view_identity %}, name, phone{% endif %})" aria-label="Find patient">
+  </form>
+  {% endif %}
+  <div class="dropdown">
+    <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+      <i class="bi bi-person-circle"></i> <span class="d-none d-sm-inline">{{ user.get_full_name|default:user.username }}</span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><span class="dropdown-item-text small text-body-secondary">{{ user.groups.all|join:", "|default:"No role assigned" }}</span></li>
+      <li><a class="dropdown-item" href="{% url 'password_change' %}"><i class="bi bi-key me-2"></i>Change password</a></li>
+      {% if user.is_staff %}<li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="bi bi-gear me-2"></i>Configuration (admin)</a></li>{% endif %}
+      <li><hr class="dropdown-divider"></li>
+      <li>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+          <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right me-2"></i>Log out</button>
+        </form>
+      </li>
+    </ul>
+  </div>
+</nav>
+<div class="container-fluid">
+  <div class="row">
+    <aside class="col-lg-2 p-0 border-end bg-body-tertiary">
+      <div class="offcanvas-lg offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="sidebarLabel">Menu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+          {% with path=request.path %}
+          <nav class="nav flex-column sidebar-nav py-2 w-100">
+            <a class="nav-link {% if path == '/' %}active{% endif %}" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            {% if perms.patients.view_patient %}
+            <div class="sidebar-heading">Patients</div>
+            <a class="nav-link {% if path == '/patients/' %}active{% endif %}" href="{% url 'patients:list' %}"><i class="bi bi-people"></i> Patient register</a>
+            {% if perms.patients.add_patient and can_view_identity %}<a class="nav-link {% if 'register' in path %}active{% endif %}" href="{% url 'patients:create' %}"><i class="bi bi-person-plus"></i> Register patient</a>{% endif %}
+            {% if perms.patients.view_patienttransfer %}<a class="nav-link {% if 'transfers' in path %}active{% endif %}" href="{% url 'patients:transfers' %}"><i class="bi bi-arrow-left-right"></i> Transfers</a>{% endif %}
+            {% endif %}
+            {% if perms.encounters.view_appointment or perms.encounters.view_encounter %}
+            <div class="sidebar-heading">Care</div>
+            {% if perms.encounters.view_appointment %}<a class="nav-link {% if 'appointments' in path %}active{% endif %}" href="{% url 'encounters:appointment_list' %}"><i class="bi bi-calendar-check"></i> Appointments</a>{% endif %}
+            {% if perms.encounters.view_encounter %}<a class="nav-link {% if path == '/encounters/' %}active{% endif %}" href="{% url 'encounters:encounter_list' %}"><i class="bi bi-clipboard2-pulse"></i> Encounters</a>{% endif %}
+            {% if perms.clinical.view_screening %}<a class="nav-link {% if 'screenings' in path %}active{% endif %}" href="{% url 'clinical:screening_list' %}"><i class="bi bi-search-heart"></i> Screenings</a>{% endif %}
+            {% if perms.clinical.view_screeningsession %}<a class="nav-link {% if 'sessions' in path %}active{% endif %}" href="{% url 'clinical:session_list' %}"><i class="bi bi-people-fill"></i> Screening sessions</a>{% endif %}
+            {% if perms.clinical.view_programmeenrollment %}<a class="nav-link {% if 'clinical/enrollments' in path %}active{% endif %}" href="{% url 'clinical:enrollment_list' %}"><i class="bi bi-journal-medical"></i> Programmes</a>{% endif %}
+            {% if perms.encounters.view_admission %}<a class="nav-link {% if 'admissions' in path %}active{% endif %}" href="{% url 'encounters:admission_list' %}"><i class="bi bi-hospital"></i> Admissions</a>{% endif %}
+            {% endif %}
+            {% if perms.laboratory.view_laborder or perms.laboratory.view_investigationorder or perms.pharmacy.view_prescription or perms.pharmacy.view_stockbatch %}
+            <div class="sidebar-heading">Services</div>
+            {% if perms.laboratory.view_laborder %}<a class="nav-link {% if '/lab/lab' in path %}active{% endif %}" href="{% url 'laboratory:lab_worklist' %}"><i class="bi bi-droplet-half"></i> Laboratory</a>{% endif %}
+            {% if perms.laboratory.view_labtest %}<a class="nav-link {% if 'lab/catalogue' in path %}active{% endif %}" href="{% url 'laboratory:catalogue' %}"><i class="bi bi-list-columns"></i> Lab catalogue</a>{% endif %}
+            {% if perms.laboratory.view_investigationorder %}<a class="nav-link {% if 'investigations' in path %}active{% endif %}" href="{% url 'laboratory:investigation_worklist' %}"><i class="bi bi-activity"></i> ECG / Echo / Imaging</a>{% endif %}
+            {% if perms.pharmacy.view_prescription %}<a class="nav-link {% if 'pharmacy/prescriptions' in path %}active{% endif %}" href="{% url 'pharmacy:prescription_list' %}"><i class="bi bi-capsule"></i> Pharmacy dispensing</a>{% endif %}
+            {% if perms.pharmacy.view_stockbatch %}<a class="nav-link {% if 'pharmacy/stock' in path or 'pharmacy/medications' in path %}active{% endif %}" href="{% url 'pharmacy:medication_list' %}"><i class="bi bi-box-seam"></i> Medicines &amp; stock</a>{% endif %}
+            {% endif %}
+            {% if perms.research.view_study or perms.crf.view_formsubmission %}
+            <div class="sidebar-heading">Research &amp; forms</div>
+            {% if perms.research.view_study %}<a class="nav-link {% if 'research' in path %}active{% endif %}" href="{% url 'research:study_list' %}"><i class="bi bi-mortarboard"></i> Studies</a>{% endif %}
+            {% if perms.crf.view_formsubmission %}<a class="nav-link {% if 'submissions' in path %}active{% endif %}" href="{% url 'crf:submission_list' %}"><i class="bi bi-ui-checks"></i> Form review</a>{% endif %}
+            {% if perms.crf.change_formversion %}<a class="nav-link {% if 'crf/forms' in path or 'crf/versions' in path %}active{% endif %}" href="{% url 'crf:definition_list' %}"><i class="bi bi-ui-radios-grid"></i> Form builder</a>{% endif %}
+            {% endif %}
+            {% if perms.reporting.view_reports or perms.audit.view_auditevent or perms.users.view_user %}
+            <div class="sidebar-heading">Administration</div>
+            {% if perms.reporting.view_reports %}<a class="nav-link {% if path == '/reports/' %}active{% endif %}" href="{% url 'reporting:report' %}"><i class="bi bi-bar-chart-line"></i> Reports</a>{% endif %}
+            {% if perms.users.view_user %}<a class="nav-link {% if 'staff' in path %}active{% endif %}" href="{% url 'users:list' %}"><i class="bi bi-person-badge"></i> Staff</a>{% endif %}
+            {% if perms.facilities.view_facility %}<a class="nav-link {% if path == '/facilities/' %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Facilities</a>{% endif %}
+            {% if perms.audit.view_auditevent %}<a class="nav-link {% if 'audit' in path %}active{% endif %}" href="{% url 'audit:list' %}"><i class="bi bi-shield-check"></i> Audit trail</a>{% endif %}
+            {% if perms.patients.restore_patient %}<a class="nav-link {% if 'deleted' in path %}active{% endif %}" href="{% url 'patients:deleted' %}"><i class="bi bi-trash3"></i> Deleted patients</a>{% endif %}
+            {% endif %}
+          </nav>
+          {% endwith %}
+        </div>
+      </div>
+    </aside>
+    <main class="col-lg-10 px-3 px-md-4 py-4">
+      {% if patient %}{% include "patients/_banner.html" %}{% endif %}
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% else %}
+<main class="auth-wrapper d-flex align-items-center justify-content-center py-5 px-3">
+  <div class="w-100" style="max-width: 420px;">
+    <div class="text-center mb-4">
+      <i class="bi bi-heart-pulse-fill text-primary display-5"></i>
+      <h1 class="h4 mt-2 mb-0">NCD Clinical &amp; Research System</h1>
+      <p class="text-body-secondary small">National Institute for Medical Research</p>
+    </div>
+    {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}
+    {% block auth_content %}{% endblock %}
+  </div>
+</main>
+{% endif %}
+<script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'js/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

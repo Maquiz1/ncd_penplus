@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header bg-body"><h1 class="h5 mb-0">{{ title }}</h1>{% if subtitle %}<div class="small text-body-secondary">{{ subtitle }}</div>{% endif %}</div>
+  <div class="card-body">
+    <form method="post" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %} novalidate>
+      {% csrf_token %}
+      {% include "_form_fields.html" %}
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save</button>
+        <a href="{% if cancel_url %}{{ cancel_url }}{% else %}javascript:history.back(){% endif %}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

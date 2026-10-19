@@ -1,0 +1,11 @@
+Hello {{ user.get_full_name|default:user.username }},
+
+An account has been created for you on the {{ site_name }}.
+
+System address: {{ site_url }}
+Username: {{ user.username }}
+
+Set your password using this secure link. It can be used once and expires in {{ valid_days }} days:
+{{ activation_url }}
+
+No password is included in this email. If you were not expecting this account, contact your facility administrator.

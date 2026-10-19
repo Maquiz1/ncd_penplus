@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Dispensing{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Prescriptions &amp; dispensing</h1>
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item"><a class="nav-link {% if current_status == 'open' %}active{% endif %}" href="?status=open">To dispense</a></li>
+  <li class="nav-item"><a class="nav-link {% if current_status == 'dispensed' %}active{% endif %}" href="?status=dispensed">Dispensed</a></li>
+  <li class="nav-item"><a class="nav-link {% if current_status == 'cancelled' %}active{% endif %}" href="?status=cancelled">Cancelled</a></li>
+  <li class="nav-item"><a class="nav-link {% if current_status == '' %}active{% endif %}" href="?status=">All</a></li>
+</ul>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Prescribed</th><th>Patient</th><th>Medicine</th><th>Dose / frequency</th><th class="text-end">Qty</th><th>Facility</th><th>Prescriber</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for p in object_list %}<tr>
+    <td class="text-nowrap">{{ p.prescribed_at|date:"d M Y H:i" }}</td><td><a href="{{ p.patient.get_absolute_url }}#medications">{{ p.patient }}</a><div class="small">{% patient_name p.patient %}</div></td>
+    <td>{{ p.medication }}</td><td>{{ p.dose }} {{ p.get_route_display|lower }}, {{ p.frequency }}{% if p.duration_days %} × {{ p.duration_days }} d{% endif %}</td>
+    <td class="text-end">{{ p.quantity }}</td><td>{{ p.facility }}</td><td>{{ p.prescriber }}</td>
+    <td>{% status_badge p.status p.get_status_display %}</td>
+    <td class="text-end">{% if p.is_open and perms.pharmacy.add_dispensing %}<a class="btn btn-sm btn-primary" href="{% url 'pharmacy:dispense' p.pk %}?next={{ request.get_full_path|urlencode }}">Dispense</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="9" class="text-center text-body-secondary py-4">Nothing here.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

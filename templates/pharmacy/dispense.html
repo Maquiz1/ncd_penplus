@@ -1,0 +1,44 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Dispense{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-body"><h1 class="h5 mb-0">Dispense {{ prescription.medication }}</h1></div>
+      <div class="card-body">
+        <dl class="row dl-compact">
+          <dt class="col-4">Prescription</dt><dd class="col-8">{{ prescription.dose }} {{ prescription.get_route_display|lower }}, {{ prescription.frequency }}{% if prescription.duration_days %} for {{ prescription.duration_days }} days{% endif %}</dd>
+          {% if prescription.instructions %}<dt class="col-4">Instructions</dt><dd class="col-8">{{ prescription.instructions }}</dd>{% endif %}
+          <dt class="col-4">Prescribed by</dt><dd class="col-8">{{ prescription.prescriber }} · {{ prescription.prescribed_at|date:"d M Y H:i" }}</dd>
+          <dt class="col-4">Quantity</dt><dd class="col-8">{{ prescription.quantity }} prescribed · {{ prescription.quantity_dispensed }} dispensed · <strong>{{ prescription.quantity_remaining }} remaining</strong></dd>
+          <dt class="col-4">Status</dt><dd class="col-8">{% status_badge prescription.status prescription.get_status_display %}</dd>
+        </dl>
+        {% if prescription.is_open %}
+          {% if form.fields.batch.queryset.exists %}
+          <form method="post" novalidate>{% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+            {% include "_form_fields.html" %}
+            <div class="mt-3 d-flex gap-2">
+              <button class="btn btn-primary"><i class="bi bi-capsule"></i> Dispense</button>
+              <a class="btn btn-outline-secondary" href="{{ next }}">Back</a>
+              {% if perms.pharmacy.change_prescription %}<a class="btn btn-outline-danger ms-auto" href="{% url 'pharmacy:prescription_cancel' prescription.pk %}">Cancel prescription</a>{% endif %}
+            </div>
+          </form>
+          {% else %}
+          <div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle"></i> No usable stock of this medicine at {{ prescription.facility }}.
+            {% if perms.pharmacy.add_stockbatch %}<a href="{% url 'pharmacy:stock_receive' %}?medication={{ prescription.medication_id }}&facility={{ prescription.facility_id }}">Receive stock</a>{% endif %}</div>
+          {% endif %}
+        {% else %}
+          <a class="btn btn-outline-secondary" href="{{ next }}">Back</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Dispensing history</div><ul class="list-group list-group-flush">
+      {% for d in dispensings %}<li class="list-group-item small"><strong>{{ d.quantity }}</strong> from batch <code>{{ d.batch.batch_number }}</code> (exp {{ d.batch.expiry_date|date:"M Y" }}) · {{ d.dispensed_at|date:"d M Y H:i" }} · {{ d.dispensed_by }}{% if d.counselling_notes %}<div class="text-body-secondary">{{ d.counselling_notes }}</div>{% endif %}</li>
+      {% empty %}<li class="list-group-item text-body-secondary small">Nothing dispensed yet.</li>{% endfor %}
+    </ul></div>
+  </div>
+</div>
+{% endblock %}

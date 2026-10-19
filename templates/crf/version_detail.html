@@ -1,0 +1,59 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}{{ object }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ object.definition.name }} <span class="text-body-secondary">v{{ object.number }}</span> {% status_badge object.status %}</h1>
+    <a href="{{ object.definition.get_absolute_url }}" class="small">Form settings &amp; all versions</a>
+  </div>
+  <div class="d-flex gap-2">
+    {% if object.is_editable and perms.crf.publish_formversion %}
+    <form method="post" action="{% url 'crf:version_publish' object.pk %}" onsubmit="return confirm('Publish this version? It becomes read-only and replaces the current published version for new submissions.');">{% csrf_token %}<button class="btn btn-success"><i class="bi bi-send-check"></i> Publish</button></form>
+    {% endif %}
+    {% if not object.is_editable and perms.crf.add_formversion %}
+    <form method="post" action="{% url 'crf:version_clone' object.pk %}">{% csrf_token %}<button class="btn btn-outline-primary"><i class="bi bi-files"></i> Create new version</button></form>
+    {% endif %}
+  </div>
+</div>
+{% if not object.is_editable %}<div class="alert alert-light border small"><i class="bi bi-lock"></i> This version is {{ object.get_status_display|lower }} and cannot be changed. Existing submissions always keep the version they were captured with.</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-xl-6">
+    {% for section in sections %}
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">{{ section.order }}. {{ section.title }}</span>
+        {% if object.is_editable %}<span class="d-flex gap-1">
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'crf:field_add' object.pk %}?section={{ section.pk }}"><i class="bi bi-plus"></i> Field</a>
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'crf:section_update' object.pk section.pk %}"><i class="bi bi-pencil"></i></a>
+          <form method="post" action="{% url 'crf:builder_delete' object.pk 'section' section.pk %}" onsubmit="return confirm('Remove this section and its fields?');">{% csrf_token %}<button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+        </span>{% endif %}
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for f in section.fields.all %}<li class="list-group-item d-flex justify-content-between align-items-start">
+          <div><code>{{ f.key }}</code> {{ f.label }}{% if f.required %} <span class="text-danger">*</span>{% endif %}
+            <div class="small text-body-secondary">{{ f.get_field_type_display }}{% if f.unit %} · {{ f.unit }}{% endif %}{% if f.min_value is not None or f.max_value is not None %} · range {{ f.min_value|default_if_none:"" }}–{{ f.max_value|default_if_none:"" }}{% endif %}{% if f.show_if_key %} · shown if <code>{{ f.show_if_key }}</code> = “{{ f.show_if_value }}”{% endif %}</div></div>
+          {% if object.is_editable %}<span class="d-flex gap-1"><a class="btn btn-sm btn-link" href="{% url 'crf:field_update' object.pk f.pk %}">Edit</a>
+            <form method="post" action="{% url 'crf:builder_delete' object.pk 'field' f.pk %}">{% csrf_token %}<button class="btn btn-sm btn-link text-danger">Remove</button></form></span>{% endif %}
+        </li>{% empty %}<li class="list-group-item text-body-secondary small">No fields.</li>{% endfor %}
+      </ul>
+    </div>
+    {% empty %}<p class="text-body-secondary">No sections yet.</p>{% endfor %}
+    {% if object.is_editable %}
+    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Add section</div><div class="card-body">
+      <form method="post" action="{% url 'crf:section_add' object.pk %}" novalidate>{% csrf_token %}{% with form=section_form %}{% include "_form_fields.html" %}{% endwith %}<button class="btn btn-primary mt-3">Add section</button></form>
+    </div></div>
+    {% endif %}
+  </div>
+  <div class="col-xl-6">
+    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold"><i class="bi bi-eye"></i> Preview</div><div class="card-body">
+      <form onsubmit="return false;">
+      {% for section, fields in preview.sections %}
+        <h2 class="h6 mt-2">{{ section.title }}</h2>
+        <div class="row g-3 mb-3">{% for field in fields %}{% include "crf/_dynamic_field.html" %}{% endfor %}</div>
+      {% empty %}<p class="text-body-secondary mb-0">Add fields to see a preview.</p>{% endfor %}
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

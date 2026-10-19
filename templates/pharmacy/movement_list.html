@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Stock ledger{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Stock ledger</h1>
+<p class="text-body-secondary small">Every receipt, dispensing, adjustment and write-off. Entries cannot be edited or deleted; corrections are new adjustments.</p>
+<form class="row g-2 mb-3" method="get">
+  {% if request.GET.batch %}<input type="hidden" name="batch" value="{{ request.GET.batch }}">{% endif %}
+  <div class="col-md-4"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><select class="form-select" name="type"><option value="">All movement types</option>{% for v, l in types %}<option value="{{ v }}" {% if request.GET.type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
+  {% if request.GET.batch %}<div class="col-md-3"><a class="btn btn-link" href="{% url 'pharmacy:movement_list' %}">Show all batches</a></div>{% endif %}
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
+  <thead class="table-light"><tr><th>Time</th><th>Medicine</th><th>Facility</th><th>Batch</th><th>Type</th><th class="text-end">Qty</th><th class="text-end">Balance</th><th>Reason</th><th>By</th></tr></thead>
+  <tbody>{% for m in object_list %}<tr>
+    <td class="text-nowrap">{{ m.timestamp|date:"d M Y H:i" }}</td><td>{{ m.batch.medication }}</td><td>{{ m.batch.facility }}</td><td><code>{{ m.batch.batch_number }}</code></td>
+    <td>{{ m.get_movement_type_display }}</td>
+    <td class="text-end {% if m.quantity < 0 %}text-danger{% else %}text-success{% endif %}">{% if m.quantity > 0 %}+{% endif %}{{ m.quantity }}</td>
+    <td class="text-end">{{ m.balance_after }}</td>
+    <td class="small">{% if m.dispensing %}<a href="{{ m.dispensing.prescription.patient.get_absolute_url }}#medications">{{ m.reason }}</a>{% else %}{{ m.reason }}{% endif %}</td>
+    <td>{{ m.performed_by }}</td></tr>
+  {% empty %}<tr><td colspan="9" class="text-center text-body-secondary py-4">No movements.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

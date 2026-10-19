@@ -1,0 +1,6204 @@
+{
+ "demographic": {
+  "visit_date": {
+   "label": "Date of Visit",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "household_size": {
+   "label": "Household Size",
+   "type": "number"
+  },
+  "grade_age": {
+   "label": "Appropriate grade for age",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "school_attendance": {
+   "label": "NCD limiting school attendance",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "missed_school": {
+   "label": "Days of missed school in past month",
+   "type": "number"
+  },
+  "next_visit": {
+   "label": "Agrees to home visits",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "chw": {
+   "label": "CHW name",
+   "type": "text"
+  },
+  "comments": {
+   "label": "Comments",
+   "type": "text"
+  },
+  "referred": {
+   "label": "Patient referred from",
+   "type": ""
+  },
+  "referred_other": {
+   "label": "Other",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  }
+ },
+ "vital": {
+  "visit_date": {
+   "label": "Vital Signs Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "height": {
+   "label": "Ht (cm)",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "weight": {
+   "label": "Wt (kg)",
+   "type": ""
+  },
+  "bmi": {
+   "label": "BMI kg/m2",
+   "type": "number"
+  },
+  "muac": {
+   "label": "MUAC (cm)",
+   "type": "number"
+  },
+  "dystolic": {
+   "label": "Dystolic",
+   "type": "number"
+  },
+  "systolic": {
+   "label": "Systolic",
+   "type": "number"
+  },
+  "pr": {
+   "label": "PR",
+   "type": "number"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  }
+ },
+ "main_diagnosis": {
+  "visit_date": {
+   "label": "Date of Diagnosis",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "cardiac": {
+   "label": "Patient for Cardiac",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "diabetes": {
+   "label": "Patient for Diabetes",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sickle_cell": {
+   "label": "Patient for Sickle cell",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "comments": {
+   "label": "Reamrks / Comments",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  }
+ },
+ "history": {
+  "visit_date": {
+   "label": "Date of Visit",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "hypertension": {
+   "label": "Hypertension",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "diabetes": {
+   "label": "Diabetes",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "ckd": {
+   "label": "CKD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "depression": {
+   "label": "Depression",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "disease": {
+   "label": "disease",
+   "type": ""
+  },
+  "hiv": {
+   "label": "HIV",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "R"
+    ],
+    [
+     "2",
+     "NR"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "hiv_test": {
+   "label": "Date Of Test",
+   "type": "date"
+  },
+  "art": {
+   "label": "On ART",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "art_date": {
+   "label": "ART Start Date",
+   "type": "date"
+  },
+  "tb": {
+   "label": "TB",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Smear pos"
+    ],
+    [
+     "2",
+     "Smear neg"
+    ],
+    [
+     "3",
+     "EPTB"
+    ],
+    [
+     "4",
+     "never had TB"
+    ],
+    [
+     "5",
+     "Unknown"
+    ]
+   ]
+  },
+  "tb_year": {
+   "label": "Year TB tested",
+   "type": "number"
+  },
+  "smoking": {
+   "label": "History of smoking",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "packs": {
+   "label": "Number of pack years",
+   "type": ""
+  },
+  "active_smoker": {
+   "label": "Active smoker",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "alcohol": {
+   "label": "Alcohol consumption",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes, currently"
+    ],
+    [
+     "2",
+     "Yes, in the past"
+    ],
+    [
+     "3",
+     "never"
+    ]
+   ]
+  },
+  "alcohol_type": {
+   "label": "Type of Alcohol consumption",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Regular beer"
+    ],
+    [
+     "2",
+     "Spirits"
+    ],
+    [
+     "3",
+     "wine"
+    ],
+    [
+     "96",
+     "other"
+    ]
+   ]
+  },
+  "alcohol_other": {
+   "label": "Other Type of Alcohol",
+   "type": "text"
+  },
+  "quantity": {
+   "label": "Quantity (number of bottle)",
+   "type": "number"
+  },
+  "cardiovascular": {
+   "label": "Cardiovascular Diseases",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cardiovascular_date": {
+   "label": "Date of Cardiovascular",
+   "type": "date"
+  },
+  "retinopathy": {
+   "label": "Retinopathy",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "retinopathy_date": {
+   "label": "Date of Retinopathy",
+   "type": "date"
+  },
+  "renal": {
+   "label": "Renal Disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "renal_date": {
+   "label": "Date of Renal",
+   "type": "date"
+  },
+  "stroke_tia": {
+   "label": "Stroke / TIA",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "stroke_tia_date": {
+   "label": "Date of Stroke / TIA",
+   "type": "date"
+  },
+  "pvd": {
+   "label": "PVD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "pvd_date": {
+   "label": "Date of PVD",
+   "type": "date"
+  },
+  "neuropathy": {
+   "label": "Neuropathy",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "neuropathy_date": {
+   "label": "Date of Neuropathy",
+   "type": "date"
+  },
+  "sexual_dysfunction": {
+   "label": "Sexual dysfunction",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sexual_dysfunction_date": {
+   "label": "Date of Sexual dysfunction",
+   "type": "date"
+  },
+  "pain_event": {
+   "label": "Pain Event",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "stroke": {
+   "label": "Stroke",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "pneumonia": {
+   "label": "Pneumonia",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "blood_transfusion": {
+   "label": "Blood Transfusion",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "transfusion_born": {
+   "label": "how many times since you were born",
+   "type": "number"
+  },
+  "transfusion_12months": {
+   "label": "how many times for the past twelve months",
+   "type": "number"
+  },
+  "acute_chest": {
+   "label": "Acute chest syndrome",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "other_complication": {
+   "label": "Any Other Complication",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "specify_complication": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "cardiac_disease": {
+   "label": "Family History of cardiac disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "cardiac_surgery": {
+   "label": "History of cardiac surgery",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cardiac_surgery_type": {
+   "label": "Type of cardiac surgery",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Valve Surgery"
+    ],
+    [
+     "2",
+     "Defect repair"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "site_id": {
+   "label": "site_id",
+   "type": "site name"
+  },
+  "surgery_other": {
+   "label": "Specify surgery",
+   "type": "text"
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "diabetic_disease": {
+   "label": "Family History of Diabetic disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "hypertension_disease": {
+   "label": "Hypertension",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "history_other": {
+   "label": "Any Other Family History",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "history_specify": {
+   "label": "Specify Other",
+   "type": "text"
+  },
+  "scd_disease": {
+   "label": "Family History of SCD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "siblings": {
+   "label": "How many siblings do you have",
+   "type": "number"
+  },
+  "sibling_salive": {
+   "label": "How many of them are alive",
+   "type": "number"
+  },
+  "history_scd": {
+   "label": "Family History of SCD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "hepatitis_test": {
+   "label": "Hepatitis test",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "hepatitis_date": {
+   "label": "Date Test",
+   "type": "date"
+  },
+  "hepatitis_results": {
+   "label": "Test Results",
+   "type": ""
+  },
+  "vaccine_history": {
+   "label": "Vaccine History",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Pneumococcal"
+    ],
+    [
+     "2",
+     "Meningococcal"
+    ],
+    [
+     "3",
+     "Haemophilus Influenza type B (Hib)"
+    ],
+    [
+     "4",
+     "PPCV 23"
+    ],
+    [
+     "99",
+     "Unknown"
+    ]
+   ]
+  },
+  "blood_group": {
+   "label": "ABO Blood Group",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "A+"
+    ],
+    [
+     "2",
+     "A-"
+    ],
+    [
+     "3",
+     "B+"
+    ],
+    [
+     "4",
+     "B-"
+    ],
+    [
+     "5",
+     "0+"
+    ],
+    [
+     "6",
+     "0-"
+    ],
+    [
+     "7",
+     "AB+"
+    ],
+    [
+     "8",
+     "AB-"
+    ]
+   ]
+  },
+  "dyspnea": {
+   "label": "Dyspnea on exertion: NYHA Classification",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "I"
+    ],
+    [
+     "2",
+     "II"
+    ],
+    [
+     "3",
+     "III"
+    ],
+    [
+     "4",
+     "IV"
+    ],
+    [
+     "5",
+     "Cannot determine"
+    ]
+   ]
+  },
+  "orthopnea": {
+   "label": "Orthopnea",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "paroxysmal": {
+   "label": "Paroxysmal nocturnal dyspnea",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "headache": {
+   "label": "Headache Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_headache": {
+   "label": "Pain Score Today( Headache )",
+   "type": ""
+  },
+  "chest_pain": {
+   "label": "Chest Pain",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_chest_pain": {
+   "label": "Pain Score Today( Headache )",
+   "type": "number"
+  },
+  "abnorminal_pain": {
+   "label": "Abnorminal Pain",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_abnorminal_pain": {
+   "label": "Pain Score Today( Abnorminal Pain )",
+   "type": "number"
+  },
+  "upper_arms": {
+   "label": "Upper arms Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_upper_arms": {
+   "label": "Pain Score Today( Upper arms )",
+   "type": "number"
+  },
+  "lower_arms": {
+   "label": "Lower arms Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_lower_arms": {
+   "label": "Pain Score Today( Lower arms )",
+   "type": "number"
+  },
+  "waist": {
+   "label": "Waist Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_waist": {
+   "label": "Pain Score Today( Waist )",
+   "type": "number"
+  },
+  "joints": {
+   "label": "Joints Pains( Specify )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "spescify_joints": {
+   "label": "Joints( Specify )",
+   "type": "number"
+  },
+  "score_joints": {
+   "label": "Pain Score Today ( Joints )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "other_pain": {
+   "label": "Any Other Pain",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "spescify_other_pain": {
+   "label": "Other Pain ( Specify )",
+   "type": "text"
+  },
+  "score_other_pain": {
+   "label": "Pain Score Today ( Other )",
+   "type": "number"
+  },
+  "cough": {
+   "label": "Cough",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "thirst": {
+   "label": "Increased thirst",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "urination": {
+   "label": "Increased Urination",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "vision": {
+   "label": "Vision Changes",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "vomiting": {
+   "label": "Vomiting",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "weight_loss": {
+   "label": "Weight Loss",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "breathing": {
+   "label": "Difficulty Breathing",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "other_sickle": {
+   "label": "Any Other (Symptoms)",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "sickle_specify": {
+   "label": "Other Symptoms (Specify)",
+   "type": "text"
+  },
+  "edema": {
+   "label": "Edema",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "None"
+    ],
+    [
+     "2",
+     "Trace"
+    ],
+    [
+     "3",
+     "1+"
+    ],
+    [
+     "4",
+     "2+"
+    ],
+    [
+     "5",
+     "3+"
+    ]
+   ]
+  },
+  "lungs": {
+   "label": "Lungs",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Clear"
+    ],
+    [
+     "2",
+     "Bibasilar"
+    ],
+    [
+     "3",
+     "Crackles"
+    ],
+    [
+     "4",
+     "Wheeze"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "lungs_other": {
+   "label": "Other Lungs",
+   "type": "text"
+  },
+  "jvp": {
+   "label": "JVP",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Elevated"
+    ],
+    [
+     "2",
+     "Normal"
+    ],
+    [
+     "3",
+     "Unable to determine"
+    ]
+   ]
+  },
+  "volume": {
+   "label": "Volume status",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Hyper"
+    ],
+    [
+     "2",
+     "Hypo"
+    ],
+    [
+     "3",
+     "Euvolemic"
+    ]
+   ]
+  },
+  "murmur": {
+   "label": "Loud Murmur",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Present"
+    ],
+    [
+     "2",
+     "Absent"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "foot_exam": {
+   "label": "Foot Exam",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "foot_exam_finding": {
+   "label": "Foot Exam Category",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Normal"
+    ],
+    [
+     "2",
+     "Abnormal"
+    ]
+   ]
+  },
+  "foot_exam_other": {
+   "label": "Foot exam Finding Other",
+   "type": "text"
+  },
+  "fasting": {
+   "label": "Fasting FS",
+   "type": "number"
+  },
+  "random_fs": {
+   "label": "Random FS",
+   "type": "number"
+  },
+  "hba1c": {
+   "label": "HbA1C:( During enrollment )",
+   "type": "number"
+  },
+  "hypoglycemia_symptoms": {
+   "label": "Symptoms of hypoglycemia",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "hypoglycemia_severe": {
+   "label": "Severe hypoglycemia in last month",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "hypoglycemia__number": {
+   "label": "If Yes, how many episodes of severe hypoglycemia",
+   "type": "number"
+  },
+  "malnutrition": {
+   "label": "Malnutrition",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "pallor": {
+   "label": "Pallor",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "jaundice": {
+   "label": "Jaundice",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "splenomegaly": {
+   "label": "Splenomegaly",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "hb": {
+   "label": "Hb",
+   "type": "number"
+  },
+  "wbc": {
+   "label": "WBC",
+   "type": "number"
+  },
+  "plt": {
+   "label": "Plt",
+   "type": "number"
+  },
+  "labs_other": {
+   "label": "Other",
+   "type": "number"
+  }
+ },
+ "cardiac": {
+  "visit_date": {
+   "label": "Date of Diagnosis",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "diagnosis_date": {
+   "label": "Diagnosis Date",
+   "type": "date"
+  },
+  "cardiomyopathy": {
+   "label": "Cardiomyopathy",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_cardiomyopathy": {
+   "label": "If Cardiomyopathy",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Ischemic"
+    ],
+    [
+     "2",
+     "Alcohol-related"
+    ],
+    [
+     "3",
+     "Peripartum"
+    ],
+    [
+     "4",
+     "Arrhythmia-related"
+    ],
+    [
+     "5",
+     "HIV-related"
+    ],
+    [
+     "6",
+     "Chemotherapy-related"
+    ],
+    [
+     "7",
+     "Viral/idiopathic"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "cardiomyopathy_other": {
+   "label": "Other specify",
+   "type": "text"
+  },
+  "heumatic": {
+   "label": "Rheumatic Heart Disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_heumatic": {
+   "label": "If Rheumatic Heart Disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Pure mitral stenosis"
+    ],
+    [
+     "2",
+     "Pure mitral regurgitation"
+    ],
+    [
+     "3",
+     "Mixed mitral valve disease (MS + MR)"
+    ],
+    [
+     "4",
+     "Isolated aortic valve disease (AVD)"
+    ],
+    [
+     "5",
+     "Mixed mitral and aortic valve disease (MMAVD)"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "heumatic_other": {
+   "label": "Other specify( If heumatic Heart Disease )",
+   "type": "text"
+  },
+  "congenital": {
+   "label": "Congenital heart Disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_congenital": {
+   "label": "If Congenital heart Disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ASD"
+    ],
+    [
+     "2",
+     "VSD"
+    ],
+    [
+     "3",
+     "PDA"
+    ],
+    [
+     "4",
+     "Coarctation of aorta"
+    ],
+    [
+     "5",
+     "Tetralogy of Fallot"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "congenital_other": {
+   "label": "Other specify( If Congenital Heart Disease )",
+   "type": "text"
+  },
+  "severe_hypertension": {
+   "label": "Severe / Uncontrolled Hypertension",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "hypertensive_heart": {
+   "label": "Hypertensive Heart Disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "coronary_artery": {
+   "label": "Coronary Artery Disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "heart_failure": {
+   "label": "Right Heart Failure",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_heart_failure": {
+   "label": "If Right Heart Failure",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Chronic Lung Diseases"
+    ]
+   ]
+  },
+  "pericardial": {
+   "label": "Pericardial disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_pericardial": {
+   "label": "If Pericardial disease",
+   "type": "",
+   "options": [
+    [
+     "1",
+     "Tuberculosis"
+    ],
+    [
+     "2",
+     "HIV"
+    ],
+    [
+     "3",
+     "malignancy"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "pericardial_other": {
+   "label": "Other specify( If Pericardial Disease )",
+   "type": "text"
+  },
+  "arrhythmia": {
+   "label": "Arrhythmia",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_arrhythmia": {
+   "label": "If Arrhythmia",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Atrial fibrillation"
+    ],
+    [
+     "2",
+     "Other"
+    ]
+   ]
+  },
+  "arrhythmia_other": {
+   "label": "Other specify( If Arrhythmia )",
+   "type": "text"
+  },
+  "stroke": {
+   "label": "Stroke",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_stroke": {
+   "label": "If Stroke",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Ischemic"
+    ],
+    [
+     "2",
+     "hemorrhagic"
+    ],
+    [
+     "3",
+     "unknown"
+    ]
+   ]
+  },
+  "thromboembolic": {
+   "label": "Thromboembolic",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sub_thromboembolic": {
+   "label": "If Thromboembolic",
+   "type": "",
+   "options": [
+    [
+     "1",
+     "pulmonary embolism"
+    ],
+    [
+     "2",
+     "DVT"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "thromboembolic_other": {
+   "label": "Other specify( If Thromboembolic )",
+   "type": "text"
+  },
+  "diagnosis_other": {
+   "label": "Any Other diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "diagnosis_specify": {
+   "label": "Other Diagnosis specify",
+   "type": "text"
+  },
+  "comments": {
+   "label": "General Comments",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  }
+ },
+ "diabetic": {
+  "visit_date": {
+   "label": "Diagnosis Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "diagnosis": {
+   "label": "Main diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Type 1 DM"
+    ],
+    [
+     "2",
+     "Type 2 DM"
+    ],
+    [
+     "3",
+     "Gestational DM"
+    ],
+    [
+     "4",
+     "DM not yet specified"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "diagnosis_other": {
+   "label": "Other Diagnosis",
+   "type": "text"
+  },
+  "hypertension": {
+   "label": "Hypertension",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "hypertension_date": {
+   "label": "Hypertension Date",
+   "type": "date"
+  },
+  "symptoms": {
+   "label": "Presentation with any of the following",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "DKA with coma"
+    ],
+    [
+     "2",
+     "DKA without coma"
+    ],
+    [
+     "3",
+     "Ketosis"
+    ],
+    [
+     "4",
+     "Hyperglycemia"
+    ],
+    [
+     "5",
+     "By Screening"
+    ],
+    [
+     "6",
+     "None"
+    ]
+   ]
+  },
+  "cardiovascular": {
+   "label": "cardiovascular",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "comments": {
+   "label": "Comments / Remarks",
+   "type": ""
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  }
+ },
+ "sickle_cell": {
+  "visit_date": {
+   "label": "Diagnosis Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "diagnosis": {
+   "label": "Main diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Sickle Cell Disease"
+    ],
+    [
+     "2",
+     "Other Hemoglobinopathy"
+    ]
+   ]
+  },
+  "diagnosis_other": {
+   "label": "Other ( Specify )",
+   "type": "text"
+  },
+  "comments": {
+   "label": "Comments",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  }
+ },
+ "results": {
+  "visit_date": {
+   "label": "Visit Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "ecg_date": {
+   "label": "ECG Date",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Single lead or"
+    ],
+    [
+     "2",
+     "12 lead"
+    ],
+    [
+     "3",
+     "Normal sinus rhythm"
+    ],
+    [
+     "4",
+     "Atrial fibrillation"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "ecg_performed": {
+   "label": "Did the patient do an ECG",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "ecg": {
+   "label": "ECG",
+   "type": "text"
+  },
+  "echo_performed": {
+   "label": "Did the patient do an echo",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "ecg_other": {
+   "label": "Other specify",
+   "type": "text"
+  },
+  "echo_date": {
+   "label": "Echo Date",
+   "type": "date"
+  },
+  "echo": {
+   "label": "Echo:(Normal)",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "lv": {
+   "label": "LV severely depressed",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unseen"
+    ]
+   ]
+  },
+  "mitral": {
+   "label": "Mitral stenosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unseen"
+    ]
+   ]
+  },
+  "rv": {
+   "label": "RV severely dilated",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unseen"
+    ]
+   ]
+  },
+  "pericardial": {
+   "label": "Pericardial effusion",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unseen"
+    ]
+   ]
+  },
+  "ivc": {
+   "label": "IVC dilated,collapse less than 50%",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unseen"
+    ]
+   ]
+  },
+  "thrombus": {
+   "label": "Thrombus",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unseen"
+    ]
+   ]
+  },
+  "congenital_defect": {
+   "label": "Congenital defect",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unseen"
+    ]
+   ]
+  },
+  "echo_other": {
+   "label": "Any Other Echo",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "echo_specify": {
+   "label": "Other Echo specify",
+   "type": "text"
+  },
+  "echo_other2": {
+   "label": "Other",
+   "type": "text"
+  },
+  "scd_done": {
+   "label": "Any SCD Test done today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "scd_test": {
+   "label": "SCD Test Result",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Presumptive Diagnosis"
+    ],
+    [
+     "2",
+     "Sickling test"
+    ],
+    [
+     "3",
+     "SS"
+    ],
+    [
+     "4",
+     "SA"
+    ],
+    [
+     "5",
+     "SBTHal"
+    ],
+    [
+     "6",
+     "SC"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "scd_test_other": {
+   "label": "SCD Other Specify",
+   "type": "text"
+  },
+  "confirmatory_test": {
+   "label": "Confirmatory Test",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "confirmatory_test_type": {
+   "label": "Type of Confirmatory Test",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "HPLC"
+    ],
+    [
+     "2",
+     "HBE"
+    ],
+    [
+     "3",
+     "IEF"
+    ],
+    [
+     "4",
+     "Basique"
+    ],
+    [
+     "5",
+     "Acide"
+    ],
+    [
+     "6",
+     "HEMOTYPE SC"
+    ],
+    [
+     "7",
+     "SICKLE SCAN"
+    ]
+   ]
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "hospitalization": {
+  "visit_date": {
+   "label": "Visit Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "hospitalizations": {
+   "label": "Any recent hospitalizations not yet recorded",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "ncd_hospitalizations": {
+   "label": "If yes, for NCD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "hospitalization_number": {
+   "label": "Number of hospitalization from NCD in last 12 months",
+   "type": "number"
+  },
+  "missed_days": {
+   "label": "How many days of missed medications in past 7 days",
+   "type": "number"
+  },
+  "school_days": {
+   "label": "Number of missed days of school in the last month",
+   "type": "number"
+  },
+  "transfusion": {
+   "label": "Number of Transfusion in the past month",
+   "type": "number"
+  },
+  "fluid": {
+   "label": "Fluid restricted",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "bg_measurement": {
+   "label": "Number of Home BG measurement in last week",
+   "type": "number"
+  },
+  "bg_result180": {
+   "label": "Home BG result in last week",
+   "type": "number"
+  },
+  "bg_result70_180": {
+   "label": "Home BG result in last week",
+   "type": "number"
+  },
+  "bg_result70": {
+   "label": "Home BG result in last week",
+   "type": "number"
+  },
+  "basal": {
+   "label": "Number of insulin doses missed in last week (Basal)",
+   "type": "number"
+  },
+  "prophylaxis": {
+   "label": "Taking at home ( Malaria prophylaxis )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "insecticide": {
+   "label": "Taking at home ( Insecticide treated bed net )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "folic_acid": {
+   "label": "Taking at home ( Folic acid )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "penicillin": {
+   "label": "Taking at home ( Penicillin prophylaxis )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "pneumococcal": {
+   "label": "Pneumococcal vaccination up to date",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ],
+    [
+     "4",
+     "Unsure"
+    ]
+   ]
+  },
+  "opioid": {
+   "label": "On chronic opioid therapy",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "opioid_type": {
+   "label": "Type",
+   "type": "text"
+  },
+  "opioid_dose": {
+   "label": "Dose",
+   "type": "number"
+  },
+  "hydroxyurea": {
+   "label": "On hydroxyurea",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N / A"
+    ]
+   ]
+  },
+  "hydroxyurea_date": {
+   "label": "Start Date",
+   "type": "date"
+  },
+  "hydroxyurea_dose": {
+   "label": "Dose",
+   "type": "number"
+  },
+  "basal_insulin": {
+   "label": "Basal insulin",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "NPH"
+    ],
+    [
+     "2",
+     "Analog"
+    ]
+   ]
+  },
+  "basal_am": {
+   "label": "Units in am",
+   "type": "number"
+  },
+  "basal_pm": {
+   "label": "Units in pm",
+   "type": "number"
+  },
+  "prandial_insulin": {
+   "label": "Prandial insulin",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Analog"
+    ],
+    [
+     "2",
+     "Regular"
+    ]
+   ]
+  },
+  "prandial_am": {
+   "label": "Units in am",
+   "type": "number"
+  },
+  "prandial_lunch": {
+   "label": "Units in pm",
+   "type": "number"
+  },
+  "prandial_pm": {
+   "label": "Units in lunch",
+   "type": "number"
+  },
+  "total_insulin_dose": {
+   "label": "Total daily insulin dose",
+   "type": "number"
+  },
+  "home_insulin_dose": {
+   "label": "Adjusts insulin dosing at home",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "issue_injection": {
+   "label": "Any issues at injection sites",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "issue_injection_yes": {
+   "label": "If yes",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Infection"
+    ],
+    [
+     "2",
+     "Lipo-hypertrphy"
+    ]
+   ]
+  },
+  "prandial": {
+   "label": "Number of insulin doses missed in last week (Prandial)",
+   "type": "number"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "hospitalization_details": {
+  "visit_date": {
+   "label": "Visit Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "hospitalization_date": {
+   "label": "Visit Date",
+   "type": "date"
+  },
+  "hospitalization_ncd": {
+   "label": "Hospitalized in the past 12 Months for this NCD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "hospitalization_year": {
+   "label": "If yes , Number of hospitalizations in past 12 Months",
+   "type": "number"
+  },
+  "hospitalization_day": {
+   "label": "If yes , Number of hospital days in past 12 Months",
+   "type": "number"
+  },
+  "admission_date": {
+   "label": "Admission Date",
+   "type": "date"
+  },
+  "admission_reason": {
+   "label": "Admission Reason",
+   "type": "text"
+  },
+  "discharge_diagnosis": {
+   "label": "Discharge Diagnosis",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "dgns_complctns_comorbdts": {
+  "visit_date": {
+   "label": "Visit Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "diagns_date": {
+   "label": "Visit Date",
+   "type": "date"
+  },
+  "diagns_changed": {
+   "label": "Has diagnosis been changed or specified",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "diagns_cardiac": {
+   "label": "If yes, what is the NCD diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Cardiomyopathy"
+    ],
+    [
+     "2",
+     "Rheumatic Heart Disease"
+    ],
+    [
+     "3",
+     "Severe / Uncontrolled Hypertension"
+    ],
+    [
+     "4",
+     "Hypertensive Heart Disease"
+    ],
+    [
+     "5",
+     "Congenital heart Disease"
+    ],
+    [
+     "6",
+     "Right Heart Failure"
+    ],
+    [
+     "7",
+     "Pericardial disease"
+    ],
+    [
+     "8",
+     "Coronary Artery Disease"
+    ],
+    [
+     "9",
+     "Arrhythmia"
+    ],
+    [
+     "10",
+     "Thromboembolic"
+    ],
+    [
+     "11",
+     "Stroke"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "diagns_diabetes": {
+   "label": "If yes, what is the NCD diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Rheumatic heart diseases"
+    ],
+    [
+     "2",
+     "Sickle cell diseases"
+    ],
+    [
+     "3",
+     "Gestational DM"
+    ],
+    [
+     "4",
+     "Diabetes type 1"
+    ],
+    [
+     "5",
+     "Diabetes type 2"
+    ]
+   ]
+  },
+  "diagns_complication": {
+   "label": "Any new complications",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "diagns_sickle": {
+   "label": "If yes, what is the NCD diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Sickle Cell Disease"
+    ],
+    [
+     "2",
+     "Other hemoglobinopathy"
+    ]
+   ]
+  },
+  "diagns_specify": {
+   "label": "Specify diagnosis",
+   "type": "text"
+  },
+  "new_diagns": {
+   "label": "New NCD diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "new_diagns_specify": {
+   "label": "If Yes,What is the new NCD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Rheumatic heart diseases"
+    ],
+    [
+     "2",
+     "Sickle cell diseases"
+    ],
+    [
+     "3",
+     "Gestational DM"
+    ],
+    [
+     "4",
+     "Diabetes type 1"
+    ],
+    [
+     "5",
+     "Diabetes type 2"
+    ]
+   ]
+  },
+  "cmplctn_ckd": {
+   "label": "CKD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_depression": {
+   "label": "Depression",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_cardiovascular": {
+   "label": "Cardiovascular",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_neuropathy": {
+   "label": "Neuropathy",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_dysfunction": {
+   "label": "Sexual dysfunction",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_pvd": {
+   "label": "PVD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_retinopathy": {
+   "label": "Retinopathy",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_renal": {
+   "label": "Renal disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_pain_event": {
+   "label": "Pain Event",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_stroke": {
+   "label": "Stroke / TIA",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_pneumonia": {
+   "label": "Pneumonia",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_priapism": {
+   "label": "PRIAPISM",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_avn": {
+   "label": "AVN",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_hypersplenism": {
+   "label": "HYPERSPLENISM",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_ulcer": {
+   "label": "CHRONIC LEG ULCER",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_visual_loss": {
+   "label": "VISUAL LOSS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_transfusion": {
+   "label": "Blood Transfusion",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_syndrome": {
+   "label": "Clinically Significant",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cmplctn_other": {
+   "label": "Acute chest syndrome",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "complication_specify": {
+   "label": "Specify Other",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "risks": {
+  "visit_date": {
+   "label": "Visit Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "risk_date": {
+   "label": "Visit Date",
+   "type": ""
+  },
+  "risk_art": {
+   "label": "On ART",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "risk_tobacco": {
+   "label": "Tobacco",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes, currently"
+    ],
+    [
+     "2",
+     "Yes, in past"
+    ],
+    [
+     "3",
+     "never"
+    ],
+    [
+     "4",
+     "Unknown"
+    ]
+   ]
+  },
+  "risk_alcohol": {
+   "label": "Alcohol",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes, currently"
+    ],
+    [
+     "2",
+     "Yes, in past"
+    ],
+    [
+     "3",
+     "never"
+    ],
+    [
+     "4",
+     "Unknown"
+    ]
+   ]
+  },
+  "risk_employment": {
+   "label": "Employment status",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Employed"
+    ],
+    [
+     "2",
+     "Self-employed"
+    ],
+    [
+     "3",
+     "Unemployed"
+    ],
+    [
+     "4",
+     "Leave of absence"
+    ],
+    [
+     "5",
+     "Student"
+    ]
+   ]
+  },
+  "ncd_limiting": {
+   "label": "NCD limiting school",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "N /A"
+    ]
+   ]
+  },
+  "social_economic": {
+   "label": "social_economic",
+   "type": ""
+  },
+  "risk_hiv_date": {
+   "label": "Date Test",
+   "type": "date"
+  },
+  "risk_hiv": {
+   "label": "HIV",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "R"
+    ],
+    [
+     "2",
+     "NR"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "risk_art_date": {
+   "label": "Date Test",
+   "type": "date"
+  },
+  "risk_tb_date": {
+   "label": "Date Screened",
+   "type": "date"
+  },
+  "risk_tb": {
+   "label": "risk_tb",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Positive : Smear / Xpert / Other"
+    ],
+    [
+     "2",
+     "Negative : Smear / Xpert / Other"
+    ],
+    [
+     "3",
+     "EPTB"
+    ],
+    [
+     "4",
+     "Unknown"
+    ]
+   ]
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": ""
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "lab_details": {
+  "visit_date": {
+   "label": "Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "lab_date": {
+   "label": "Date",
+   "type": "date"
+  },
+  "ncd_coping": {
+   "label": "NCD coping",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Well"
+    ],
+    [
+     "2",
+     "Some problems"
+    ],
+    [
+     "3",
+     "Poor"
+    ]
+   ]
+  },
+  "family_planning": {
+   "label": "Family planning",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Not eligible"
+    ],
+    [
+     "2",
+     "Not interested"
+    ],
+    [
+     "3",
+     "Currently using"
+    ],
+    [
+     "4",
+     "referred"
+    ]
+   ]
+  },
+  "na": {
+   "label": "Na",
+   "type": "number"
+  },
+  "k": {
+   "label": "K",
+   "type": "number"
+  },
+  "bun": {
+   "label": "BUN",
+   "type": "number"
+  },
+  "cre": {
+   "label": "Cre",
+   "type": "number"
+  },
+  "bnp": {
+   "label": "BNP",
+   "type": "number"
+  },
+  "inr": {
+   "label": "INR",
+   "type": "number"
+  },
+  "lab_Other": {
+   "label": "Other",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "lab_specify": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "lab_ecg": {
+   "label": "S. Convulsions",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "lab_ecg_other": {
+   "label": "T. Blood in urine",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cardiac_surgery": {
+   "label": "Cardiac surgery / intervention",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cardiac_surgery_type": {
+   "label": "Type",
+   "type": "text"
+  },
+  "dka_number": {
+   "label": "# episodes DKA in last yr",
+   "type": "number"
+  },
+  "eyes_examined": {
+   "label": "Eyes examined",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cataracts": {
+   "label": "Cataracts",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "retinopathy_screening": {
+   "label": "Retinopathy screening",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Unknown"
+    ],
+    [
+     "2",
+     "None"
+    ],
+    [
+     "3",
+     "Background"
+    ],
+    [
+     "4",
+     "Profilerative"
+    ]
+   ]
+  },
+  "foot_exam_diabetes": {
+   "label": "Foot exam",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Normal"
+    ],
+    [
+     "2",
+     "Abnormal"
+    ]
+   ]
+  },
+  "na_diabetes": {
+   "label": "Na",
+   "type": "number"
+  },
+  "k_diabetes": {
+   "label": "K",
+   "type": "number"
+  },
+  "cre_diabetes": {
+   "label": "Cre",
+   "type": "number"
+  },
+  "proteinuria": {
+   "label": "Proteinuria",
+   "type": "number"
+  },
+  "lipid_panel": {
+   "label": "Lipid panel",
+   "type": "number"
+  },
+  "other_lab_diabetes": {
+   "label": "Any Other chemistry",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "specify_lab_diabetes": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "lab_transfusion_sickle": {
+   "label": "# Transfusion in last 12 months",
+   "type": "number"
+  },
+  "transcranial_doppler": {
+   "label": "# Transcranial Doppler",
+   "type": "number"
+  },
+  "wbc": {
+   "label": "WBC",
+   "type": "number"
+  },
+  "hematology_test": {
+   "label": "Any Hematology Test today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "hb": {
+   "label": "Hb",
+   "type": "number"
+  },
+  "mcv": {
+   "label": "MCV",
+   "type": "number"
+  },
+  "plt": {
+   "label": "Plt",
+   "type": "number"
+  },
+  "fe_studies": {
+   "label": "Fe studies",
+   "type": "number"
+  },
+  "lfts": {
+   "label": "LFTs",
+   "type": "number"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": "number"
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "chemistry_test": {
+   "label": "Any Chemistry Test today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "chemistry_test2": {
+   "label": "Any Chemistry Test today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  }
+ },
+ "treatment_plan": {
+  "visit_date": {
+   "label": "Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "basal_changed": {
+   "label": "Changed",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "basal_am2": {
+   "label": "Units in am",
+   "type": "number"
+  },
+  "basal_pm2": {
+   "label": "Units in pm",
+   "type": "number"
+  },
+  "prandial_changed": {
+   "label": "Changed",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "prandial_am2": {
+   "label": "Units in am",
+   "type": "number"
+  },
+  "prandial_lunch2": {
+   "label": "Units at lunch",
+   "type": "number"
+  },
+  "prandial_pm2": {
+   "label": "Units in pm",
+   "type": "number"
+  },
+  "salt": {
+   "label": "Salt",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "fluid": {
+   "label": "Fluid",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "restriction_other": {
+   "label": "Other Restriction",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "restriction_specify": {
+   "label": "Other Restriction specify",
+   "type": "text"
+  },
+  "vaccination": {
+   "label": "Vaccination needed",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "vaccination_specify": {
+   "label": "Which",
+   "type": "text"
+  },
+  "transfusion_needed": {
+   "label": "Transfusion needed today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "transfusion_units": {
+   "label": "# units",
+   "type": "number"
+  },
+  "diet": {
+   "label": "Diet",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "hydration": {
+   "label": "Hydration",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "acute_symptoms": {
+   "label": "Acute Symptoms",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "fever": {
+   "label": "Fever",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "other_support": {
+   "label": "Any Other Support",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "support_specify": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "social_support": {
+   "label": "Social support provided",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "social_support_type": {
+   "label": "social_support_type",
+   "type": ""
+  },
+  "cardiology": {
+   "label": "Cardiology referral",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "completed": {
+   "label": "Completed",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "cardiology_reason": {
+   "label": "If no, why",
+   "type": "text"
+  },
+  "cardiology_date": {
+   "label": "Date Completed",
+   "type": "date"
+  },
+  "awaiting_surgery": {
+   "label": "Awaiting surgery",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "new_referrals": {
+   "label": "Any new referrals provided",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "new_referrals_type": {
+   "label": "Type",
+   "type": "text"
+  },
+  "misconception": {
+   "label": "Misconception",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "life_style": {
+   "label": "Life style",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "medication_notes": {
+   "label": "Notes",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": "number"
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  },
+  "id": {
+   "label": "SITE ID",
+   "type": "number"
+  },
+  "name": {
+   "label": "Study ID",
+   "type": "text"
+  }
+ },
+ "medication_treatments": {
+  "visit_date": {
+   "label": "Summary Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "medication_type": {
+   "label": "Medication name",
+   "type": "text"
+  },
+  "medication_action": {
+   "label": "Action",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Continue"
+    ],
+    [
+     "2",
+     "Start"
+    ],
+    [
+     "3",
+     "Stop"
+    ],
+    [
+     "4",
+     "Not eligible"
+    ]
+   ]
+  },
+  "medication_dose": {
+   "label": "Dose",
+   "type": "number"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": "number"
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "sickle_cell_status_table": {
+  "visit_date": {
+   "label": "Summary Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "age": {
+   "label": "AGE",
+   "type": "number"
+  },
+  "sex": {
+   "label": "SEX",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Male"
+    ],
+    [
+     "2",
+     "Female"
+    ]
+   ]
+  },
+  "sickle_status": {
+   "label": "Sickle cell history Status",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": "number"
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "summary": {
+  "visit_date": {
+   "label": "Summary Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "expected_date": {
+   "label": "eGFR mL/min per 1.73 m2",
+   "type": "number"
+  },
+  "VISIT-": {
+   "label": "Visit Name",
+   "type": "radio",
+   "options": [
+    [
+     "RV",
+     "Registration Visit"
+    ],
+    [
+     "SV",
+     "Screening Visit"
+    ],
+    [
+     "EV",
+     "Enrollment Visit"
+    ],
+    [
+     "FV",
+     "Follow Up visit"
+    ],
+    [
+     "TV",
+     "Study Termination Visit"
+    ],
+    [
+     "UV",
+     "Unschedule visit"
+    ]
+   ]
+  },
+  "summary_date": {
+   "label": "Summary Date",
+   "type": "date"
+  },
+  "comments": {
+   "label": "Comments",
+   "type": "text"
+  },
+  "diagnosis": {
+   "label": "Type of diagnosis",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Type 1 Diabetes"
+    ],
+    [
+     "2",
+     "Type 2 Diabetes"
+    ],
+    [
+     "3",
+     "Cardiac"
+    ],
+    [
+     "4",
+     "Sickle cell diseases"
+    ],
+    [
+     "5",
+     "Respiratory"
+    ],
+    [
+     "6",
+     "Liver"
+    ],
+    [
+     "7",
+     "Kidney"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "diagnosis_other": {
+   "label": "If other, Specify",
+   "type": "text"
+  },
+  "outcome": {
+   "label": "Outcome",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "On treatment"
+    ],
+    [
+     "2",
+     "Default"
+    ],
+    [
+     "3",
+     "Stop treatment"
+    ],
+    [
+     "4",
+     "Transfer out"
+    ],
+    [
+     "5",
+     "Death"
+    ]
+   ]
+  },
+  "transfer_out": {
+   "label": "Transfer Out To",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Other NCD CLINIC"
+    ],
+    [
+     "2",
+     "REFERRAL"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "transfer_other": {
+   "label": "If other reason, Specify",
+   "type": "text"
+  },
+  "cause_death": {
+   "label": "Cause of Death",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "NCD"
+    ],
+    [
+     "2",
+     "Unknown"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "death_other": {
+   "label": "If other cause, Specify",
+   "type": "text"
+  },
+  "next_notes": {
+   "label": "Notes for Next Appointment",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": "number"
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ },
+ "social_economic": {
+  "visit_date": {
+   "label": "Date",
+   "type": "date"
+  },
+  "study_id": {
+   "label": "Study Id",
+   "type": "text"
+  },
+  "visit_code": {
+   "label": "VISIT CODE",
+   "type": "text"
+  },
+  "visit_day": {
+   "label": "VISIT DAY",
+   "type": "text"
+  },
+  "social_economic_date": {
+   "label": "Visit date",
+   "type": "date"
+  },
+  "distance_km": {
+   "label": "Distance to clinic (KM)",
+   "type": "number"
+  },
+  "distance_minutes": {
+   "label": "Distance to clinic:( minutes )",
+   "type": "number"
+  },
+  "transport_mode": {
+   "label": "transport_mode",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Walk"
+    ],
+    [
+     "2",
+     "Tax"
+    ],
+    [
+     "3",
+     "Bodaboda ( bicycle )"
+    ],
+    [
+     "4",
+     "Bodaboda ( motorcycle)"
+    ],
+    [
+     "5",
+     "My own car"
+    ],
+    [
+     "6",
+     "my own bicycle"
+    ],
+    [
+     "7",
+     "Commuter (Daladala)"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "transport_mode_other": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "transportation_cost": {
+   "label": "Cost of transportation to clinic (round trip):( TSHS )",
+   "type": "number"
+  },
+  "household_head": {
+   "label": "Who is the head of your household",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Youself"
+    ],
+    [
+     "2",
+     "Your spouse / partner"
+    ],
+    [
+     "3",
+     "Your father / mother"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "household_head_other": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "household_years": {
+   "label": "How old is your head of household? (years)",
+   "type": "number"
+  },
+  "household_people": {
+   "label": "How many people are in your household",
+   "type": "number"
+  },
+  "primary_income_earner": {
+   "label": "Who is the primary income earner in the household",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Patient"
+    ],
+    [
+     "2",
+     "Wife / Mother"
+    ],
+    [
+     "3",
+     "Husband / father"
+    ],
+    [
+     "4",
+     "Extended family"
+    ],
+    [
+     "5",
+     "Son / Daughter"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "primary_income_earner_other": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "formally_employed": {
+   "label": "Is the patients currently formally employed",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes, formal work"
+    ],
+    [
+     "2",
+     "No, informal work"
+    ],
+    [
+     "3",
+     "Housework"
+    ],
+    [
+     "4",
+     "Retired"
+    ],
+    [
+     "5",
+     "On sick leave"
+    ],
+    [
+     "6",
+     "School, university"
+    ],
+    [
+     "7",
+     "Not working"
+    ],
+    [
+     "8",
+     "Combination (specify)"
+    ],
+    [
+     "96",
+     "Other (specify)"
+    ]
+   ]
+  },
+  "formally_employed_other": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "main_income_based_other": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "main_income_based": {
+   "label": "If formal /informal work/housework what is your main income based on",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Monthly salary"
+    ],
+    [
+     "2",
+     "Daily wage"
+    ],
+    [
+     "3",
+     "Business/firm earnings"
+    ],
+    [
+     "4",
+     "Sale of farm produce"
+    ],
+    [
+     "5",
+     "Inkind payment"
+    ],
+    [
+     "6",
+     "Have no income"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "reason_not_working": {
+   "label": "If patient is not working/retired/sick leave is the reason is it because of this NCD illness",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "last_working": {
+   "label": "If Yes: When was the last time you were working? (mm/yy)",
+   "type": "date"
+  },
+  "stopped_working": {
+   "label": "Have you ever stopped working/going to school/doing housework due to this disease",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "stopped_duration": {
+   "label": "If YES: for how long? Specify",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Less than 1 month"
+    ],
+    [
+     "2",
+     "One month"
+    ],
+    [
+     "3",
+     "2-3 months"
+    ],
+    [
+     "4",
+     "4-5 months"
+    ],
+    [
+     "5",
+     "More than 6 months"
+    ]
+   ]
+  },
+  "someone_take_care": {
+   "label": "Does someone stay home specifically to take care of you",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "take_care_duration": {
+   "label": "If YES: for how long? ( weeks)",
+   "type": "number"
+  },
+  "quit_job": {
+   "label": "Did they quit their income-earning job to stay home and care for you",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "affect_social": {
+   "label": "Has this NCD illness affected your social or private life in any way",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "financial_burden": {
+   "label": "If Yes: Has this resulted in a financial burden",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "affect_social_how": {
+   "label": "If Yes: How",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Divorce"
+    ],
+    [
+     "2",
+     "Loss of Job"
+    ],
+    [
+     "3",
+     "Dropped out of school"
+    ],
+    [
+     "4",
+     "Separated from spouse/partner"
+    ],
+    [
+     "5",
+     "Disruption of sexual life"
+    ],
+    [
+     "6",
+     "Sick child"
+    ],
+    [
+     "96",
+     "Other (specify)"
+    ]
+   ]
+  },
+  "affect_social_other": {
+   "label": "Other (specify)",
+   "type": "text"
+  },
+  "wealth_rate": {
+   "label": "How do you rate your wealth in comparison to others",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Among most wealthy"
+    ],
+    [
+     "2",
+     "Above average"
+    ],
+    [
+     "3",
+     "Average wealth"
+    ],
+    [
+     "4",
+     "Below average"
+    ],
+    [
+     "5",
+     "Among least wealthy"
+    ]
+   ]
+  },
+  "contributer_occupation": {
+   "label": "What is the main occupation of the person who contributes most for your regular expenditure",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Employed"
+    ],
+    [
+     "2",
+     "Self employed"
+    ],
+    [
+     "3",
+     "Unemployed"
+    ],
+    [
+     "4",
+     "Farmer"
+    ],
+    [
+     "5",
+     "Fisher"
+    ],
+    [
+     "6",
+     "Student"
+    ],
+    [
+     "7",
+     "Housewife"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "contributer_occupation_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "main_occupation": {
+   "label": "What type of work do you do for your main occupation",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Employed"
+    ],
+    [
+     "2",
+     "Self employed"
+    ],
+    [
+     "3",
+     "Unemployed"
+    ],
+    [
+     "4",
+     "Farmer"
+    ],
+    [
+     "5",
+     "Fisher"
+    ],
+    [
+     "6",
+     "Student"
+    ],
+    [
+     "7",
+     "Housewife"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "main_occupation_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "main_icome_based": {
+   "label": "What is your main income based on",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Monthly salary"
+    ],
+    [
+     "2",
+     "Daily wage"
+    ],
+    [
+     "3",
+     "Business/firm earnings"
+    ],
+    [
+     "4",
+     "Sale of farm produce"
+    ],
+    [
+     "5",
+     "Inkind payment"
+    ],
+    [
+     "6",
+     "Have no income"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "main_icome_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "earn_individual": {
+   "label": "Altogether, how much did you earn from all your different sources of income in the last month? (tshs)",
+   "type": "number"
+  },
+  "earn_household": {
+   "label": "Altogether how much did others in your household (including the household head) earn in the last month? (tshs)",
+   "type": "number"
+  },
+  "main_transport": {
+   "label": "What was the main form of transport that you used to get here today? (tshs)",
+   "type": "number"
+  },
+  "time_from_home": {
+   "label": "About how long did it take you to arrive here from home? (minutes)",
+   "type": "number"
+  },
+  "leave_children": {
+   "label": "Did you leave young children (aged less than about 6 years) at home to come here today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "looking_children": {
+   "label": "If yes, who is looking after them",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Adult relatives/Household members"
+    ],
+    [
+     "2",
+     "Other older children"
+    ],
+    [
+     "3",
+     "Neighbouro"
+    ],
+    [
+     "4",
+     "Maid"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "looking_children_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "occupation_looking_child": {
+   "label": "What type of work does the person looking after the children do for their main occupation",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Employed"
+    ],
+    [
+     "2",
+     "Self employed"
+    ],
+    [
+     "3",
+     "Unemployed"
+    ],
+    [
+     "4",
+     "Farmer"
+    ],
+    [
+     "5",
+     "Fisher"
+    ],
+    [
+     "6",
+     "Student"
+    ],
+    [
+     "7",
+     "Housewife"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "occupation_looking_child_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "accompany": {
+   "label": "Did anyone accompany you today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "accompany_occupation": {
+   "label": "What is the main occupation of the person you came with today",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Employed"
+    ],
+    [
+     "2",
+     "Self employed"
+    ],
+    [
+     "3",
+     "Unemployed"
+    ],
+    [
+     "4",
+     "Farmer"
+    ],
+    [
+     "5",
+     "Fisher"
+    ],
+    [
+     "6",
+     "Student"
+    ],
+    [
+     "7",
+     "Housewife"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "accompany_occupation_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "accompany_transport": {
+   "label": "How much was spent on transport for the person to accompany you today? ( TSHS )",
+   "type": "number"
+  },
+  "accompany_expenses": {
+   "label": "What other expenses have they made to accompany you today? (for example food, child care)  (TSHS)",
+   "type": "number"
+  },
+  "activities_disrupted": {
+   "label": "activities_disrupted",
+   "type": ""
+  },
+  "material_floor": {
+   "label": "Main material of the floor",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Earth/ sand/dung"
+    ],
+    [
+     "2",
+     "Concrete cement"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "material_floor_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "material_roof": {
+   "label": "Main material of the Roof",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Thatch/ palm"
+    ],
+    [
+     "2",
+     "Other"
+    ]
+   ]
+  },
+  "material_roof_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "cooking_fuel": {
+   "label": "Main type of cooking fuel",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Electricity"
+    ],
+    [
+     "2",
+     "LPG/ natural gas/ biogas"
+    ],
+    [
+     "3",
+     "Kerosene"
+    ],
+    [
+     "4",
+     "coal/lignite/ charcoal"
+    ],
+    [
+     "5",
+     "wood/ straw/shrub/grass/agricultural crop animal dung"
+    ],
+    [
+     "6",
+     "no food cooked"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "cooking_fuel_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "water_access": {
+   "label": "Water Access",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "water_source": {
+   "label": "Drinking water source",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Piped into dwelling"
+    ],
+    [
+     "2",
+     "Piped to neighbor"
+    ],
+    [
+     "3",
+     "Tube well or borehole"
+    ],
+    [
+     "4",
+     "Unprotected well"
+    ],
+    [
+     "5",
+     "Unprotected spring"
+    ],
+    [
+     "6",
+     "Surface water"
+    ],
+    [
+     "7",
+     "Piped to yard/plot"
+    ],
+    [
+     "8",
+     "Public tap or standpipe"
+    ],
+    [
+     "9",
+     "Protected well"
+    ],
+    [
+     "10",
+     "Protected spring"
+    ],
+    [
+     "11",
+     "Rainwater"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "water_source_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "toilet_access": {
+   "label": "Toilet Access",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "toilet_facility": {
+   "label": "Type of Toilet facility",
+   "type": "radio"
+  },
+  "toilet_access_other": {
+   "label": "Specify",
+   "type": "text"
+  },
+  "television": {
+   "label": "Television",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "refrigerator": {
+   "label": "Refrigerator",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "sofa": {
+   "label": "Sofa",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "clock": {
+   "label": "Clock",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "fan": {
+   "label": "Fan",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "vcr_dvd": {
+   "label": "VCR/DVD",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "bank_account": {
+   "label": "Does any member of this household have a bank account",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "no_food": {
+   "label": "Was there ever no food at all in your household because there were not enough resources to get more",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Never, rarely(once or twice)"
+    ],
+    [
+     "2",
+     "Sometimes ( 3 – 10 times )"
+    ],
+    [
+     "3",
+     "Often ( > 10 times )"
+    ]
+   ]
+  },
+  "sleep_hungry": {
+   "label": "Did you or any household member go to sleep at night hungry because there was not enough food",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Never, rarely(once or twice)"
+    ],
+    [
+     "2",
+     "Sometimes ( 3 – 10 times )"
+    ],
+    [
+     "3",
+     "Often ( > 10 times )"
+    ]
+   ]
+  },
+  "day_hungry": {
+   "label": "Did you or any household member go a whole day without eating anything because there was not enough food",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Never, rarely(once or twice)"
+    ],
+    [
+     "2",
+     "Sometimes ( 3 – 10 times )"
+    ],
+    [
+     "3",
+     "Often ( > 10 times )"
+    ]
+   ]
+  },
+  "socioeconomic_notes": {
+   "label": "Notes on socioeconomic situation & needs",
+   "type": "text"
+  },
+  "patient_education": {
+   "label": "The patient",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Not attended/illiterate"
+    ],
+    [
+     "2",
+     "Primary"
+    ],
+    [
+     "3",
+     "Secondary"
+    ],
+    [
+     "4",
+     "Graduate/certificate"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "patient_education_other": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "primary_earner_edctn": {
+   "label": "Primary income earner",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Not attended/illiterate"
+    ],
+    [
+     "2",
+     "Primary"
+    ],
+    [
+     "3",
+     "Secondary"
+    ],
+    [
+     "4",
+     "Graduate/certificate"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "earner_edctn_other": {
+   "label": "Other Specify",
+   "type": "tex"
+  },
+  "household_education": {
+   "label": "Head of household",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Not attended/illiterate"
+    ],
+    [
+     "2",
+     "Primary"
+    ],
+    [
+     "3",
+     "Secondary"
+    ],
+    [
+     "4",
+     "Graduate/certificate"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "household_education_other": {
+   "label": "Other Specify",
+   "type": "tex"
+  },
+  "spouse_edctn": {
+   "label": "Spouse of the head of household",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Not attended/illiterate"
+    ],
+    [
+     "2",
+     "Primary"
+    ],
+    [
+     "3",
+     "Secondary"
+    ],
+    [
+     "4",
+     "Graduate/certificate"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "spouse_edctn_other": {
+   "label": "Other Specify",
+   "type": "text"
+  },
+  "patient_id": {
+   "label": "CLIENT ID",
+   "type": "number"
+  },
+  "site_id": {
+   "label": "SITE NAME",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "KONDOA"
+    ],
+    [
+     "2",
+     "KARATU"
+    ]
+   ]
+  },
+  "status": {
+   "label": "PATIENT STATUS",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "ACTIVE"
+    ],
+    [
+     "0",
+     "DELETED"
+    ]
+   ]
+  }
+ }
+}
