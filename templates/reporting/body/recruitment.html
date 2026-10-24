@@ -1,0 +1,12 @@
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover table-bordered mb-0">
+  <thead class="table-light">
+    <tr><th rowspan="2">Site</th><th rowspan="2" class="text-end">Registered</th><th rowspan="2" class="text-end">Screened</th><th rowspan="2" class="text-end">Screen positive</th><th rowspan="2" class="text-end">Eligible (study)</th>
+      <th colspan="{{ data.diseases|length|add:1 }}" class="text-center">Enrolled in care</th><th colspan="{{ data.ended_labels|length }}" class="text-center">Ended in period</th><th rowspan="2" class="text-end">Active now</th></tr>
+    <tr><th class="text-end">All</th>{% for d in data.diseases %}<th class="text-end">{{ d.name }}</th>{% endfor %}{% for l in data.ended_labels %}<th class="text-end">{{ l }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>{% for r in data.rows %}<tr><td>{{ r.facility.name }}</td><td class="text-end">{{ r.registered }}</td><td class="text-end">{{ r.screened }}</td><td class="text-end">{{ r.positive }}</td><td class="text-end">{{ r.eligible }}</td>
+    <td class="text-end fw-semibold">{{ r.enrolled }}</td>{% for n in r.by_disease %}<td class="text-end">{{ n }}</td>{% endfor %}{% for n in r.ended %}<td class="text-end">{{ n }}</td>{% endfor %}<td class="text-end fw-semibold">{{ r.active }}</td></tr>
+  {% empty %}<tr><td colspan="20" class="text-center text-body-secondary py-3">No activity in this period.</td></tr>{% endfor %}</tbody>
+  {% if data.rows %}{% with t=data.total %}<tfoot class="table-light fw-semibold"><tr><td>Total</td><td class="text-end">{{ t.registered }}</td><td class="text-end">{{ t.screened }}</td><td class="text-end">{{ t.positive }}</td><td class="text-end">{{ t.eligible }}</td><td class="text-end">{{ t.enrolled }}</td>{% for n in t.by_disease %}<td class="text-end">{{ n }}</td>{% endfor %}{% for n in t.ended %}<td class="text-end">{{ n }}</td>{% endfor %}<td class="text-end">{{ t.active }}</td></tr></tfoot>{% endwith %}{% endif %}
+</table></div>
+<div class="card-footer bg-body small text-body-secondary">Counts are patients. Registered and screened: in the period at the site. Enrolled: new clinical-programme enrolments in the period (a patient in two programmes counts once in “All”). Ended: patients whose care ended in the period (LTFU = 3 months without an attended visit). Active now: currently in care.</div></div>

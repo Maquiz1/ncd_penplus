@@ -9,7 +9,7 @@
       <input type="hidden" name="next" value="{{ next|default:'' }}">
       {% if form %}{% include "_form_fields.html" %}{% endif %}
       <div class="mt-4 d-flex gap-2">
-        <button type="submit" class="btn {{ button_class|default:'btn-primary' }}">{{ button|default:"Confirm" }}</button>
+        <button type="submit" class="btn {{ button_class|default:'btn-primary' }}" {% if disabled %}disabled{% endif %}>{{ button|default:"Confirm" }}</button>
         <a href="{{ cancel_url|default:'/' }}" class="btn btn-outline-secondary">Cancel</a>
       </div>
     </form>

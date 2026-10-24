@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{{ title }}</title>
+<style>
+  @page { size: A4 landscape; margin: 14mm 12mm 16mm; @bottom-left { content: "{{ SITE_NAME }} · {{ title }}"; font-size: 8pt; color: #666; }
+          @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #666; } }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #111; }
+  h1 { font-size: 15pt; margin: 0 0 2pt; } h2, .h5, .h6 { font-size: 11pt; margin: 10pt 0 4pt; }
+  .meta { color: #555; font-size: 8.5pt; margin-bottom: 8pt; border-bottom: 1px solid #ccc; padding-bottom: 6pt; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; page-break-inside: auto; }
+  tr { page-break-inside: avoid; } th, td { border: 1px solid #bbb; padding: 2.5pt 4pt; vertical-align: top; }
+  thead th, .table-light th { background: #eef2f7; text-align: left; }
+  .text-end { text-align: right; } .text-center { text-align: center; } .small { font-size: 8pt; }
+  .text-body-secondary, .text-muted { color: #555; } .fw-semibold, .fw-bold { font-weight: bold; } .text-danger { color: #b00020; }
+  .table-group-divider th, .group th { background: #f6f6f6; }
+  .d-print-none, .btn, form { display: none !important; }
+  .card { border: none; } .card-footer { font-size: 8pt; color: #555; margin-bottom: 8pt; }
+  .row { display: flex; flex-wrap: wrap; margin: 0 -4pt; } .row > [class*="col"] { flex: 1 1 30%; padding: 0 4pt 6pt; }
+  .stat-card .card-body { border: 1px solid #ccc; padding: 4pt 8pt; } .stat-value { font-size: 14pt; font-weight: bold; }
+  .card-header { font-weight: bold; margin: 6pt 0 3pt; } .list-group { list-style: none; padding: 0; margin: 0; } .list-group-item { border-bottom: 1px solid #ddd; padding: 2pt 0; display: flex; justify-content: space-between; }
+  .progress { display: none; }
+  .badge { border: 1px solid #999; border-radius: 3pt; padding: 0 3pt; font-size: 7.5pt; }
+  a { color: inherit; text-decoration: none; }
+</style></head>
+<body>
+  <h1>{{ title }}</h1>
+  <div class="meta">{% if filters %}{{ filters.description }} · {% endif %}Scope: {{ scope }} · Generated {{ generated|date:"d M Y H:i" }} by {{ user.get_full_name|default:user.username }}</div>
+  {% include body_template %}
+</body></html>

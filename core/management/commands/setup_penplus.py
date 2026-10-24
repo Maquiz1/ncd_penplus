@@ -114,6 +114,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, deactivate_demo=False, reset_lab_catalogue=False, **options):
         call_command('seed_reference_data', stdout=self.stdout)
+        call_command('setup_diseases', stdout=self.stdout)
         districts = {}
         for zone_name, region_name, district_name in GEOGRAPHY:
             zone, _ = Zone.objects.get_or_create(name=zone_name)
@@ -130,7 +131,7 @@ class Command(BaseCommand):
             if research:
                 sites.append(facility)
         for code, name in EXTRA_DISEASES:
-            Disease.objects.get_or_create(code=code, defaults={'name': name})
+            Disease.all_objects.get_or_create(code=code, defaults={'name': name})
         for code, name, disease in EXTRA_PROGRAMMES:
             ClinicalProgramme.objects.get_or_create(code=code, defaults={
                 'name': name, 'disease': Disease.objects.get(code=disease)})
@@ -152,6 +153,7 @@ class Command(BaseCommand):
         for code, name, tests in LAB_PANELS:
             panel, _ = LabPanel.objects.get_or_create(code=code, defaults={'name': name})
             panel.tests.add(*LabTest.objects.filter(code__in=tests))
+        call_command('setup_investigations', stdout=self.stdout)
         study, created = Study.objects.get_or_create(code='penplus', defaults={
             'title': 'Improving access to Package of Essential services for severe Non-communicable Diseases in '
                      'Tanzania – PEN PLUS PROJECT',

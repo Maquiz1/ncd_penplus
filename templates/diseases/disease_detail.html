@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ disease.name }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ disease.name }}
+      {% if disease.is_deleted %}<span class="badge text-bg-danger">Deleted</span>{% elif disease.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</h1>
+    <div class="small text-body-secondary"><code>{{ disease.code }}</code>{% if disease.description %} · {{ disease.description }}{% endif %}</div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if disease.is_deleted %}
+      {% if user.is_superuser %}<form method="post" action="{% url 'diseases:restore' disease.pk %}">{% csrf_token %}<button class="btn btn-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button></form>{% endif %}
+    {% else %}
+      {% if perms.clinical.change_disease %}
+      <a class="btn btn-outline-secondary" href="{% url 'diseases:update' disease.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+      <form method="post" action="{% url 'diseases:toggle' disease.pk %}">{% csrf_token %}<button class="btn {% if disease.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">{% if disease.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+      {% endif %}
+      {% if perms.clinical.delete_disease %}<a class="btn btn-outline-danger" href="{% url 'diseases:delete' disease.pk %}"><i class="bi bi-trash"></i> Delete</a>{% endif %}
+    {% endif %}
+  </div>
+</div>
+{% if disease.is_deleted %}<div class="alert alert-danger">Deleted {{ disease.deleted_at|date:"d M Y" }} by {{ disease.deleted_by }}: {{ disease.deletion_reason }}</div>{% endif %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Reporting conditions</span>
+    {% if perms.clinical.change_disease and not disease.is_deleted %}<span class="d-flex gap-2">
+      <form method="post" action="{% url 'diseases:relink' disease.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary" title="After changing keywords">Re-link diagnoses</button></form>
+      <a class="btn btn-sm btn-primary" href="{% url 'diseases:condition_create' disease.pk %}"><i class="bi bi-plus"></i> Condition</a></span>{% endif %}</div>
+  <div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Condition</th><th>Reporting row</th><th>Keywords (diagnosis contains…)</th><th>Excludes</th><th class="text-end">Diagnoses</th><th></th></tr></thead>
+    <tbody>{% for c in conditions %}<tr class="{% if not c.is_active %}text-body-secondary{% endif %}">
+      <td>{{ c.name }}{% if c.is_default %} <span class="badge text-bg-light">default</span>{% endif %}{% if not c.is_active %} <span class="badge text-bg-secondary">inactive</span>{% endif %}</td>
+      <td>{% if c.indicator_code %}PP{{ c.indicator_code }}{% endif %}</td>
+      <td class="small">{{ c.keyword_list|join:", "|default:"—" }}</td><td class="small">{{ c.excludes.all|join:", "|default:"—" }}</td>
+      <td class="text-end">{{ c.n }}</td>
+      <td class="text-end">{% if perms.clinical.change_disease and not disease.is_deleted %}<a class="btn btn-sm btn-link" href="{% url 'diseases:condition_update' disease.pk c.pk %}">Edit</a>{% endif %}</td></tr>
+      {% for s in c.children.all %}<tr class="small {% if not s.is_active %}text-body-secondary{% endif %}"><td class="ps-4">↳ {{ s.name }}{% if not s.is_active %} <span class="badge text-bg-secondary">inactive</span>{% endif %}</td><td></td><td>{{ s.keyword_list|join:", " }}</td><td></td><td class="text-end">{{ s.diagnoses.count }}</td>
+        <td class="text-end">{% if perms.clinical.change_disease and not disease.is_deleted %}<a class="btn btn-sm btn-link" href="{% url 'diseases:condition_update' disease.pk s.pk %}">Edit</a>{% endif %}</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="6" class="text-body-secondary">No conditions yet. Indicators count patients by condition, so add at least one (marked default).</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if unlinked %}<div class="card-footer bg-warning-subtle small">{{ unlinked }} diagnosis/diagnoses are not linked to a condition. Use “Re-link diagnoses”.</div>{% endif %}
+</div>
+<div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Clinical programmes</div><ul class="list-group list-group-flush">
+  {% for p in programmes %}<li class="list-group-item d-flex justify-content-between"><span>{{ p.name }}{% if not p.is_active %} <span class="badge text-bg-secondary">inactive</span>{% endif %}</span><span class="small">{{ p.n }} enrollments</span></li>
+  {% empty %}<li class="list-group-item text-body-secondary">No programme yet{% if user.is_staff %} – add one in <a href="{% url 'admin:clinical_clinicalprogramme_add' %}">admin</a>{% endif %}.</li>{% endfor %}
+</ul></div>
+{% endblock %}

@@ -2,7 +2,7 @@ from django import forms
 
 from core.forms import PatientChildForm
 
-from .models import Admission, Appointment, Encounter, FollowUpPlan, Vitals
+from .models import Admission, Appointment, ClinicSession, Encounter, FollowUpPlan, Vitals
 
 
 class AppointmentForm(PatientChildForm):
@@ -94,3 +94,25 @@ class DischargeForm(PatientChildForm):
 class AppointmentStatusForm(forms.Form):
     status = forms.ChoiceField(choices=[('confirmed', 'Confirmed'), ('missed', 'Missed'), ('cancelled', 'Cancelled')])
     reason = forms.CharField(max_length=255, required=False)
+
+
+class ClinicSessionForm(PatientChildForm):
+    class Meta:
+        model = ClinicSession
+        fields = ['name', 'facility', 'start_date', 'end_date', 'start_time', 'programmes', 'include_ltfu',
+                  'allocation', 'skip_weekends', 'move_existing', 'team', 'contact_phone', 'sms_template',
+                  'send_without_consent']
+        widgets = {'programmes': forms.CheckboxSelectMultiple, 'sms_template': forms.Textarea(attrs={'rows': 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from clinical.models import ClinicalProgramme
+        self.fields['programmes'].queryset = ClinicalProgramme.objects.filter(is_active=True, disease__is_active=True)
+
+    def clean_sms_template(self):
+        template = self.cleaned_data['sms_template']
+        try:
+            template.format(facility='X', day='X', date='X', time='X', contact='X')
+        except (KeyError, IndexError, ValueError) as exc:
+            raise forms.ValidationError(f'Unknown placeholder {exc}. Use {{facility}} {{day}} {{date}} {{time}} {{contact}}.')
+        return template

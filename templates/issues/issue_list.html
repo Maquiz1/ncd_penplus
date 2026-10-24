@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Data issues{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Data issues</h1><div class="small text-body-secondary">Records that need a decision. {{ open_total }} open in your scope.</div></div>
+</div>
+<div class="row g-2 mb-3">
+  {% for value, label, n in categories %}
+  <div class="col-6 col-md-4 col-xl"><a class="card shadow-sm text-decoration-none h-100 {% if request.GET.category == value %}border-primary{% endif %}" href="?category={{ value }}">
+    <div class="card-body py-2"><div class="small text-body-secondary">{{ label }}</div><div class="fs-4 fw-semibold {% if n %}text-danger{% else %}text-body-secondary{% endif %}">{{ n }}</div></div></a></div>
+  {% endfor %}
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-3"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Patient ID, old ID or text"></div>
+  <div class="col-md-2"><select class="form-select" name="status">{% for v, l in statuses %}<option value="{{ v }}" {% if current_status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}<option value="" {% if not current_status %}selected{% endif %}>Any status</option></select></div>
+  <div class="col-md-2"><select class="form-select" name="category"><option value="">All categories</option>{% for v, l, n in categories %}<option value="{{ v }}" {% if request.GET.category == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="code"><option value="">All issue types</option>{% for c in codes %}<option value="{{ c }}" {% if request.GET.code == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="facility"><option value="">All facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-md-1 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Issue</th><th>Patient</th><th>Category</th><th>Date</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for i in object_list %}<tr>
+    <td><a href="{{ i.get_absolute_url }}" class="fw-semibold">{{ i.title }}</a><div class="small text-body-secondary">{{ i.description|truncatechars:140 }}</div></td>
+    <td class="text-nowrap">{% if i.patient %}<a href="{{ i.patient.get_absolute_url }}">{{ i.patient }}</a>{% if i.patient.old_id %}<div class="small text-body-secondary">old {{ i.patient.old_id }}</div>{% endif %}{% else %}<span class="text-body-secondary">{{ i.facility|default:"—" }}</span>{% endif %}</td>
+    <td class="small">{{ i.get_category_display }}</td><td class="small text-nowrap">{{ i.related_date|date:"M Y"|default:"" }}</td>
+    <td>{% status_badge i.status i.get_status_display %}</td>
+    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ i.get_absolute_url }}">Review</a></td></tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No issues here.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}ECG / Echo / Imaging{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">ECG, echocardiography &amp; imaging</h1>
+  {% if perms.investigations.view_investigationtype %}<a class="btn btn-outline-secondary" href="{% url 'investigations:catalogue' %}"><i class="bi bi-list-columns"></i> Investigation catalogue</a>{% endif %}
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-3"><select class="form-select" name="status"><option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pending</option>{% for v, l in statuses %}<option value="{{ v }}" {% if current_status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}<option value="" {% if current_status == '' %}selected{% endif %}>All</option></select></div>
+  <div class="col-md-3"><select class="form-select" name="modality"><option value="">All modalities</option>{% for v, l in modalities %}<option value="{{ v }}" {% if request.GET.modality == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><select class="form-select" name="investigation_type"><option value="">All investigations</option>{% for t in types %}<option value="{{ t.pk }}" {% if request.GET.investigation_type == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Requested</th><th>Patient</th><th>Investigation</th><th>Indication</th><th>Scheduled</th><th>Status</th><th class="text-end"></th></tr></thead>
+  <tbody>{% for i in object_list %}<tr><td>{{ i.requested_at|date:"d M Y" }}</td><td><a href="{{ i.patient.get_absolute_url }}#labs">{{ i.patient }}</a><div class="small">{% patient_name i.patient %}</div></td><td><a href="{% url 'investigations:detail' i.pk %}">{{ i.name }}</a>{% if i.is_abnormal %} <span class="badge text-bg-danger">Abnormal</span>{% endif %}</td><td>{{ i.description }}</td><td>{{ i.scheduled_for|date:"d M Y H:i"|default:"—" }}</td><td>{% status_badge i.status i.get_status_display %}</td>
+    <td class="text-end text-nowrap">{% if i.status == 'requested' or i.status == 'scheduled' %}{% if perms.investigations.change_investigationorder %}<a class="btn btn-sm btn-primary" href="{% url 'investigations:report' i.pk %}">Enter report</a>{% endif %}{% endif %}
+      {% if i.status == 'completed' and perms.investigations.review_investigationorder %}<form class="d-inline" method="post" action="{% url 'investigations:review' i.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-sm btn-success">Mark reviewed</button></form>{% endif %}
+      {% if i.attachment %}<a class="btn btn-sm btn-link" href="{% url 'investigations:attachment' i.pk %}"><i class="bi bi-paperclip"></i></a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">Nothing here.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

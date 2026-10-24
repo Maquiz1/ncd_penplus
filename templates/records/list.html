@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}{{ rtype.label }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+  <div><h1 class="h3 mb-0">{{ rtype.label }}</h1><div class="small text-body-secondary"><a href="{% url 'records:home' %}">Records</a> · {{ rtype.group }}{% if rtype.note %} · {{ rtype.note }}{% endif %}</div></div>
+</div>
+{% if user.is_superuser %}<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link {% if not deleted_tab %}active{% endif %}" href="?">Active</a></li>
+  <li class="nav-item"><a class="nav-link {% if deleted_tab %}active{% endif %}" href="?tab=deleted">Deleted <span class="badge text-bg-light">{{ deleted_count }}</span></a></li>
+</ul>{% endif %}
+<form class="row g-2 mb-3" method="get">{% if deleted_tab %}<input type="hidden" name="tab" value="deleted">{% endif %}
+  <div class="col-md-3"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Patient number or old ID"></div>
+  <div class="col-md-3"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><input class="form-control" type="date" name="start" value="{{ request.GET.start }}" title="From"></div>
+  <div class="col-md-2"><input class="form-control" type="date" name="end" value="{{ request.GET.end }}" title="To"></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Date</th><th>Patient</th>{% for heading, attr in rtype.columns %}<th>{{ heading }}</th>{% endfor %}{% if deleted_tab %}<th>Deleted</th>{% endif %}<th class="text-end"></th></tr></thead>
+  <tbody>{% for obj, patient, when, cells, view_url, edit_url in rows %}<tr>
+    <td class="small text-nowrap">{{ when|date:"d M Y" }}</td>
+    <td class="small"><a href="{{ patient.get_absolute_url }}">{{ patient.patient_number }}</a><div>{% patient_name patient %}</div></td>
+    {% for value in cells %}<td class="small">{{ value|default_if_none:"" }}</td>{% endfor %}
+    {% if deleted_tab %}<td class="small text-danger">{{ obj.deleted_at|date:"d M Y" }} by {{ obj.deleted_by|default:"—" }}<div class="text-body-secondary">{{ obj.deletion_reason }}</div></td>{% endif %}
+    <td class="text-end text-nowrap">
+      {% if deleted_tab %}<form class="d-inline" method="post" action="{% url 'records:restore' rtype.key obj.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">Restore</button></form>
+      {% else %}<a class="btn btn-sm btn-link" href="{{ view_url }}">View</a>
+        {% if can_change and edit_url %}<a class="btn btn-sm btn-link" href="{{ edit_url }}">Edit</a>{% endif %}
+        {% if can_delete %}<a class="btn btn-sm btn-link text-danger" href="{% url 'records:delete' rtype.key obj.pk %}?next={{ request.get_full_path|urlencode }}">Delete</a>{% endif %}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="{{ rtype.columns|length|add:4 }}" class="text-center text-body-secondary py-4">No records.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

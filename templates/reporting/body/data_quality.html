@@ -1,0 +1,14 @@
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <div class="d-flex justify-content-between small mb-1"><span>{{ closed }} of {{ total }} issues resolved or dismissed</span><strong>{% if progress is not None %}{{ progress }}%{% endif %}</strong></div>
+  <div class="progress" role="progressbar" aria-label="Issues closed" style="height: 10px;"><div class="progress-bar bg-success" style="width: {{ progress|default:0 }}%"></div></div>
+</div></div>
+<div class="row g-3">
+  <div class="col-lg-7"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">By category</div><div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Category</th><th class="text-end">Open</th><th class="text-end">Resolved</th><th class="text-end">Dismissed</th></tr></thead>
+    <tbody>{% for value, label, open, resolved, dismissed in by_category %}<tr><td>{% if perms.issues.view_dataissue %}<a href="{% url 'issues:list' %}?category={{ value }}">{{ label }}</a>{% else %}{{ label }}{% endif %}</td><td class="text-end {% if open %}text-danger fw-semibold{% endif %}">{{ open }}</td><td class="text-end">{{ resolved }}</td><td class="text-end">{{ dismissed }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="text-body-secondary">No issues.</td></tr>{% endfor %}</tbody></table></div></div></div>
+  <div class="col-lg-5"><div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Open issues by type</div><ul class="list-group list-group-flush small">
+    {% for row in by_code %}<li class="list-group-item d-flex justify-content-between"><span>{{ row.code }}</span><strong>{{ row.n }}</strong></li>{% empty %}<li class="list-group-item text-body-secondary">None open.</li>{% endfor %}</ul></div>
+    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Resolved by</div><ul class="list-group list-group-flush small">
+    {% for row in resolved_by %}<li class="list-group-item d-flex justify-content-between"><span>{{ row.resolved_by__username }}</span><strong>{{ row.n }}</strong></li>{% empty %}<li class="list-group-item text-body-secondary">No resolutions yet.</li>{% endfor %}</ul></div></div>
+</div>

@@ -5,6 +5,7 @@ Every EDCS record hangs off `clients.id`; other tables reference it as `client_i
 per-visit rows attach to the encounter created from `visit.id` (their `vid`).
 Each imported row is registered in ExternalRecord so the import can be re-run safely.
 """
+import calendar
 import datetime
 import json
 import re
@@ -15,17 +16,26 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
 from django.utils import timezone
 
-from clinical.models import ClinicalProgramme, Diagnosis, Disease, ProgrammeEnrollment, Screening
+from clinical.services import LTFU_REASON
+from clinical.models import (ClinicalProgramme, Diagnosis, Disease, EnrollmentEvent, FamilyMember, ProgrammeEnrollment,
+                             Screening)
+from core.roles import EDCS_POSITIONS
+from core.utils import add_months
 from crf.models import FormDefinition, FormField, FormSection, FormSubmission, FormVersion
 from crf.services import publish_version
-from encounters.models import Appointment, Encounter, Vitals
+from issues.detectors import raise_issue, run_all
+from issues.models import DataIssue
+from encounters.models import Admission, Appointment, Encounter, Vitals
 from facilities.models import District, Facility, StaffAssignment, Ward
-from laboratory.models import InvestigationOrder, LabOrder, LabTest
+from investigations.models import InvestigationOrder
+from laboratory.models import LabCategory, LabOrder, LabTest
 from patients.models import Patient, PatientIdentifier
 from patients.services import record_death, register_patient
 from pharmacy.models import Medication, MedicationRecord
+from users.models import Position
 from research.models import ConsentRecord, Study, StudyEligibilityAssessment, StudyEnrollment
 
 from .models import ExternalRecord
@@ -102,13 +112,18 @@ DM_TYPES = {'1': 'Type 1 diabetes mellitus', '2': 'Type 2 diabetes mellitus', '3
             '4': 'Diabetes mellitus, type not yet specified', '96': 'Other diabetes'}
 SCD_TYPES = {'1': 'Sickle cell disease', '2': 'Other haemoglobinopathy'}
 CATEGORY_DISEASE = {'1': 'cardiac', '2': 'diabetes', '3': 'scd', '96': 'other-ncd'}
-OUTCOMES = {'1': ('active', ''), '2': ('ltfu', 'Defaulted (EDCS)'), '3': ('other', 'Stopped treatment (EDCS)'),
+OUTCOMES = {'1': ('active', ''), '2': ('ltfu', 'Defaulted (EDCS)'), '3': ('withdrawn', 'Stopped treatment (EDCS)'),
             '4': ('transferred_out', 'Transferred out (EDCS)'), '5': ('deceased', 'Died (EDCS)')}
-STUDY_STATUS = {'active': 'active', 'ltfu': 'ltfu', 'other': 'other', 'transferred_out': 'transferred',
+TERMINAL_OUTCOMES = {'2', '3', '4', '5'}  # default, stopped/withdrawn, transfer out, death
+STUDY_STATUS = {'active': 'active', 'ltfu': 'ltfu', 'other': 'other', 'withdrawn': 'withdrawn', 'transferred_out': 'transferred',
                 'deceased': 'deceased'}
 MED_ACTIONS = {'1': 'continue', '2': 'start', '3': 'stop', '4': 'not_eligible'}
 # EDCS uses these as 'not done / missing' in lab fields (e.g. 93 of 96 sodium values are 98 or 99).
 MISSING_LAB_VALUES = {'0', '00', '000', '0.0', '98', '99', '98.0', '99.0', '-', '--', '.', 'n/a', 'na'}
+# Old EDCS test_list names (normalised prefix) that are tests we already have.
+EDCS_TEST_MATCH = {'fullbloodpicture': 'cbc', 'hblevel': 'hb', 'sicklingtest': 'sickling', 'peripheralbloodsmear': 'blood-smear',
+                   'esr': 'esr', 'hivtest': 'hiv', 'hepatitisb': 'hbsag', 'hepatitisc': 'hcv', 'creatinine': 'creat',
+                   'alat': 'alt', 'asat': 'ast', 'rbg': 'rbg', 'fbg': 'fbg', 'hba1c': 'hba1c'}
 # A hospital ID shared by this many patients is a placeholder (e.g. "Kth001"), not a real identifier.
 PLACEHOLDER_ID_THRESHOLD = 5
 ECHO_FIELDS = ['echo', 'lv', 'mitral', 'rv', 'pericardial', 'ivc', 'thrombus', 'congenital_defect', 'echo_specify',
@@ -128,6 +143,37 @@ def parse_date(value):
     except ValueError:
         return None
     return date if 1900 <= date.year <= timezone.localdate().year + 2 else None
+
+
+def parse_any_date(value):
+    """parse_date, also accepting the day-first forms typed in some EDCS fields (12-05-2022, 12/05/2022)."""
+    date = parse_date(value)
+    if date:
+        return date
+    match = re.search(r'\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b', text(value))
+    if not match:
+        return None
+    try:
+        date = datetime.date(int(match.group(3)), int(match.group(2)), int(match.group(1)))
+    except ValueError:
+        return None
+    return date if 1900 <= date.year <= timezone.localdate().year + 2 else None
+
+
+def legacy_test_values(row):
+    """Result type, unit and range for an old EDCS test_list row (its "units" often describe the answer)."""
+    units = re.sub(r'\s+', ' ', text(row.get('units'))).strip()
+    folded = units.casefold()
+    for pair, options in (('positive or negative', 'Negative\n!Positive'), ('reactive or non-reactive', 'Non-reactive\n!Reactive'),
+                          ('detected or not detected', 'Not detected\n!Detected')):
+        if pair in folded:
+            return {'result_type': 'choice', 'choices': options}
+    low, high = decimal(row.get('minimum')), decimal(row.get('maximum'), max_value=Decimal('100000'))
+    if low is not None and high is not None and low < high and len(units) <= 30:
+        return {'result_type': 'numeric', 'unit': units, 'reference_low': low, 'reference_high': high}
+    if units in ('', '-'):
+        return {'result_type': 'text'}
+    return {'result_type': 'text', 'reference_range': units[:100]}
 
 
 def at_nine(date):
@@ -213,15 +259,22 @@ class Importer:
         return self.patients.get(text(client_id))
 
     # ------------------------------------------------------------ run
-    def run(self):
-        User = get_user_model()
-        self.import_user, _ = User.objects.get_or_create(
-            username='edcs_import', defaults={'first_name': 'EDCS', 'last_name': 'import', 'is_active': False})
-        self.facilities = {str(k): Facility.objects.get(code=v) for k, v in SITES.items()}
-        self.study = Study.objects.get(code='penplus')
-        self.diseases = {d.code: d for d in Disease.objects.all()}
-        self.programmes = {p.disease.code: p for p in ClinicalProgramme.objects.select_related('disease')}
-        self.lab_tests = {t.code: t for t in LabTest.objects.all()}
+    # Steps that only add new kinds of records and can be re-run on their own (`--steps`).
+    ADD_ON_STEPS = ['lab_catalogue', 'lab_requests', 'admissions', 'family_members']
+
+    def run(self, steps=None):
+        """Full migration, or only the named ADD_ON_STEPS on top of an earlier full migration."""
+        self.prepare()
+        if steps:
+            # Already-imported staff, patients and visits are only looked up (re-runs never duplicate).
+            self.import_staff()
+            self.import_patients()
+            self.import_visits()
+            if 'lab_requests' in steps and 'lab_catalogue' not in steps:
+                steps = ['lab_catalogue'] + list(steps)
+            for step in steps:
+                getattr(self, f'import_{step}')()
+            return self.counts, self.issues
         self.import_staff()
         self.import_patients()
         self.import_visits()
@@ -231,14 +284,34 @@ class Importer:
         self.import_vitals()
         self.import_labs()
         self.import_investigations()
+        self.flag_echo_findings()
         self.import_medications()
+        self.import_lab_catalogue()
+        self.import_lab_requests()
+        self.import_admissions()
+        self.import_family_members()
+        self.note_old_stock()
+        self.mark_edcs_origin()
+        self.apply_outcome_timeline()
+        self.fill_missed_months()
         self.import_legacy_forms()
         self.apply_deaths()
         self.apply_soft_deletes()
         self.find_duplicates()
+        self.raise_data_issues()
         return self.counts, self.issues
 
     # ------------------------------------------------------------ staff
+    def prepare(self):
+        User = get_user_model()
+        self.import_user, _ = User.objects.get_or_create(
+            username='edcs_import', defaults={'first_name': 'EDCS', 'last_name': 'import', 'is_active': False})
+        self.facilities = {str(k): Facility.objects.get(code=v) for k, v in SITES.items()}
+        self.study = Study.objects.get(code='penplus')
+        self.diseases = {d.code: d for d in Disease.objects.all()}
+        self.programmes = {p.disease.code: p for p in ClinicalProgramme.objects.select_related('disease')}
+        self.lab_tests = {t.code: t for t in LabTest.objects.all()}
+
     def import_staff(self):
         User = get_user_model()
         positions = {text(r['id']): text(r['name']) for r in self.rows('position')}
@@ -252,7 +325,10 @@ class Importer:
                 user = User(username=username, first_name=text(row['firstname'])[:150],
                             last_name=text(row['lastname'])[:150], email=text(row.get('email_address')),
                             phone=text(row.get('phone_number'))[:30], is_active=text(row['status']) == '1',
+                            position=Position.objects.filter(code=EDCS_POSITIONS.get(int(row['position'] or 0))).first(),
                             job_title=positions.get(text(row['position']), '')[:100])
+                if user.position_id:
+                    user.job_title = ''
                 user.set_unusable_password()
                 user.save()
                 role = POSITION_ROLES.get(int(row['position'] or 0))
@@ -434,8 +510,8 @@ class Importer:
                 detail = ''
                 if sub and text(row.get(sub)):
                     detail = option_label('cardiac', sub, row[sub])
-                    if text(row[sub]) == '96' and other:
-                        detail = text(row.get(other)) or detail
+                    if text(row[sub]) == '96':
+                        detail = f'Other: {text(row.get(other))}' if other and text(row.get(other)) else 'Other'
                 elif other and text(row.get(other)):
                     detail = text(row[other])
                 self.add_diagnosis(f'cardiac.{flag}', row, patient, 'cardiac', f'{name} – {detail}' if detail else name)
@@ -660,6 +736,101 @@ class Importer:
             self.remember('medication_treatments', row['id'], record)
             self.counts['medication history records created'] += 1
 
+    # ------------------------------------------------------------ old lab catalogue, lab requests
+    def import_lab_catalogue(self):
+        """EDCS test_list: link tests we already have; add the others inactive so the lab can switch them on."""
+        categories = {text(r['id']): text(r['name']).title() for r in self.rows('sub_category')}
+        legacy = LabCategory.objects.get_or_create(name='Legacy (EDCS, to review)', defaults={'order': 9})[0]
+        self.legacy_tests = {}
+        for row in self.rows('test_list'):
+            name = re.sub(r'\s+', ' ', text(row['name'])).strip()
+            key = re.sub(r'[^a-z0-9]', '', name.casefold())
+            test = self.mapped('test_list', row['id'], LabTest)
+            if test is None:
+                code = next((c for k, c in EDCS_TEST_MATCH.items() if key.startswith(k)), None)
+                test = self.lab_tests.get(code) if code else None
+            if test is None:
+                category = LabCategory.objects.get_or_create(
+                    name=categories.get(text(row.get('sub_category')), legacy.name),
+                    defaults={'order': 8})[0]
+                test = LabTest.objects.create(code=f'edcs-{row["id"]}', name=name[:150], category=category,
+                                              is_active=False, **legacy_test_values(row))
+                self.lab_tests[test.code] = test
+                self.counts['old EDCS lab tests added (inactive, to review)'] += 1
+            self.remember('test_list', row['id'], test, notes=name)
+            self.legacy_tests[text(row['id'])] = test
+
+    def import_lab_requests(self):
+        for row, patient in self.active_rows('lab_requests'):
+            test = self.legacy_tests.get(text(row.get('test_name')))
+            raw = text(row.get('test_value'))
+            if test is None or not raw or raw.casefold() in MISSING_LAB_VALUES:
+                continue
+            date = self.row_date(row, 'lab_date', 'visit_date', 'created_on')
+            if date is None:
+                self.issue('lab_request_without_date', f'lab_requests {row["id"]}: {test.name} = {raw}')
+                continue
+            self.add_lab('lab_requests', row, patient, test.code, raw, date)
+
+    # ------------------------------------------------------------ hospitalization episodes, siblings
+    def import_admissions(self):
+        """hospitalization_table: one row per admission episode -> Admission records (PP10 / SCD indicators)."""
+        for row, patient in self.active_rows('hospitalization_table'):
+            if self.mapped('hospitalization_table', row['id'], Admission):
+                continue
+            reason = re.sub(r'\s+', ' ', text(row.get('admission_reason'))).strip()
+            diagnosis = re.sub(r'\s+', ' ', text(row.get('discharge_diagnosis'))).strip()
+            admitted = parse_any_date(row.get('admission_date')) or parse_any_date(row.get('hospitalization_date'))
+            discharged = parse_any_date(row.get('discharge_date'))
+            if diagnosis and parse_any_date(diagnosis) and len(diagnosis) <= 12:
+                # The discharge date was typed into the discharge diagnosis box.
+                discharged, diagnosis = discharged or parse_any_date(diagnosis), ''
+            if not (reason or diagnosis or admitted):
+                continue  # empty episode row
+            if admitted is None:
+                raise_issue(f'edcs:admission-date:{row["id"]}', 'admission_without_valid_date', DataIssue.Category.CLINICAL,
+                            'Hospitalization without a valid admission date',
+                            f'EDCS hospitalization episode {row["id"]}: admission date "{text(row.get("admission_date"))}", '
+                            f'reason "{reason}", discharge "{diagnosis}". Add it under Admissions with the correct date.',
+                            patient=patient)
+                self.counts['hospitalization episodes left for review (no valid date)'] += 1
+                continue
+            if discharged and discharged < admitted:
+                self.issue('discharge_before_admission', f'hospitalization_table {row["id"]} ({patient.patient_number})')
+                discharged = None
+            admission = Admission.objects.create(
+                patient=patient, facility=self.facility(row.get('site_id')), encounter=self.encounter_for(row),
+                ward='Not recorded (EDCS)', admitted_at=at_nine(admitted), reason=(reason or 'Not recorded')[:255],
+                discharged_at=at_nine(discharged) if discharged else None,
+                discharge_summary=f'Discharge diagnosis: {diagnosis}' if diagnosis else '',
+                created_by=self.staff(row.get('staff_id')))
+            self.remember('hospitalization_table', row['id'], admission)
+            self.counts['admissions created (hospitalization episodes)'] += 1
+
+    def import_family_members(self):
+        """sickle_cell_status_table: one row per sibling (age, sex, sickle cell status; 99 = unknown)."""
+        for row, patient in self.active_rows('sickle_cell_status_table'):
+            if self.mapped('sickle_cell_status_table', row['id'], FamilyMember):
+                continue
+            age = text(row.get('age'))
+            member = FamilyMember.objects.create(
+                patient=patient, relation=FamilyMember.Relation.SIBLING,
+                sex={'1': 'male', '2': 'female'}.get(text(row.get('sex')), ''),
+                age_years=int(age) if age.isdigit() and int(age) < 120 else None,
+                scd_status={'1': 'affected', '2': 'not_affected'}.get(text(row.get('sickle_status')), 'unknown'),
+                recorded_on=self.row_date(row, 'visit_date', 'entry_date') or patient.registration_date,
+                notes=text(row.get('other'))[:255], created_by=self.staff(row.get('staff_id')))
+            self.remember('sickle_cell_status_table', row['id'], member)
+            self.counts['siblings recorded (sickle cell family status)'] += 1
+
+    def note_old_stock(self):
+        """EDCS batch / batch_records look like trial entries (e.g. 10,000-unit batches of "xxxxx"); stock is not
+        migrated. Facilities enter an opening stock count instead (Receive stock)."""
+        batches = list(self.rows('batch'))
+        if batches:
+            self.issue('old_stock_not_imported', f'{len(batches)} EDCS batches and {len(list(self.rows("batch_records")))} '
+                                                 'stock records left in the EDCS; enter opening stock per facility.')
+
     # ------------------------------------------------------------ legacy forms (lossless)
     def legacy_version(self, table, title, fields):
         definition, created = FormDefinition.objects.get_or_create(code=f'edcs-{table.replace("_", "-")}', defaults={
@@ -729,3 +900,281 @@ class Importer:
         for group in seen.values():
             if len(group) > 1:
                 self.issue('possible_duplicate_patients', ', '.join(f'{p.patient_number} (old {p.old_id})' for p in group))
+
+
+    # ------------------------------------------------------------ outcome timeline, returns and missed months
+    def outcome_timelines(self):
+        """Per patient: [(date, outcome code)] from summary rows, oldest first."""
+        timelines = defaultdict(list)
+        for row, patient in self.active_rows('summary'):
+            code = text(row.get('outcome'))
+            date = self.row_date(row, 'summary_date', 'visit_date')
+            if code in OUTCOMES and date:
+                timelines[patient.pk].append((date, code, row))
+        for items in timelines.values():
+            items.sort(key=lambda item: (item[0], item[2]['id']))
+        return timelines
+
+    def care_segments(self, start, timeline, attended=(), ltfu_months=None):
+        """Periods in care and the status changes between them.
+
+        A period ends at an EDCS outcome (default, stopped/withdrawn, transfer out, death) or by the programme
+        rule: no attended visit for `ltfu_months` months after the last attended visit (the patient becomes LTFU
+        on that date). A later attended visit starts a new period: the patient returned to care. Summary rows
+        are not attendance (many belong to missed visits). Returns ([(start, end, end_month_included)], events,
+        final status).
+        """
+        reason = LTFU_REASON.format(months=ltfu_months)
+        items = sorted([(d, 0, 'visit', None) for d in attended if d >= start]
+                       + [(d, 1, 'outcome', code) for d, code, _row in timeline if d >= start])
+        state = {'active': True, 'start': start, 'status': 'active', 'last': start}
+        segments, events = [], []
+
+        def lapse(until):
+            if ltfu_months and state['active'] and until is not None:
+                due = add_months(state['last'], ltfu_months)
+                if until > due:
+                    segments.append((state['start'], due, True))
+                    events.append((due, 'active', 'ltfu', 'status', reason))
+                    state.update(active=False, status='ltfu')
+
+        for date, _order, kind, code in items:
+            lapse(date)
+            if kind == 'visit':
+                if not state['active'] and state['status'] != 'deceased':
+                    events.append((date, state['status'], 'active', 'return', 'Returned to care (attended visit)'))
+                    state.update(active=True, start=date, status='active')
+                if state['active']:
+                    state['last'] = date
+            elif code in TERMINAL_OUTCOMES:
+                new_status = OUTCOMES[code][0]
+                if state['active']:
+                    segments.append((state['start'], date, False))
+                    events.append((date, 'active', new_status, 'status', OUTCOMES[code][1]))
+                    state.update(active=False, status=new_status)
+                elif state['status'] not in ('deceased', new_status) and code != '2':
+                    # A recorded outcome after the patient stopped coming (e.g. found by tracing) replaces the
+                    # automatic LTFU: transfer out, stopped treatment or death, on the date it was recorded.
+                    events.append((date, state['status'], new_status, 'status', OUTCOMES[code][1]))
+                    state['status'] = new_status
+        lapse(self.today)
+        if state['active']:
+            segments.append((state['start'], None, False))
+        return segments, events, state['status']
+
+    def attended_dates(self, patient_ids):
+        dates = defaultdict(list)
+        for pid, when in (Encounter.objects.filter(patient_id__in=patient_ids).exclude(status='cancelled')
+                          .values_list('patient_id', 'encounter_date')):
+            dates[pid].append(timezone.localtime(when).date())
+        return dates
+
+    def mark_edcs_origin(self):
+        ids = ExternalRecord.objects.filter(source=SOURCE, table='visit',
+                                            content_type=ContentType.objects.get_for_model(Appointment))
+        updated = Appointment.objects.filter(pk__in=[int(i) for i in ids.values_list('object_id', flat=True)],
+                                             origin='manual').update(origin='edcs')
+        if updated:
+            self.counts['appointments marked as migrated from EDCS'] += updated
+
+    def imported_enrollments(self):
+        ct = ContentType.objects.get_for_model(ProgrammeEnrollment)
+        ids = ExternalRecord.objects.filter(source=SOURCE, table__startswith='clients.programme.',
+                                            content_type=ct).values_list('object_id', flat=True)
+        return ProgrammeEnrollment.objects.filter(pk__in=[int(i) for i in ids]).select_related('patient')
+
+    def apply_outcome_timeline(self):
+        timelines = self.outcome_timelines()
+        enrollments = list(self.imported_enrollments())
+        attended = self.attended_dates({e.patient_id for e in enrollments})
+        for enrollment in enrollments:
+            if enrollment.events.exclude(created_by=self.import_user).exists():
+                continue  # staff have changed this enrollment in the new system: leave it alone
+            enrollment.events.filter(created_by=self.import_user).delete()  # importer's own history, recomputed
+            timeline = timelines.get(enrollment.patient_id, [])
+            _segments, events, final = self.care_segments(enrollment.enrollment_date, timeline,
+                                                          attended.get(enrollment.patient_id, []),
+                                                          settings.LTFU_MONTHS)
+            for date, from_status, to_status, kind, reason in events:
+                EnrollmentEvent.objects.create(enrollment=enrollment, kind=kind, event_date=date,
+                                               from_status=from_status, to_status=to_status, reason=reason,
+                                               created_by=self.import_user)
+                self.counts['enrollment history events'] += 1
+                if kind == 'return':
+                    self.counts['returns to care found'] += 1
+                if to_status == 'ltfu' and reason.startswith('Default / lost'):
+                    self.counts['default/LTFU by the 3-month rule'] += 1
+            closing = [e for e in events if e[2] == final] if final != 'active' else []
+            enrollment.status = final
+            enrollment.outcome_date = closing[-1][0] if closing else None
+            enrollment.outcome_reason = closing[-1][4] if closing else ''
+            enrollment.save(update_fields=['status', 'outcome_date', 'outcome_reason', 'updated_at'])
+            # Research follows care: the same rule and outcome, on the same date. A study already completed in the
+            # EDCS (end of study while still in care) stays completed.
+            study = StudyEnrollment.objects.filter(patient=enrollment.patient, study=self.study).first()
+            if study:
+                target = STUDY_STATUS.get(final, final)
+                if final == 'active' and study.status == 'completed':
+                    continue
+                study.status = target
+                study.outcome_date = enrollment.outcome_date
+                study.outcome_reason = (f'Follows clinical care: {enrollment.outcome_reason}'
+                                        if enrollment.outcome_reason else '')[:255]
+                study.save(update_fields=['status', 'outcome_date', 'outcome_reason', 'updated_at'])
+
+    def fill_missed_months(self):
+        """Monthly follow-up: a month in care with no EDCS visit is recorded as a missed visit.
+
+        In care means between enrollment (or a return) and the end of that period; a period ended by the
+        3-month rule includes the month of the third missed visit.
+        """
+        timelines = self.outcome_timelines()
+        starts = {}
+        for enrollment in self.imported_enrollments():
+            starts[enrollment.patient_id] = min(starts.get(enrollment.patient_id, enrollment.enrollment_date),
+                                                enrollment.enrollment_date)
+        attended = self.attended_dates(starts)
+        gap_ct = ContentType.objects.get_for_model(Appointment)
+        existing_gaps = defaultdict(dict)
+        for appointment in Appointment.objects.filter(patient_id__in=starts, origin=Appointment.Origin.EDCS_GAP):
+            existing_gaps[appointment.patient_id][(appointment.scheduled_date.year, appointment.scheduled_date.month)] = appointment
+        covered = defaultdict(set)
+        for pid, date in (Appointment.objects.filter(patient_id__in=starts).exclude(origin=Appointment.Origin.EDCS_GAP)
+                          .values_list('patient_id', 'scheduled_date')):
+            covered[pid].add((date.year, date.month))
+        for pid, dates in attended.items():
+            covered[pid].update((d.year, d.month) for d in dates)
+        this_month = (self.today.year, self.today.month)
+        for patient_id, start in starts.items():
+            patient = Patient.all_objects.get(pk=patient_id)
+            segments, _events, _final = self.care_segments(start, timelines.get(patient_id, []),
+                                                           attended.get(patient_id, []), settings.LTFU_MONTHS)
+            wanted = set()
+            for seg_start, seg_end, include_end in segments:
+                end_month = (seg_end.year, seg_end.month) if seg_end else this_month
+                month = add_months(seg_start.replace(day=1), 1)
+                while (month.year, month.month) < end_month or (include_end and (month.year, month.month) == end_month):
+                    if (month.year, month.month) < this_month and (month.year, month.month) not in covered[patient_id]:
+                        wanted.add((month.year, month.month))
+                    month = add_months(month, 1)
+            for key in sorted(wanted - set(existing_gaps[patient_id])):
+                year, month = key
+                day = min(start.day, calendar.monthrange(year, month)[1])
+                appointment = Appointment.objects.create(
+                    patient=patient, facility=patient.current_facility, scheduled_date=datetime.date(year, month, day),
+                    stage='follow_up', status='missed', origin=Appointment.Origin.EDCS_GAP, created_by=self.import_user,
+                    notes='No visit recorded in the EDCS for this month')
+                self.remember('gap', f'{patient.old_id}:{year}-{month:02d}', appointment)
+                self.counts['missed visits added for months without an EDCS visit'] += 1
+            for key, appointment in existing_gaps[patient_id].items():
+                untouched = appointment.status == 'missed' and not appointment.encounters.exists()
+                if key not in wanted and untouched:
+                    ExternalRecord.objects.filter(source=SOURCE, table='gap', content_type=gap_ct,
+                                                  object_id=str(appointment.pk)).delete()
+                    appointment.delete()
+                    self.counts['missed-visit entries removed (patient was already LTFU / out of care)'] += 1
+
+    # ------------------------------------------------------------ data issues for staff to resolve
+    def raise_data_issues(self):
+        created = Counter()
+        id_use = Counter(text(r['hospital_id']).casefold() for r in self.rows('clients') if text(r['hospital_id']))
+        placeholders = {v for v, n in id_use.items() if n >= PLACEHOLDER_ID_THRESHOLD} | {'0', '00', '000'}
+        for row in self.rows('clients'):
+            patient = self.patient(row['id'])
+            if patient is None:
+                continue
+            value = text(row['hospital_id'])
+            if value and value.casefold() in placeholders:
+                _, new = raise_issue(f'edcs:placeholder-id:{row["id"]}', 'placeholder_hospital_id',
+                                     DataIssue.Category.IDENTITY, f'Hospital ID "{value}" looks like a placeholder',
+                                     f'The EDCS hospital ID "{value}" is used by {id_use[value.casefold()]} patients, '
+                                     f'so it was not imported. Add the real hospital/MRN number.', patient=patient)
+                created['placeholder_hospital_id'] += new
+            enrolled_condition = any(text(row.get(c)) == '1' for c in ('cardiac', 'diabetes', 'sickle_cell')) or \
+                CATEGORY_DISEASE.get(text(row.get('dignosis_type')))
+            if text(row.get('enrolled')) == '1' and not enrolled_condition:
+                _, new = raise_issue(f'edcs:no-condition:{row["id"]}', 'enrolled_without_condition',
+                                     DataIssue.Category.CLINICAL, 'Enrolled without a condition',
+                                     'Enrolled in the EDCS but no cardiac/diabetes/sickle cell category was recorded, '
+                                     'so no programme enrollment was created. Add the diagnosis and programme.',
+                                     patient=patient)
+                created['enrolled_without_condition'] += new
+        for row, patient in self.active_rows('vital'):
+            flagged = [f'{c}={row[c]}' for c in ('pr', 'weight', 'height', 'systolic', 'dystolic')
+                       if text(row.get(c)) in ('98', '99')]
+            date = self.row_date(row, 'visit_date')
+            if self.encounter_for(row) is None:
+                values = ', '.join(f'{c}={text(row.get(c))}' for c in ('systolic', 'dystolic', 'pr', 'weight', 'height')
+                                   if text(row.get(c)))
+                _, new = raise_issue(f'edcs:vital-novisit:{row["id"]}', 'vitals_without_visit', DataIssue.Category.VITALS,
+                                     'Vital signs not linked to a visit',
+                                     f'EDCS vital signs (row {row["id"]}, {date or "no date"}) belong to a visit that is '
+                                     f'missing or deleted, so they were not imported: {values or "no values"}.',
+                                     patient=patient, related_date=date)
+                created['vitals_without_visit'] += new
+            elif flagged:
+                vitals = self.mapped('vital', row['id'], Vitals)
+                _, new = raise_issue(f'edcs:vital-98-99:{row["id"]}', 'vitals_98_99', DataIssue.Category.VITALS,
+                                     'Vital sign recorded as 98 or 99',
+                                     f'{", ".join(flagged)}. In the EDCS 98/99 often mean "not done". Confirm the value '
+                                     f'or clear it.', patient=patient, related_date=date,
+                                     obj=vitals.encounter if vitals else None)
+                created['vitals_98_99'] += new
+        for row in self.rows('visit'):
+            patient = self.patient(row['client_id'])
+            if text(row.get('status')) != '1':
+                continue
+            if patient is None:
+                _, new = raise_issue(f'edcs:orphan-visit:{row["id"]}', 'visit_without_patient', DataIssue.Category.MIGRATION,
+                                     f'EDCS visit {row["id"]} has no patient',
+                                     f'Visit {row["visit_code"]} #{row["seq_no"]} refers to client {row["client_id"]}, '
+                                     f'which does not exist in the EDCS. Not imported.',
+                                     facility=self.facility(row.get('site_id')))
+                created['visit_without_patient'] += new
+            elif parse_date(row['visit_date']) is None and parse_date(row['expected_date']) is None:
+                _, new = raise_issue(f'edcs:visit-date:{row["id"]}', 'visit_without_valid_date', DataIssue.Category.VISITS,
+                                     'EDCS visit with an invalid date',
+                                     f'Visit {row["visit_code"]} #{row["seq_no"]}: expected "{text(row["expected_date"])}", '
+                                     f'actual "{text(row["visit_date"])}". Not imported; add it manually if it happened.',
+                                     patient=patient)
+                created['visit_without_valid_date'] += new
+        for row in self.rows('screening'):
+            if text(row.get('status')) == '1' and self.patient(row.get('patient_id')) is None:
+                _, new = raise_issue(f'edcs:orphan-screening:{row["id"]}', 'screening_without_patient',
+                                     DataIssue.Category.MIGRATION, f'EDCS screening {row["id"]} has no patient',
+                                     f'Screening dated {text(row.get("screening_date"))} refers to client '
+                                     f'{row.get("patient_id")}, which does not exist. Not imported.',
+                                     facility=self.facility(row.get('site_id')))
+                created['screening_without_patient'] += new
+        for enrollment in StudyEnrollment.objects.filter(participant_id__contains='-dup').select_related('patient'):
+            _, new = raise_issue(f'edcs:dup-study-id:{enrollment.pk}', 'duplicate_study_id', DataIssue.Category.CONSENT,
+                                 f'Study ID {enrollment.participant_id.split("-dup")[0]} used twice in the EDCS',
+                                 f'Stored as {enrollment.participant_id}. Assign the correct participant ID.',
+                                 patient=enrollment.patient, obj=enrollment.patient)
+            created['duplicate_study_id'] += new
+        for name, count in {**created, **run_all()}.items():
+            if count:
+                self.counts[f'data issues raised: {name}'] += count
+
+
+    # ------------------------------------------------------------ echo pathology flag (PEN-Plus PP14)
+    ECHO_PATHOLOGY = ('LV severely depressed', 'Mitral stenosis', 'RV severely dilated', 'Pericardial effusion',
+                      'IVC dilated', 'Thrombus', 'Congenital defect')
+
+    def flag_echo_findings(self):
+        """Abnormal if 'Echo (Normal): No', any pathology 'Yes' or another finding described; normal if 'Echo (Normal):
+        Yes' with no pathology; unknown when no findings were recorded."""
+        for echo in InvestigationOrder.objects.filter(modality='echo', is_abnormal__isnull=True,
+                                                      description__icontains='imported from EDCS'):
+            lines = echo.findings.splitlines()
+            pathology = any(line.startswith(label) and line.endswith(': Yes') for line in lines for label in self.ECHO_PATHOLOGY)
+            described = any(line.startswith('Other Echo specify:') or line.startswith('Other:') and
+                            not line.endswith((': 1', ': 2', ': 3')) for line in lines)
+            if 'Echo:(Normal): No' in lines or pathology or described:
+                flag = True
+            elif 'Echo:(Normal): Yes' in lines:
+                flag = False
+            else:
+                continue
+            InvestigationOrder.objects.filter(pk=echo.pk).update(is_abnormal=flag)
+            self.counts['echos flagged normal / abnormal'] += 1

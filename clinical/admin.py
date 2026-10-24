@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import (ClinicalProgramme, Diagnosis, Disease, PreScreening, ProgrammeEnrollment, Screening,
-                     ScreeningSession)
+from .models import (ClinicalProgramme, Diagnosis, Disease, EnrollmentEvent, PreScreening, ProgrammeEnrollment,
+                     Screening, ScreeningSession)
 
 
 @admin.register(Disease)
@@ -40,3 +40,6 @@ admin.site.register(PreScreening)
 class ScreeningSessionAdmin(admin.ModelAdmin):
     list_display = ('name', 'facility', 'session_date', 'source', 'place_name', 'is_closed')
     list_filter = ('source', 'is_closed', 'facility')
+
+
+admin.site.register(EnrollmentEvent)

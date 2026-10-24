@@ -4,7 +4,7 @@ from django.db import models
 from django.urls import reverse
 
 from clinical.models import Disease
-from core.models import LocationType, TimeStampedModel, WorkflowStage
+from core.models import LocationType, SoftDeleteModel, TimeStampedModel, WorkflowStage
 from patients.models import Patient
 
 
@@ -181,7 +181,7 @@ class FormField(ImmutableWhenPublishedMixin, models.Model):
                 raise ValidationError({'show_if_key': 'A field cannot depend on itself.'})
 
 
-class FormSubmission(TimeStampedModel):
+class FormSubmission(SoftDeleteModel):
     class Status(models.TextChoices):
         IN_PROGRESS = 'in_progress', 'In progress (draft)'
         SUBMITTED = 'submitted', 'Submitted'

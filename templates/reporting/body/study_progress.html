@@ -1,0 +1,21 @@
+{% load ncd %}{% if study %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Assessed</div><div class="stat-value">{{ assessed }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Eligible</div><div class="stat-value">{{ eligible }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Consented</div><div class="stat-value">{{ consented }}</div>{% if consent_withdrawn %}<div class="small text-danger">{{ consent_withdrawn }} withdrew consent</div>{% endif %}</div></div></div>
+  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Enrolled</div><div class="stat-value">{{ total }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Active</div><div class="stat-value">{{ totals.active|default:0 }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Lost to follow-up</div><div class="stat-value">{{ totals.ltfu|default:0 }}</div></div></div></div>
+</div>
+<div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">By site</div><div class="table-responsive"><table class="table table-sm mb-0">
+  <thead><tr><th>Site</th><th class="text-end">Enrolled</th>{% for v, l in statuses %}<th class="text-end">{{ l }}</th>{% endfor %}<th class="text-end">Retention</th></tr></thead>
+  <tbody>{% for s in sites %}<tr><td>{{ s.facility }}</td><td class="text-end fw-semibold">{{ s.total }}</td>{% for v, l in statuses %}<td class="text-end">{{ s.counts|get_item:v|default:0 }}</td>{% endfor %}<td class="text-end">{% if s.retention is not None %}{{ s.retention }}%{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="12" class="text-body-secondary">No participants in your scope.</td></tr>{% endfor %}</tbody>
+</table></div><div class="card-footer bg-body small text-body-secondary">Retention = active participants as a share of everyone enrolled. Research status follows clinical care, including the 3-month LTFU rule.</div></div>
+<div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Enrollment by month (last 24 months)</div><div class="table-responsive"><table class="table table-sm mb-0">
+  <thead><tr><th>Month</th><th class="text-end">New</th><th class="text-end">Cumulative</th><th style="width: 40%;"></th></tr></thead>
+  <tbody>{% for month, n, cum in monthly %}<tr><td>{{ month|date:"M Y" }}</td><td class="text-end">{{ n }}</td><td class="text-end">{{ cum }}</td>
+    <td><div class="progress" style="height: 6px;" role="progressbar" aria-label="Cumulative {{ month|date:'M Y' }}"><div class="progress-bar" style="width: {% widthratio cum total 100 %}%"></div></div></td></tr>
+  {% empty %}<tr><td colspan="4" class="text-body-secondary">No enrollments.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}

@@ -6,6 +6,8 @@ app_name = 'clinical'
 
 urlpatterns = [
     path('screenings/', views.ScreeningListView.as_view(), name='screening_list'),
+    path('patients/<int:patient_pk>/family/add/', views.FamilyMemberCreateView.as_view(), name='family_add'),
+    path('family/<int:pk>/edit/', views.FamilyMemberUpdateView.as_view(), name='family_edit'),
     path('sessions/', views.ScreeningSessionListView.as_view(), name='session_list'),
     path('sessions/new/', views.ScreeningSessionCreateView.as_view(), name='session_create'),
     path('sessions/<int:pk>/', views.ScreeningSessionDetailView.as_view(), name='session_detail'),
@@ -19,4 +21,5 @@ urlpatterns = [
     path('diagnosis/<int:pk>/edit/', views.DiagnosisUpdateView.as_view(), name='diagnosis_update'),
     path('patients/<int:patient_pk>/enrollment/add/', views.ProgrammeEnrollmentCreateView.as_view(), name='enrollment_add'),
     path('enrollment/<int:pk>/edit/', views.ProgrammeEnrollmentUpdateView.as_view(), name='enrollment_update'),
+    path('enrollment/<int:pk>/return/', views.ReturnToCareView.as_view(), name='enrollment_return'),
 ]

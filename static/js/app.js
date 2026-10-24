@@ -1,3 +1,18 @@
+// Back button: return to the previous page in this system; otherwise go to the fallback (dashboard / login).
+(function () {
+  document.querySelectorAll('.js-back').forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      var cameFromHere = document.referrer && document.referrer.indexOf(window.location.origin) === 0
+        && document.referrer !== window.location.href;
+      if (cameFromHere && window.history.length > 1) {
+        event.preventDefault();
+        window.history.back();
+      }
+      // otherwise the link's href (the fallback page) is followed
+    });
+  });
+})();
+
 // Conditional display for dynamic CRF fields (server-side validation mirrors this rule).
 (function () {
   function valuesFor(form, name) {
@@ -31,3 +46,49 @@
     el.addEventListener('shown.bs.tab', function (e) { history.replaceState(null, '', e.target.dataset.bsTarget); });
   });
 })();
+
+// Linked address pickers: region → district → ward → street/village (Tom Select, searchable).
+(function () {
+  if (!window.TomSelect) return;
+  var pickers = {};
+  document.querySelectorAll('select[data-location]').forEach(function (select) {
+    pickers[select.id] = new TomSelect(select, {
+      valueField: 'id', labelField: 'text', searchField: ['text'], maxOptions: 1000,
+      allowEmptyOption: true, placeholder: select.dataset.placeholder,
+      plugins: ['clear_button'],
+    });
+  });
+  function load(child, parentValue) {
+    var picker = pickers[child.id];
+    picker.clear(true);
+    picker.clearOptions();
+    if (!parentValue) { picker.disable(); return; }
+    picker.enable();
+    fetch(child.dataset.url + '?parent=' + encodeURIComponent(parentValue), {credentials: 'same-origin'})
+      .then(function (r) { return r.json(); })
+      .then(function (data) { picker.addOptions(data.results); picker.refreshOptions(false); });
+  }
+  Object.keys(pickers).forEach(function (id) {
+    var child = document.getElementById(id);
+    var parent = child.dataset.parent && document.getElementById(child.dataset.parent);
+    if (!parent) return;
+    if (!parent.value) pickers[id].disable();
+    pickers[parent.id].on('change', function (value) {
+      load(child, value);
+      // clearing a level also clears the levels below it
+      Object.keys(pickers).forEach(function (otherId) {
+        var other = document.getElementById(otherId);
+        if (other.dataset.parent === child.id && !child.value) { pickers[otherId].clear(true); pickers[otherId].clearOptions(); pickers[otherId].disable(); }
+      });
+    });
+  });
+})();
+
+// Report filters: show the date boxes only for a custom period.
+document.querySelectorAll('.js-period').forEach(function (select) {
+  select.addEventListener('change', function () {
+    select.form.querySelectorAll('.js-custom-dates').forEach(function (el) {
+      el.classList.toggle('d-none', select.value !== 'custom');
+    });
+  });
+});

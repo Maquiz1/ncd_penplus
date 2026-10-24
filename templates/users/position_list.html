@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Positions{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div><h1 class="h3 mb-0">Positions</h1><div class="small text-body-secondary">Job positions. The level (facility, district …) comes from the staff member's assignment, so a Nurse assigned to Kondoa DH is a site nurse.</div></div>
+  {% if perms.users.add_position %}<a class="btn btn-primary" href="{% url 'users:position_add' %}"><i class="bi bi-plus-lg"></i> Add position</a>{% endif %}
+</div>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Position</th><th>Default role</th><th>Typical level</th><th>Active staff</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for p in object_list %}<tr><td>{{ p.name }}<div class="small text-body-secondary">{{ p.description }}</div></td><td>{{ p.default_role|default:"—" }}</td><td>{{ p.get_typical_level_display }}</td><td>{{ p.staff_count }}</td>
+    <td>{% if p.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+    <td class="text-end">{% if perms.users.change_position %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'users:position_edit' p.pk %}">Edit</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No positions. Run <code>manage.py setup_roles</code>.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

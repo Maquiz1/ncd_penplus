@@ -4,18 +4,19 @@ from django.utils import timezone
 from core.forms import BootstrapForm, BootstrapModelForm, PatientChildForm
 from facilities.scope import facilities_for_user
 
-from .models import Medication, Prescription, StockBatch
+from .models import ConsumableUse, Medication, Prescription, StockBatch
 from .services import available_batches
 
 
 class MedicationForm(BootstrapModelForm):
     class Meta:
         model = Medication
-        fields = ['code', 'name', 'strength', 'dosage_form', 'dispensing_unit', 'reorder_level', 'is_active']
+        fields = ['item_type', 'code', 'name', 'strength', 'dosage_form', 'dispensing_unit', 'reorder_level', 'is_active']
+        labels = {'name': 'Name (generic name for medicines)', 'dosage_form': 'Form'}
 
 
 class ReceiveStockForm(BootstrapForm):
-    medication = forms.ModelChoiceField(queryset=Medication.objects.filter(is_active=True))
+    medication = forms.ModelChoiceField(queryset=Medication.objects.filter(is_active=True), label='Stock item')
     facility = forms.ModelChoiceField(queryset=None)
     batch_number = forms.CharField(max_length=60)
     expiry_date = forms.DateField()
@@ -54,7 +55,7 @@ class PrescriptionForm(PatientChildForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['medication'].queryset = Medication.objects.filter(is_active=True)
+        self.fields['medication'].queryset = Medication.objects.filter(is_active=True, item_type='medicine')
 
 
 class DispenseForm(BootstrapForm):
@@ -77,3 +78,14 @@ class DispenseForm(BootstrapForm):
             if quantity > self.prescription.quantity_remaining:
                 self.add_error('quantity', f'Only {self.prescription.quantity_remaining} remain on the prescription.')
         return cleaned
+
+
+class ConsumableUseForm(BootstrapModelForm):
+    class Meta:
+        model = ConsumableUse
+        fields = ['item', 'quantity']
+        labels = {'item': 'Stock item used'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['item'].queryset = Medication.objects.filter(is_active=True).order_by('item_type', 'name')

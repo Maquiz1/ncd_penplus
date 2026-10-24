@@ -6,7 +6,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import LocationType, TimeStampedModel, WorkflowStage
+from core.models import LocationType, SoftDeleteModel, TimeStampedModel, WorkflowStage
 from facilities.models import Facility
 from patients.models import Patient
 
@@ -57,7 +57,78 @@ class FollowUpPlan(TimeStampedModel):
             raise ValidationError({'end_date': 'End date must be after the anchor date.'})
 
 
-class Appointment(TimeStampedModel):
+SWAHILI_DAYS = ['Jumatatu', 'Jumanne', 'Jumatano', 'Alhamisi', 'Ijumaa', 'Jumamosi', 'Jumapili']
+DEFAULT_INVITATION = ('Habari. Unakumbushwa kuhudhuria kliniki ya {facility} siku ya {day} tarehe {date}{time}. '
+                      'Kwa msaada piga {contact}.')
+
+
+class ClinicSession(TimeStampedModel):
+    """A clinic day or week when trained staff/specialists see a group of patients together."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SCHEDULED = 'scheduled', 'Appointments scheduled'
+        COMPLETED = 'completed', 'Completed'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    class Allocation(models.TextChoices):
+        SAME_DAY = 'same_day', 'Everyone on the first day'
+        SPREAD = 'spread', 'Spread patients evenly across the days'
+
+    name = models.CharField(max_length=150, help_text='e.g. PEN-Plus cardiac clinic with JKCI cardiologist')
+    facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='clinic_sessions')
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True, help_text='For a clinic over several days (optional).')
+    start_time = models.TimeField(null=True, blank=True)
+    programmes = models.ManyToManyField('clinical.ClinicalProgramme', blank=True, related_name='clinic_sessions',
+                                        help_text='Leave empty for all programmes.')
+    include_ltfu = models.BooleanField('Also invite defaulters / lost to follow-up', default=False,
+                                       help_text='Attending counts as returning to care.')
+    allocation = models.CharField(max_length=20, choices=Allocation.choices, default=Allocation.SAME_DAY)
+    skip_weekends = models.BooleanField(default=True)
+    move_existing = models.BooleanField('Move existing open appointments in this period to the clinic day',
+                                        default=True)
+    team = models.CharField('Specialists / team', max_length=255, blank=True)
+    contact_phone = models.CharField('Contact phone for patients', max_length=30, blank=True)
+    sms_template = models.TextField('Invitation SMS', default=DEFAULT_INVITATION,
+                                    help_text='Placeholders: {facility} {day} {date} {time} {contact}. '
+                                              'Do not include diagnoses or study names.')
+    send_without_consent = models.BooleanField(
+        'Also send to patients without recorded SMS consent', default=False,
+        help_text='Patients whose consent was not asked yet. Patients who said No never receive SMS.')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+
+    class Meta:
+        ordering = ['-start_date', '-pk']
+
+    def __str__(self):
+        return f'{self.name} ({self.start_date:%d %b %Y})'
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('encounters:clinic_detail', args=[self.pk])
+
+    def clean(self):
+        if self.end_date and self.end_date < self.start_date:
+            raise ValidationError({'end_date': 'The last day cannot be before the first day.'})
+
+    def days(self):
+        import datetime
+        days, day = [], self.start_date
+        while day <= (self.end_date or self.start_date):
+            if not (self.skip_weekends and day.weekday() >= 5) or day == self.start_date:
+                days.append(day)
+            day += datetime.timedelta(days=1)
+        return days
+
+    def render_sms(self, date):
+        time = f' saa {self.start_time:%H:%M}' if self.start_time else ''
+        return self.sms_template.format(facility=self.facility.name, day=SWAHILI_DAYS[date.weekday()],
+                                        date=f'{date:%d/%m/%Y}', time=time,
+                                        contact=self.contact_phone or self.facility.name)
+
+
+class Appointment(SoftDeleteModel):
     """A planned contact. Distinct from an Encounter, which is an actual contact."""
 
     class Status(models.TextChoices):
@@ -70,6 +141,13 @@ class Appointment(TimeStampedModel):
         MISSED = 'missed', 'Missed'
 
     OPEN_STATUSES = ('expected', 'scheduled', 'confirmed', 'rescheduled')
+
+    class Origin(models.TextChoices):
+        MANUAL = 'manual', 'Booked by staff'
+        SCHEDULE = 'schedule', 'Generated from follow-up schedule'
+        EDCS = 'edcs', 'Migrated from EDCS'
+        EDCS_GAP = 'edcs_gap', 'Month without any EDCS visit (marked missed)'
+        CLINIC_DAY = 'clinic_day', 'Clinic day (scheduled for a group)'
 
     patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='appointments')
     facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='appointments')
@@ -88,6 +166,9 @@ class Appointment(TimeStampedModel):
     sequence = models.PositiveSmallIntegerField(null=True, blank=True, editable=False)
     reason_for_change = models.CharField(max_length=255, blank=True)
     notes = models.CharField(max_length=255, blank=True)
+    origin = models.CharField(max_length=20, choices=Origin.choices, default=Origin.MANUAL, editable=False)
+    clinic_session = models.ForeignKey('ClinicSession', on_delete=models.PROTECT, null=True, blank=True,
+                                       related_name='appointments', editable=False)
 
     class Meta:
         ordering = ['scheduled_date', 'scheduled_time']
@@ -108,7 +189,7 @@ class Appointment(TimeStampedModel):
         return self.status in self.OPEN_STATUSES
 
 
-class Encounter(TimeStampedModel):
+class Encounter(SoftDeleteModel):
     """An actual contact: facility, home, community or other approved setting."""
 
     class Status(models.TextChoices):
@@ -164,7 +245,7 @@ class Encounter(TimeStampedModel):
             raise ValidationError({'status': 'A failed home/community visit attempt cannot be marked completed.'})
 
 
-class Vitals(TimeStampedModel):
+class Vitals(SoftDeleteModel):
     encounter = models.ForeignKey(Encounter, on_delete=models.PROTECT, related_name='vitals')
     taken_at = models.DateTimeField(default=timezone.now)
     weight_kg = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
@@ -200,7 +281,7 @@ class Vitals(TimeStampedModel):
             raise ValidationError({'diastolic_bp': 'Diastolic pressure must be lower than systolic.'})
 
 
-class Admission(TimeStampedModel):
+class Admission(SoftDeleteModel):
     class DischargeOutcome(models.TextChoices):
         IMPROVED = 'improved', 'Discharged home - improved'
         REFERRED = 'referred', 'Referred'

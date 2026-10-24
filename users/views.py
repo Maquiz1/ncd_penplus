@@ -1,18 +1,21 @@
+from django.contrib.auth import views as auth_views
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
 from audit.models import AuditEvent
 from audit.services import diff, log_event, snapshot
+from core.forms import BootstrapModelForm
 from facilities.models import StaffAssignment
 from facilities.scope import facilities_for_user
 
-from .forms import StaffAssignmentForm, StaffCreateForm, StaffUpdateForm
-from .models import User
+from .forms import (IdentityAccessForm, LoggedPasswordResetForm, StaffAssignmentForm, StaffCreateForm,
+                    StaffUpdateForm)
+from .models import Position, User
 from .services import pending_activation, send_activation_email, send_bulk_activation
 
 
@@ -31,7 +34,7 @@ class StaffListView(PermissionRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = staff_in_scope(self.request.user).prefetch_related('groups')
+        qs = staff_in_scope(self.request.user).select_related('position').prefetch_related('groups', 'assignments')
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(email__icontains=q))
@@ -53,6 +56,10 @@ class StaffDetailView(PermissionRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx['assignments'] = self.object.assignments.select_related('facility', 'district', 'region', 'zone')
         ctx['assignment_form'] = StaffAssignmentForm(user=self.request.user)
+        ctx['identity_form'] = IdentityAccessForm(instance=self.object)
+        ctx['role_gives_identity'] = self.object.groups.filter(
+            permissions__codename='view_patient_identity', permissions__content_type__app_label='patients').exists()
+        ctx['sees_identity'] = self.object.has_perm('patients.view_patient_identity')
         return ctx
 
 
@@ -71,9 +78,14 @@ class StaffCreateView(PermissionRequiredMixin, CreateView):
         self.object = user
         log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=user,
                   changes={'groups': [g.name for g in user.groups.all()]})
-        send_activation_email(user)
-        messages.success(self.request, f'Account created. An activation email was sent to {user.email}. '
-                                       'Now assign a facility or geographic scope.')
+        try:
+            send_activation_email(user, sent_by=self.request.user)
+        except Exception as exc:  # noqa: BLE001 - the account stays; the failure is in the email log
+            messages.warning(self.request, f'Account created, but the activation email to {user.email} could not be '
+                                           f'sent ({str(exc)[:150]}). Fix the email settings, then use Re-send activation.')
+        else:
+            messages.success(self.request, f'Account created. An activation email was sent to {user.email}. '
+                                           'Now assign a facility or geographic scope.')
         return redirect('users:detail', pk=user.pk)
 
     def get_context_data(self, **kwargs):
@@ -138,9 +150,13 @@ class StaffResendActivationView(PermissionRequiredMixin, View):
         if not staff.email or not staff.is_active:
             messages.error(request, 'The account needs an email address and must be active.')
         else:
-            send_activation_email(staff)
-            log_event(request=request, action=AuditEvent.Action.ACCOUNT, obj=staff, reason='Activation link re-sent')
-            messages.success(request, f'A new set-password link was sent to {staff.email}.')
+            try:
+                send_activation_email(staff, sent_by=request.user)
+            except Exception as exc:  # noqa: BLE001 - recorded in the email log
+                messages.error(request, f'The email to {staff.email} could not be sent: {str(exc)[:200]}')
+            else:
+                log_event(request=request, action=AuditEvent.Action.ACCOUNT, obj=staff, reason='Activation link re-sent')
+                messages.success(request, f'A new set-password link was sent to {staff.email}.')
         return redirect('users:detail', pk=pk)
 
 
@@ -207,3 +223,127 @@ class StaffBulkActivationView(PermissionRequiredMixin, View):
         if not sent and not failed:
             messages.info(request, 'No staff accounts are waiting for activation.')
         return redirect('users:list')
+
+
+class LoggedPasswordResetView(auth_views.PasswordResetView):
+    form_class = LoggedPasswordResetForm
+
+    @property
+    def extra_email_context(self):
+        from notifications.email import site_url
+        return {'site_url': site_url()}
+
+    def form_valid(self, form):
+        from notifications.email import from_email
+        self.from_email = from_email()
+        return super().form_valid(form)
+
+
+class IdentityAccessView(PermissionRequiredMixin, View):
+    """Grant or remove access to patient names and identifiers for one person, overriding their role."""
+
+    permission_required = 'users.manage_identity_access'
+
+    def post(self, request, pk):
+        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        before = (staff.identity_access, staff.identity_access_until)
+        form = IdentityAccessForm(request.POST, instance=staff)
+        if form.is_valid():
+            form.save()
+            log_event(request=request, action=AuditEvent.Action.ACCOUNT, obj=staff,
+                      changes={'identity_access': [before[0], staff.identity_access],
+                               'identity_access_until': [str(before[1] or ''), str(staff.identity_access_until or '')]},
+                      reason=staff.identity_access_reason or 'Identity access follows the role')
+            messages.success(request, f'Identity access for {staff.username}: {staff.get_identity_access_display()}.')
+        else:
+            messages.error(request, '; '.join(e for errors in form.errors.values() for e in errors))
+        return redirect('users:detail', pk=pk)
+
+
+CAPABILITIES = [
+    ('Patients', [('See names, phones and identifiers', 'patients.view_patient_identity'),
+                  ('Register patients', 'patients.add_patient'), ('Record SMS consent', 'patients.record_sms_consent'),
+                  ('Record death', 'patients.record_death')]),
+    ('Care', [('Screening', 'clinical.add_screening'), ('Diagnosis & conditions', 'clinical.add_diagnosis'),
+              ('Programme enrolment / status', 'clinical.change_programmeenrollment'),
+              ('Encounters & vitals', 'encounters.add_encounter'), ('Appointments', 'encounters.add_appointment'),
+              ('Admissions', 'encounters.add_admission'), ('Clinic days & SMS', 'encounters.add_clinicsession')]),
+    ('Services', [('Order lab tests', 'laboratory.add_laborder'), ('Enter lab results', 'laboratory.change_laborder'),
+                  ('Order investigations', 'investigations.add_investigationorder'),
+                  ('Report ECG / echo / imaging', 'investigations.change_investigationorder'),
+                  ('Prescribe', 'pharmacy.add_prescription'), ('Dispense', 'pharmacy.add_dispensing'),
+                  ('Receive / adjust stock', 'pharmacy.add_stockbatch')]),
+    ('Research & forms', [('Fill CRF forms', 'crf.add_formsubmission'), ('Review CRF forms', 'crf.review_formsubmission'),
+                          ('Study consent & enrolment', 'research.add_studyenrollment')]),
+    ('Data & reports', [('See and resolve data issues', 'issues.change_dataissue'), ('Reports & indicators', 'reporting.view_reports'),
+                        ('Export data', 'reporting.export_data'), ('Audit trail', 'audit.view_auditevent'),
+                        ('Correct / delete records (restore: superuser)', 'encounters.delete_encounter')]),
+    ('Administration', [('Manage staff accounts', 'users.add_user'), ('Assign access levels', 'facilities.add_staffassignment'),
+                        ('Grant / remove identity access', 'users.manage_identity_access'),
+                        ('System setup (national level only)', 'clinical.change_disease')]),
+]
+
+
+class RoleMatrixView(PermissionRequiredMixin, TemplateView):
+    """What each role can do, read from the role permissions themselves."""
+
+    permission_required = 'users.view_user'
+    template_name = 'users/role_matrix.html'
+
+    def get_context_data(self, **kwargs):
+        from django.contrib.auth.models import Group
+
+        from core.roles import ROLES
+
+        groups = {g.name: {f'{p.content_type.app_label}.{p.codename}' for p in g.permissions.select_related('content_type')}
+                  for g in Group.objects.filter(name__in=ROLES).prefetch_related('permissions')}
+        roles = [name for name in ROLES if name in groups]
+        sections = [(title, [(label, [perm in groups[r] for r in roles]) for label, perm in items])
+                    for title, items in CAPABILITIES]
+        positions = Position.objects.select_related('default_role')
+        counts = dict(User.objects.filter(is_active=True).values_list('groups__name').annotate(n=Count('id')))
+        return super().get_context_data(roles=[(r, counts.get(r, 0)) for r in roles], sections=sections,
+                                        positions=positions, **kwargs)
+
+
+class PositionListView(PermissionRequiredMixin, ListView):
+    permission_required = 'users.view_position'
+    template_name = 'users/position_list.html'
+
+    def get_queryset(self):
+        return Position.objects.select_related('default_role').annotate(
+            staff_count=Count('staff', filter=Q(staff__is_active=True)))
+
+
+class PositionForm(BootstrapModelForm):
+    class Meta:
+        model = Position
+        fields = ['name', 'code', 'default_role', 'typical_level', 'description', 'order', 'is_active']
+
+
+class PositionSaveMixin(PermissionRequiredMixin):
+    model = Position
+    form_class = PositionForm
+    template_name = 'generic_form.html'
+    success_url = reverse_lazy('users:positions')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_event(request=self.request, action=self.audit_action, obj=self.object,
+                  changes={f: str(form.cleaned_data[f]) for f in form.changed_data})
+        return response
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(cancel_url=reverse('users:positions'), **kwargs)
+
+
+class PositionCreateView(PositionSaveMixin, CreateView):
+    permission_required = 'users.add_position'
+    audit_action = AuditEvent.Action.CREATE
+    extra_context = {'title': 'Add position'}
+
+
+class PositionUpdateView(PositionSaveMixin, UpdateView):
+    permission_required = 'users.change_position'
+    audit_action = AuditEvent.Action.UPDATE
+    extra_context = {'title': 'Edit position', 'subtitle': 'Untick "active" to stop offering it for new staff.'}

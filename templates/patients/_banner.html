@@ -7,5 +7,22 @@
     <span class="text-body-secondary"><i class="bi bi-geo-alt"></i> {{ patient.current_facility }}</span>
     {% if patient.is_deceased %}{% status_badge 'deceased' %}{% endif %}
     {% if patient.status == 'inactive' %}{% status_badge 'inactive' %}{% endif %}
+    {% if patient.sms_consent is True %}<span class="badge text-bg-light" title="Consents to SMS reminders"><i class="bi bi-chat-dots"></i> SMS OK</span>
+    {% elif patient.sms_consent is False %}<span class="badge text-bg-light" title="Declined SMS"><i class="bi bi-chat-dots"></i> No SMS</span>{% endif %}
   </div>
+  {% if patient.sms_consent is None and not patient.is_deceased and perms.patients.record_sms_consent and can_view_identity %}
+  <div class="card-footer bg-warning-subtle py-2 d-flex flex-wrap align-items-center gap-2 small">
+    <i class="bi bi-chat-dots"></i> <strong>SMS consent not recorded.</strong> Ask the patient (or guardian): may we send appointment reminders by SMS?
+    <form method="post" action="{% url 'patients:sms_consent' patient.pk %}" class="d-flex gap-2 ms-auto">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="btn btn-sm btn-success" name="answer" value="yes">Yes</button>
+      <button class="btn btn-sm btn-outline-secondary" name="answer" value="no">No</button>
+    </form>
+  </div>
+  {% endif %}
+  {% diagnosis_prompts_for patient as dx_prompts %}{% if dx_prompts and perms.clinical.add_diagnosis %}
+  <div class="card-footer bg-info-subtle py-2 small">
+    {% for issue in dx_prompts %}<div class="d-flex flex-wrap align-items-center gap-2"><i class="bi bi-clipboard2-check"></i> <strong>{{ issue.title }}.</strong> <span class="text-body-secondary">{{ issue.description|truncatechars:160 }}</span>
+      <a class="btn btn-sm btn-primary ms-auto" href="{% url 'clinical:diagnosis_add' patient.pk %}">Record diagnosis</a></div>{% endfor %}
+  </div>{% endif %}
 </div>

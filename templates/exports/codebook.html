@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Codebook{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Codebook (data dictionary)</h1><div class="small text-body-secondary">Generated from the system itself: every dataset, variable, label, type, unit and code, as in the exports{% if deidentified %} (de-identified variables only){% endif %}.</div></div>
+  <a class="btn btn-outline-secondary" href="{% url 'exports:list' %}"><i class="bi bi-cloud-arrow-down"></i> Data exports</a>
+</div>
+<form class="card card-body shadow-sm mb-3 py-2" method="get"><div class="row g-2 align-items-end">
+  <div class="col-md-6"><label class="form-label small mb-0">Dataset</label><select class="form-select form-select-sm" name="dataset"><option value="">All datasets</option>{% regroup datasets by group as groups %}{% for g in groups %}<optgroup label="{{ g.grouper }}">{% for d in g.list %}<option value="{{ d.key }}" {% if key == d.key %}selected{% endif %}>{{ d.label }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+  <div class="col-md-auto d-flex gap-2"><button class="btn btn-sm btn-primary">Show</button>
+    <button class="btn btn-sm btn-outline-secondary" name="format" value="xlsx"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+    <button class="btn btn-sm btn-outline-secondary" name="format" value="pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+    <button class="btn btn-sm btn-outline-secondary" name="format" value="csv"><i class="bi bi-filetype-csv"></i> CSV</button></div>
+</div></form>
+<div class="card shadow-sm"><div class="card-body">{% include body_template %}</div></div>
+{% endblock %}

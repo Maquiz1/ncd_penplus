@@ -1,0 +1,7 @@
+<form class="card card-body shadow-sm mb-3 d-print-none" method="get"><div class="row g-2 align-items-end">
+  {% if year %}<div class="col-sm-3"><label class="form-label">Year</label><select class="form-select" name="year">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></div>
+  {% else %}<div class="col-sm-3"><label class="form-label">As of</label><input class="form-control" type="date" name="date" value="{{ date|date:'Y-m-d' }}"></div>{% endif %}
+  <div class="col-sm-5"><label class="form-label">PEN-Plus clinic</label><select class="form-select" name="facility"><option value="">All clinics in my scope</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-sm-2 d-grid"><button class="btn btn-primary">Show</button></div>
+  <div class="col-sm-2 d-grid"><a class="btn btn-outline-secondary" href="?{% if year %}year={{ year }}{% else %}date={{ date|date:'Y-m-d' }}{% endif %}{% if facility %}&facility={{ facility.pk }}{% endif %}&format=csv"><i class="bi bi-download"></i> Excel (CSV)</a></div>
+</div></form>

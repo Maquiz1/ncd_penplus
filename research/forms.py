@@ -13,6 +13,11 @@ class StudyForm(BootstrapModelForm):
                   'eligibility_criteria', 'description']
         widgets = {'diseases': forms.CheckboxSelectMultiple}
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from clinical.models import Disease
+        self.fields['diseases'].queryset = Disease.objects.filter(is_active=True)
+
 
 class EligibilityForm(PatientChildForm):
     class Meta:

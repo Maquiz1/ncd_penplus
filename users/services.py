@@ -1,13 +1,14 @@
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
+from notifications.email import send_logged_email, site_url
 
-def send_activation_email(user):
+
+def send_activation_email(user, sent_by=None):
     """Email the system URL and a single-use, time-limited set-password link.
 
     No password is ever generated or sent; the account has an unusable password
@@ -16,19 +17,17 @@ def send_activation_email(user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     path = reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+    base_url = site_url()
     context = {
         'user': user,
         'site_name': settings.SITE_NAME,
-        'site_url': settings.SITE_URL,
-        'activation_url': f'{settings.SITE_URL}{path}',
+        'site_url': base_url,
+        'activation_url': f'{base_url}{path}',
         'valid_days': settings.PASSWORD_RESET_TIMEOUT // 86400,
     }
-    send_mail(
-        subject=f'Your {settings.SITE_NAME} account',
-        message=render_to_string('users/activation_email.txt', context),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-    )
+    send_logged_email(user.email, f'Your {settings.SITE_NAME} account',
+                      render_to_string('users/activation_email.txt', context),
+                      purpose='activation', user=user, sent_by=sent_by)
 
 
 def pending_activation(users, migrated_only=False):
@@ -59,7 +58,7 @@ def send_bulk_activation(users, actor=None, request=None):
     for user in users:
         try:
             validate_email(user.email)
-            send_activation_email(user)
+            send_activation_email(user, sent_by=actor)
         except ValidationError:
             failed.append((user, 'invalid email address'))
             continue

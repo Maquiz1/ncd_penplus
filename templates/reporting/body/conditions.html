@@ -1,0 +1,23 @@
+{% load ncd %}{% if not data %}<p class="text-body-secondary">No active disease selected.</p>{% else %}
+<p class="small text-body-secondary mb-2">{{ disease.name }}: {{ data.patients_total }} patient{{ data.patients_total|pluralize }} enrolled in care up to {{ filters.end|date:"d M Y" }}. Sub-types count under their main condition; a patient with several conditions is counted in each{% if data.multi %} ({{ data.multi }} patients have more than one){% endif %}. “New in period” = first diagnosis date within the period.</p>
+<div class="card shadow-sm mb-3"><div class="table-responsive"><table class="table table-sm table-hover table-bordered mb-0">
+  <thead class="table-light"><tr><th rowspan="2">Condition</th><th rowspan="2" class="text-end">Patients</th><th rowspan="2" class="text-end">Active</th><th rowspan="2" class="text-end">New in period</th>
+    {% if data.sites|length > 1 %}<th colspan="{{ data.sites|length }}" class="text-center">By site</th>{% endif %}<th colspan="2" class="text-center">Sex</th><th colspan="{{ data.age_labels|length }}" class="text-center">Age (years)</th></tr>
+    <tr>{% if data.sites|length > 1 %}{% for s in data.sites %}<th class="text-end small">{{ s.name|truncatechars:22 }}</th>{% endfor %}{% endif %}<th class="text-end">M</th><th class="text-end">F</th>{% for a in data.age_labels %}<th class="text-end">{{ a }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for g in data.rows %}<tr class="{% if data.selected.code == g.code %}table-primary{% endif %}">
+    <td><a href="?{{ filters.querystring }}&disease={{ disease.code }}&condition={{ g.code }}#patients">{{ g.label }}</a></td>
+    <td class="text-end fw-semibold">{{ g.total }}</td><td class="text-end">{{ g.active }}</td><td class="text-end">{{ g.new }}</td>
+    {% if data.sites|length > 1 %}{% for n in g.site_counts %}<td class="text-end">{{ n }}</td>{% endfor %}{% endif %}
+    <td class="text-end">{{ g.sex|get_item:'male'|default:0 }}</td><td class="text-end">{{ g.sex|get_item:'female'|default:0 }}</td>
+    {% for n in g.age_counts %}<td class="text-end">{{ n }}</td>{% endfor %}</tr>
+  {% empty %}<tr><td colspan="20" class="text-center text-body-secondary py-3">No patients.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if data.selected %}{% with g=data.selected %}
+<h2 class="h5" id="patients">{{ g.label }} – {{ g.total }} patient{{ g.total|pluralize }}</h2>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
+  <thead class="table-light"><tr><th>Patient</th><th>Name</th><th>Sex</th><th class="text-end">Age</th><th>Site</th><th>Sub-type(s)</th><th>First diagnosed</th><th>Care status</th></tr></thead>
+  <tbody>{% for r in g.patients %}<tr><td><a href="{{ r.patient.get_absolute_url }}">{{ r.patient.patient_number }}</a></td><td>{% patient_name r.patient %}</td><td>{{ r.patient.get_sex_display }}</td><td class="text-end">{{ r.age|default_if_none:"—" }}</td><td>{{ r.patient.current_facility.name }}</td>
+    <td class="small">{{ r.subtypes|join:", "|default:"—" }}</td><td>{{ r.first|date:"d M Y"|default:"—" }}</td><td>{% status_badge r.status %}</td></tr>{% endfor %}</tbody>
+</table></div></div>{% endwith %}
+{% else %}<p class="small text-body-secondary d-print-none">Click a condition to list its patients.</p>{% endif %}
+{% endif %}

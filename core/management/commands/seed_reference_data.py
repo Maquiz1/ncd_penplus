@@ -123,7 +123,7 @@ class Command(BaseCommand):
                 'name': name, 'district': districts[district], 'facility_type': kind, 'is_research_site': research})
         diseases = {}
         for code, name in DISEASES:
-            diseases[code], _ = Disease.objects.get_or_create(code=code, defaults={'name': name})
+            diseases[code], _ = Disease.all_objects.get_or_create(code=code, defaults={'name': name})
         for code, name, disease in PROGRAMMES:
             ClinicalProgramme.objects.get_or_create(code=code, defaults={'name': name, 'disease': diseases[disease]})
         for code, name, specimen, unit, ref in LAB_TESTS:

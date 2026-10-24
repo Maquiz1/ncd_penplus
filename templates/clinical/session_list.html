@@ -10,7 +10,7 @@
   <thead class="table-light"><tr><th>Date</th><th>Session</th><th>Place</th><th>Source</th><th>Facility</th><th>Diseases</th><th class="text-end">People</th><th class="text-end">Positive</th><th></th></tr></thead>
   <tbody>{% for s in object_list %}<tr>
     <td>{{ s.session_date|date:"d M Y" }}</td><td><a href="{{ s.get_absolute_url }}" class="fw-semibold">{{ s.name }}</a>{% if s.is_closed %} <span class="badge text-bg-secondary">Closed</span>{% endif %}</td>
-    <td>{{ s.place_name }}{% if s.ward %}, {{ s.ward }}{% endif %}</td><td>{{ s.get_source_display }}</td><td>{{ s.facility }}</td>
+    <td>{{ s.place_name }}{% if s.ward %}, {{ s.ward.name }}{% endif %}</td><td>{{ s.get_source_display }}</td><td>{{ s.facility }}</td>
     <td class="small">{{ s.diseases.all|join:", " }}</td><td class="text-end">{{ s.people }}</td><td class="text-end">{{ s.positives }}</td>
     <td class="text-end">{% if not s.is_closed and perms.clinical.add_screening and can_view_identity %}<a class="btn btn-sm btn-success" href="{% url 'clinical:session_screen' s.pk %}"><i class="bi bi-person-plus"></i> Screen</a>{% endif %}</td></tr>
   {% empty %}<tr><td colspan="9" class="text-center text-body-secondary py-4">No sessions yet.</td></tr>{% endfor %}</tbody>

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Reports &amp; indicators</h1>
+<p class="text-body-secondary small">All figures are limited to your access scope and to <strong>active</strong> diseases. Every report can be filtered by zone, region, district, site, period and disease, and downloaded as PDF (most also as CSV). Socio-economic results are under Sociodemographic indicators.</p>
+<h2 class="h6 text-uppercase text-body-secondary">Reports</h2>
+<div class="row g-3 mb-4">
+  <div class="col-md-6 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'reporting:recruitment' %}"><div class="card-body"><i class="bi bi-person-lines-fill fs-3 text-primary"></i><h3 class="h6 mt-2">Recruitment status by site</h3><p class="small text-body-secondary mb-0">Registered, screened, eligible, enrolled by disease, ended and active – per site.</p></div></a></div>
+  <div class="col-md-6 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'reporting:conditions' %}"><div class="card-body"><i class="bi bi-diagram-3 fs-3 text-primary"></i><h3 class="h6 mt-2">Patients by condition</h3><p class="small text-body-secondary mb-0">Cardiomyopathy, RHD, CHD … (and diabetes, SCD types) by site, sex and age, with patient lists.</p></div></a></div>
+  <div class="col-md-6 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'reporting:trends' %}"><div class="card-body"><i class="bi bi-activity fs-3 text-primary"></i><h3 class="h6 mt-2">Vital signs &amp; HbA1c trends</h3><p class="small text-body-secondary mb-0">Monthly BP control, HbA1c and glucose.</p></div></a></div>
+  <div class="col-md-6 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'reporting:study_progress' %}"><div class="card-body"><i class="bi bi-graph-up-arrow fs-3 text-primary"></i><h3 class="h6 mt-2">Study progress</h3><p class="small text-body-secondary mb-0">Eligibility, consent, enrollment, retention and outcomes by site and month.</p></div></a></div>
+  <div class="col-md-6 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'reporting:follow_up' %}"><div class="card-body"><i class="bi bi-calendar2-check fs-3 text-primary"></i><h3 class="h6 mt-2">Follow-up &amp; retention</h3><p class="small text-body-secondary mb-0">Visits due, attended and missed each month; LTFU, returns and deaths.</p></div></a></div>
+  <div class="col-md-6 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'reporting:report' %}"><div class="card-body"><i class="bi bi-bar-chart-line fs-3 text-primary"></i><h3 class="h6 mt-2">Period summary</h3><p class="small text-body-secondary mb-0">Enrollments, screening, transfers, labs and medicines for any period.</p></div></a></div>
+  <div class="col-md-6 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'reporting:data_quality' %}"><div class="card-body"><i class="bi bi-clipboard-data fs-3 text-primary"></i><h3 class="h6 mt-2">Data quality</h3><p class="small text-body-secondary mb-0">Open and resolved data issues by category and type.</p></div></a></div>
+</div>
+<h2 class="h6 text-uppercase text-body-secondary">PEN-Plus indicators</h2>
+<div class="row g-3">
+  <div class="col-md-4"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'indicators:quarterly' %}"><div class="card-body"><i class="bi bi-table fs-3 text-primary"></i><h3 class="h6 mt-2">Quarterly core indicators (PP0–PP14)</h3><p class="small text-body-secondary mb-0">The PEN-Plus quarterly reporting form, calculated per clinic: Q1–Q4 and year to date, with export.</p></div></a></div>
+  <div class="col-md-4"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'indicators:clinical' %}"><div class="card-body"><i class="bi bi-heart-pulse fs-3 text-primary"></i><h3 class="h6 mt-2">Clinical indicators</h3><p class="small text-body-secondary mb-0">NOP Tanzania 2024 quality-of-care indicators for each active disease.</p></div></a></div>
+  <div class="col-md-4"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'indicators:socio' %}"><div class="card-body"><i class="bi bi-people fs-3 text-primary"></i><h3 class="h6 mt-2">Sociodemographic indicators</h3><p class="small text-body-secondary mb-0">School attendance, food insecurity, distance, transport cost and social support.</p></div></a></div>
+</div>
+{% endblock %}

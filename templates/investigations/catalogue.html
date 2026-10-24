@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Investigation catalogue{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Investigation catalogue</h1><div class="small text-body-secondary">ECG, echo, imaging and other procedures staff can request, with their structured report fields and the stock each one uses.</div></div>
+  {% if perms.investigations.add_investigationtype %}<a class="btn btn-primary" href="{% url 'investigations:type_create' %}"><i class="bi bi-plus-lg"></i> Add investigation</a>{% endif %}
+</div>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Investigation</th><th>Modality</th><th>Report fields</th><th>Consumables per test</th><th>Status</th></tr></thead>
+  <tbody>{% for t in object_list %}<tr><td><a href="{% url 'investigations:type_detail' t.pk %}">{{ t.name }}</a><div class="small text-body-secondary">{{ t.code }}</div></td><td>{{ t.get_modality_display }}</td>
+    <td class="small">{{ t.fields.all|length }}</td>
+    <td class="small">{% for c in t.consumables.all %}{% if c.is_active %}{{ c.quantity }} × {{ c.item }}{% if not forloop.last %}<br>{% endif %}{% endif %}{% empty %}—{% endfor %}</td>
+    <td>{% if t.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="text-center text-body-secondary py-4">No investigations yet. Run <code>manage.py setup_penplus</code>.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

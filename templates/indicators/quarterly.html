@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}PEN-Plus core indicators{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+  <div><h1 class="h3 mb-0">PEN-Plus core indicators {{ year }}</h1>
+  <div class="small text-body-secondary">Quarterly reporting form (clinical data reporting) · {{ facility|default:"All clinics in my scope" }} · active diseases: {{ active_diseases|join:", " }} · generated {{ generated|date:"d M Y H:i" }}</div></div>
+  <button class="btn btn-outline-secondary d-print-none" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+</div>
+{% include "indicators/_filters.html" %}
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Code</th><th>Indicator</th>{% for q, s, e in quarters %}<th class="text-end">Q{{ q }}<div class="small fw-normal text-body-secondary">{{ s|date:"M" }}–{{ e|date:"M" }}</div></th>{% endfor %}<th class="text-end">YTD</th></tr></thead>
+  <tbody>{% for row, cells, ytd in table %}
+    {% if row.code == 'C1' %}<tr class="table-secondary"><th colspan="7">Calculated indicators</th></tr>{% endif %}
+    <tr class="{% if row.indent == 0 and row.kind != 'pct' %}fw-semibold{% endif %}">
+      <td class="small text-body-secondary text-nowrap">{% if row.indent == 0 %}{{ row.code }}{% endif %}</td>
+      <td class="{% if row.indent %}ps-4 small{% endif %}">{{ row.label }}{% if row.note %} <i class="bi bi-info-circle text-body-secondary" title="{{ row.note }}"></i>{% endif %}</td>
+      {% for c in cells %}<td class="text-end">{% if c is None %}<span class="text-body-secondary">–</span>
+        {% elif row.kind == 'pct' %}{% if c.pct is not None %}{{ c.pct }}%<div class="small text-body-secondary">{{ c.n }}/{{ c.den }}</div>{% else %}<span class="text-body-secondary">n/a</span>{% endif %}
+        {% else %}<a class="text-decoration-none" href="{% url 'indicators:drill' %}?source=core&code={{ row.code }}&year={{ year }}&q={{ forloop.counter }}{% if facility %}&facility={{ facility.pk }}{% endif %}">{{ c.n }}</a>{% endif %}</td>{% endfor %}
+      <td class="text-end fw-semibold">{% if ytd is None %}–{% elif row.kind == 'pct' %}{% if ytd.pct is not None %}{{ ytd.pct }}%{% else %}n/a{% endif %}{% else %}{{ ytd.n }}{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+</table></div></div>
+<p class="small text-body-secondary mt-2">Counts are patients unless stated (PP11–PP14 count tests). Stock indicators (e.g. active) are at the end of each quarter, or today for the current quarter; flow indicators (new, LTFU, deaths) are within the quarter. YTD = sum for flows, latest quarter for stocks. Click a number to see the patients. Health-system indicators (PPF1–PPF6: training, mentorship, stock-outs) come in the next phase.</p>
+{% endblock %}

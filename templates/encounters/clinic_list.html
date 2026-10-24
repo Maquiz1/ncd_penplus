@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Clinic days{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Clinic days</h1>
+  {% if perms.encounters.add_clinicsession %}<a class="btn btn-primary" href="{% url 'encounters:clinic_create' %}"><i class="bi bi-plus"></i> New clinic day</a>{% endif %}
+</div>
+<p class="small text-body-secondary">A clinic day (or week) brings a group of patients to the facility on a common date, for example when specialists visit. Appointments are created for every eligible patient and each one is invited by SMS.</p>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Date(s)</th><th>Clinic</th><th>Facility</th><th>Programmes</th><th class="text-end">Booked</th><th class="text-end">Attended</th><th>Status</th></tr></thead>
+  <tbody>{% for s in object_list %}<tr>
+    <td class="text-nowrap">{{ s.start_date|date:"D d M Y" }}{% if s.end_date and s.end_date != s.start_date %} – {{ s.end_date|date:"d M" }}{% endif %}</td>
+    <td><a class="fw-semibold" href="{{ s.get_absolute_url }}">{{ s.name }}</a>{% if s.team %}<div class="small text-body-secondary">{{ s.team }}</div>{% endif %}</td>
+    <td>{{ s.facility }}</td><td class="small">{{ s.programmes.all|join:", "|default:"All programmes" }}</td>
+    <td class="text-end">{{ s.booked }}</td><td class="text-end">{{ s.attended }}</td><td>{% status_badge s.status s.get_status_display %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No clinic days yet.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

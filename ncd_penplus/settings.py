@@ -59,19 +59,27 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'django_celery_beat',
     'core',
     'users',
     'facilities',
     'audit',
     'patients',
     'clinical',
+    'diseases',
     'research',
     'encounters',
     'crf',
     'laboratory',
+    'investigations',
+    'records',
+    'exports',
     'pharmacy',
     'integrations',
+    'issues',
+    'notifications',
     'reporting',
+    'indicators',
 ]
 
 MIDDLEWARE = [
@@ -157,6 +165,8 @@ MEDIA_URL = '/protected-media/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
 
+AUTHENTICATION_BACKENDS = ['users.backends.AccessBackend']
+
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
@@ -164,13 +174,25 @@ LOGOUT_REDIRECT_URL = 'login'
 # Activation and password-reset links expire after 3 days.
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 24 * 3
 
-EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+# Local default: emails are written as files to sent_emails/ (nothing is delivered).
+# Production: DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend with the SMTP settings below.
+# The site address and sender can be overridden in the app (Administration → Email settings).
+EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.filebased.EmailBackend')
+EMAIL_FILE_PATH = str(BASE_DIR / os.environ.get('EMAIL_FILE_PATH', 'sent_emails'))  # relative to the project
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', False)
+EMAIL_USE_SSL = env_bool('EMAIL_USE_SSL', False)
+EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '15'))
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'NCD System <no-reply@nimr.or.tz>')
+
+# Data exports: private folder (never served as static/media); files are removed after the retention period.
+EXPORT_ROOT = BASE_DIR / os.environ.get('EXPORT_ROOT', 'private_exports')
+EXPORT_RETENTION_DAYS = int(os.environ.get('EXPORT_RETENTION_DAYS', '7'))
+# How exports run: celery (production, needs the worker), thread (local development) or inline (tests).
+EXPORT_RUNNER = os.environ.get('EXPORT_RUNNER', 'thread' if DEBUG else 'celery')
 
 # Previous PEN-Plus EDCS (PHP/MySQL) used by `manage.py import_penplus_edcs` (read-only).
 LEGACY_EDCS = {
@@ -180,6 +202,36 @@ LEGACY_EDCS = {
     'password': os.environ.get('EDCS_DB_PASSWORD', ''),
     'database': os.environ.get('EDCS_DB_NAME', 'penplus'),
 }
+
+# Programme rule: a patient in care with no attended visit for this many months after the last attended
+# visit is defaulted / lost to follow-up (applied daily by `manage.py apply_ltfu_rule`).
+LTFU_MONTHS = int(os.environ.get('LTFU_MONTHS', '3'))
+
+# Celery: background jobs (SMS, LTFU rule, data-quality checks, monthly report). Redis is the broker; the
+# schedules live in the database (django-celery-beat) and are edited in Django admin → Periodic tasks.
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/1')
+CELERY_RESULT_BACKEND = None
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ALWAYS_EAGER = env_bool('CELERY_TASK_ALWAYS_EAGER', False)
+DJANGO_CELERY_BEAT_TZ_AWARE = True
+
+# SMS gateway: console (log only, default), beem or africastalking. Credentials come from .env.
+SMS_BACKEND = os.environ.get('SMS_BACKEND', 'console')
+SMS_SENDER_ID = os.environ.get('SMS_SENDER_ID', '')
+SMS_DEFAULT_CONTACT = os.environ.get('SMS_DEFAULT_CONTACT', '')
+BEEM_API_KEY = os.environ.get('BEEM_API_KEY', '')
+BEEM_SECRET_KEY = os.environ.get('BEEM_SECRET_KEY', '')
+AFRICASTALKING_USERNAME = os.environ.get('AFRICASTALKING_USERNAME', '')
+AFRICASTALKING_API_KEY = os.environ.get('AFRICASTALKING_API_KEY', '')
+SMS_REMINDER_TEMPLATE = os.environ.get(
+    'SMS_REMINDER_TEMPLATE',
+    'Habari. Unakumbushwa kuhudhuria kliniki ya {facility} {when}, tarehe {date}. Kwa msaada piga {contact}.')
 
 # MySQL cannot create partial ("one open record per patient") unique constraints. Those rules are also
 # enforced in model validation and in the services that change them (enrollments, facility transfers).

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import District, Facility, Region, StaffAssignment, Ward, Zone
+from .models import District, Facility, Region, StaffAssignment, Street, Ward, Zone
 
 
 @admin.register(Zone)
@@ -25,9 +25,16 @@ class DistrictAdmin(admin.ModelAdmin):
 
 @admin.register(Ward)
 class WardAdmin(admin.ModelAdmin):
-    list_display = ('name', 'district')
-    list_filter = ('district',)
-    search_fields = ('name',)
+    list_display = ('name', 'code', 'district')
+    list_filter = ('district__region',)
+    search_fields = ('name', 'district__name')
+
+
+@admin.register(Street)
+class StreetAdmin(admin.ModelAdmin):
+    list_display = ('name', 'ward', 'code')
+    search_fields = ('name', 'ward__name')
+    autocomplete_fields = ('ward',)
 
 
 @admin.register(Facility)
