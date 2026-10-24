@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Admission, Appointment, Encounter, FollowUpPlan, Vitals
+from .models import Admission, Appointment, ClinicSession, Encounter, FollowUpPlan, Vitals
 
 
 @admin.register(Appointment)
@@ -18,3 +18,4 @@ class EncounterAdmin(admin.ModelAdmin):
 admin.site.register(FollowUpPlan)
 admin.site.register(Vitals)
 admin.site.register(Admission)
+admin.site.register(ClinicSession)

@@ -44,8 +44,8 @@
           {% if can_view_identity %}
           <dt class="col-5">Full name</dt><dd class="col-7">{{ patient.full_name }}</dd>
           <dt class="col-5">Date of birth</dt><dd class="col-7">{{ patient.date_of_birth|date:"d M Y" }}{% if patient.dob_estimated %} (estimated){% endif %}</dd>
-          <dt class="col-5">Phone</dt><dd class="col-7">{{ patient.phone|default:"—" }}{% if patient.alternate_phone %} / {{ patient.alternate_phone }}{% endif %} {% if patient.sms_consent %}<span class="badge text-bg-light">SMS OK</span>{% endif %}</dd>
-          <dt class="col-5">Residence</dt><dd class="col-7">{{ patient.address|default:"—" }}{% if patient.residence_ward %}, {{ patient.residence_ward.name }} ward{% endif %}{% if patient.residence_district %}, {{ patient.residence_district }}{% endif %}</dd>
+          <dt class="col-5">Phone</dt><dd class="col-7">{{ patient.phone|default:"—" }}{% if patient.alternate_phone %} / {{ patient.alternate_phone }}{% endif %} {% if patient.sms_consent is True %}<span class="badge text-bg-light">SMS OK</span>{% elif patient.sms_consent is False %}<span class="badge text-bg-light">SMS declined</span>{% else %}<span class="badge text-bg-warning">SMS consent not asked</span>{% endif %}</dd>
+          <dt class="col-5">Residence</dt><dd class="col-7">{% if patient.residence_street %}{{ patient.residence_street.name }}, {% endif %}{% if patient.residence_ward %}{{ patient.residence_ward.name }} ward, {% endif %}{% if patient.residence_district %}{{ patient.residence_district.name }} district, {{ patient.residence_district.region.name }}{% else %}—{% endif %}{% if patient.address %}<div class="small text-body-secondary">{{ patient.address }}</div>{% endif %}</dd>
           <dt class="col-5">Next of kin</dt><dd class="col-7">{{ patient.next_of_kin_name|default:"—" }} {{ patient.next_of_kin_phone }}</dd>
           {% else %}
           <dt class="col-5">Identity</dt><dd class="col-7"><span class="text-body-secondary fst-italic">Restricted for your role</span></dd>
@@ -108,8 +108,20 @@
     </table></div></div>
     <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Clinical programme enrollments</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>Programme</th><th>Facility</th><th>Enrolled</th><th>Status</th><th>Outcome</th><th></th></tr></thead>
-      <tbody>{% for e in programme_enrollments %}<tr><td>{{ e.programme }}</td><td>{{ e.facility }}</td><td>{{ e.enrollment_date|date:"d M Y" }}</td><td>{% status_badge e.status e.get_status_display %}</td><td>{% if e.outcome_date %}{{ e.outcome_date|date:"d M Y" }} – {{ e.outcome_reason }}{% endif %}</td><td>{% if perms.clinical.change_programmeenrollment %}<a href="{% url 'clinical:enrollment_update' e.pk %}">Update</a>{% endif %}</td></tr>
+      <tbody>{% for e in programme_enrollments %}<tr><td>{{ e.programme }}</td><td>{{ e.facility }}</td><td>{{ e.enrollment_date|date:"d M Y" }}</td><td>{% status_badge e.status e.get_status_display %}</td><td>{% if e.outcome_date %}{{ e.outcome_date|date:"d M Y" }} – {{ e.outcome_reason }}{% endif %}</td><td class="text-nowrap">{% if perms.clinical.change_programmeenrollment %}<a href="{% url 'clinical:enrollment_update' e.pk %}">Update</a>
+        {% if e.status in returnable_statuses and not patient.is_deceased %} · <a class="fw-semibold" href="{% url 'clinical:enrollment_return' e.pk %}">Return to care</a>{% endif %}{% endif %}</td></tr>
+      {% if e.events.all %}<tr><td colspan="6" class="small bg-body-tertiary">History: {% for ev in e.events.all %}<span class="me-3">{{ ev.event_date|date:"d M Y" }} {{ ev.get_from_status_display|default:"—" }} → <strong>{{ ev.get_to_status_display }}</strong>{% if ev.reason %} ({{ ev.reason }}){% endif %}</span>{% endfor %}</td></tr>{% endif %}
       {% empty %}<tr><td colspan="6" class="text-body-secondary">Not enrolled in a clinical programme.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+    <div class="card shadow-sm mt-3" id="family"><div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Family / siblings (sickle cell family screening)</span>
+      {% if perms.clinical.add_familymember %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:family_add' patient.pk %}"><i class="bi bi-plus"></i> Family member</a>{% endif %}</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>Relation</th><th>Sex</th><th>Age</th><th>Alive</th><th>Sickle cell status</th><th>Tested</th><th>Referred</th><th></th></tr></thead>
+      <tbody>{% for m in family_members %}<tr><td>{{ m.get_relation_display }}</td><td>{{ m.get_sex_display|default:"—" }}</td><td>{{ m.age_years|default_if_none:"—" }}</td><td>{{ m.alive|yesno:"Yes,No,—" }}</td>
+        <td>{% if m.scd_status == 'affected' %}<span class="badge text-bg-danger">{{ m.get_scd_status_display }}</span>{% elif m.scd_status == 'carrier' %}<span class="badge text-bg-warning">{{ m.get_scd_status_display }}</span>{% else %}{{ m.get_scd_status_display }}{% endif %}</td>
+        <td>{{ m.tested|yesno:"Yes,No,—" }}{% if m.test_date %} {{ m.test_date|date:"d M Y" }}{% endif %}{% if m.test_type %} ({{ m.test_type }}){% endif %}</td><td>{{ m.referred_for_screening|yesno:"Yes,—" }}</td>
+        <td>{% if perms.clinical.change_familymember %}<a href="{% url 'clinical:family_edit' m.pk %}">Edit</a>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="8" class="text-body-secondary">No family members recorded.</td></tr>{% endfor %}</tbody>
     </table></div></div>
   </div>
 
@@ -156,7 +168,7 @@
     <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Appointments</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>Date</th><th>Type</th><th>Facility</th><th>Location</th><th>Status</th><th>Notes</th><th class="text-end">Actions</th></tr></thead>
       <tbody>{% for a in appointments %}<tr>
-        <td>{{ a.scheduled_date|date:"d M Y" }}{% if a.scheduled_time %} {{ a.scheduled_time|time:"H:i" }}{% endif %}{% if a.plan_version %} <span class="badge text-bg-light" title="Generated from schedule">v{{ a.plan_version }}#{{ a.sequence }}</span>{% endif %}</td>
+        <td>{{ a.scheduled_date|date:"d M Y" }}{% if a.scheduled_time %} {{ a.scheduled_time|time:"H:i" }}{% endif %}{% if a.plan_version %} <span class="badge text-bg-light" title="Generated from schedule">v{{ a.plan_version }}#{{ a.sequence }}</span>{% endif %}{% if a.origin == 'edcs_gap' %} <span class="badge text-bg-light" title="{{ a.get_origin_display }}">no EDCS visit</span>{% endif %}</td>
         <td>{{ a.get_stage_display }}</td><td>{{ a.facility }}</td><td>{{ a.get_location_type_display }}</td><td>{% status_badge a.status a.get_status_display %}</td><td class="small">{{ a.reason_for_change|default:a.notes }}</td>
         <td class="text-end text-nowrap">{% if a.is_open %}
           {% if perms.encounters.add_encounter %}<a class="btn btn-sm btn-success" href="{% url 'encounters:encounter_add' patient.pk %}?appointment={{ a.pk }}">Attend</a>{% endif %}
@@ -181,7 +193,7 @@
   <div class="tab-pane fade" id="labs" role="tabpanel">
     <div class="d-flex gap-2 mb-2">
       {% if perms.laboratory.add_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:lab_add' patient.pk %}"><i class="bi bi-plus"></i> Lab order</a>{% endif %}
-      {% if perms.laboratory.add_investigationorder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:investigation_add' patient.pk %}"><i class="bi bi-plus"></i> ECG / echo / imaging</a>{% endif %}
+      {% if perms.investigations.add_investigationorder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'investigations:add' patient.pk %}"><i class="bi bi-plus"></i> ECG / echo / imaging</a>{% endif %}
     </div>
     <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Laboratory</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>Ordered</th><th>Test</th><th>Status</th><th>Result</th><th>Reference</th></tr></thead>
@@ -190,10 +202,10 @@
     </table></div></div>
     <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">ECG, echocardiography and imaging</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>Requested</th><th>Type</th><th>Indication</th><th>Status</th><th>Conclusion</th><th></th></tr></thead>
-      <tbody>{% for i in investigations %}<tr><td>{{ i.requested_at|date:"d M Y" }}</td><td>{{ i.get_modality_display }}</td><td>{{ i.description }}</td><td>{% status_badge i.status i.get_status_display %}</td><td>{{ i.conclusion }}</td>
-        <td class="text-nowrap">{% if i.attachment %}<a href="{% url 'laboratory:investigation_attachment' i.pk %}"><i class="bi bi-paperclip"></i> Report</a>{% endif %}
-        {% if i.status != 'reviewed' and i.status != 'cancelled' and perms.laboratory.change_investigationorder %}<a href="{% url 'laboratory:investigation_report' i.pk %}" class="ms-2">Enter report</a>{% endif %}
-        {% if i.status == 'completed' and perms.laboratory.review_laborder %}<form method="post" action="{% url 'laboratory:investigation_review' i.pk %}" class="d-inline ms-2">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}#labs"><button class="btn btn-sm btn-outline-success">Mark reviewed</button></form>{% endif %}</td></tr>
+      <tbody>{% for i in investigations %}<tr><td>{{ i.requested_at|date:"d M Y" }}</td><td><a href="{% url 'investigations:detail' i.pk %}">{{ i.name }}</a></td><td>{{ i.description }}</td><td>{% status_badge i.status i.get_status_display %}{% if i.is_abnormal %} <span class="badge text-bg-danger">Abnormal</span>{% endif %}</td><td>{{ i.conclusion }}</td>
+        <td class="text-nowrap">{% if i.attachment %}<a href="{% url 'investigations:attachment' i.pk %}"><i class="bi bi-paperclip"></i> Report</a>{% endif %}
+        {% if i.status != 'reviewed' and i.status != 'cancelled' and perms.investigations.change_investigationorder %}<a href="{% url 'investigations:report' i.pk %}" class="ms-2">Enter report</a>{% endif %}
+        {% if i.status == 'completed' and perms.investigations.review_investigationorder %}<form method="post" action="{% url 'investigations:review' i.pk %}" class="d-inline ms-2">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}#labs"><button class="btn btn-sm btn-outline-success">Mark reviewed</button></form>{% endif %}</td></tr>
       {% empty %}<tr><td colspan="6" class="text-body-secondary">No investigations.</td></tr>{% endfor %}</tbody>
     </table></div></div>
   </div>

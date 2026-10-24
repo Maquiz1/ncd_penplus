@@ -15,3 +15,6 @@ body { background-color: var(--bs-body-bg); }
 .dl-compact dt { font-weight: 500; color: var(--bs-secondary-color); }
 .dl-compact dd { margin-bottom: .4rem; }
 [data-show-if].is-hidden { display: none; }
+
+.ts-wrapper.form-select, .ts-wrapper.form-control { padding: 0; }
+.ts-wrapper .ts-control { min-height: calc(1.5em + .75rem + 2px); }

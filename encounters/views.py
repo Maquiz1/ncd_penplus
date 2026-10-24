@@ -2,6 +2,7 @@ import datetime
 
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -10,12 +11,13 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from audit.models import AuditEvent
 from audit.services import log_event
-from core.mixins import PatientChildCreateMixin, PatientChildUpdateMixin, ScopedQuerysetMixin
+from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientChildUpdateMixin,
+                         ScopedQuerysetMixin)
 from facilities.scope import facilities_for_user, scope_queryset
 
-from .forms import (AdmissionForm, AppointmentForm, AppointmentStatusForm, DischargeForm, EncounterForm,
-                    FollowUpPlanForm, VitalsForm)
-from .models import Admission, Appointment, Encounter, FollowUpPlan, Vitals
+from .forms import (AdmissionForm, AppointmentForm, AppointmentStatusForm, ClinicSessionForm, DischargeForm,
+                    EncounterForm, FollowUpPlanForm, VitalsForm)
+from .models import Admission, Appointment, ClinicSession, Encounter, FollowUpPlan, Vitals
 from .services import generate_visits, revise_plan
 
 
@@ -132,6 +134,12 @@ class EncounterCreateView(PatientChildCreateMixin, CreateView):
     def form_valid(self, form):
         form.instance.staff = self.request.user
         response = super().form_valid(form)
+        from clinical.services import return_on_attendance
+        returned = return_on_attendance(self.patient, timezone.localtime(self.object.encounter_date).date(),
+                                        self.request.user, self.request)
+        if returned:
+            messages.info(self.request, 'Returned to care: ' + ', '.join(str(e.programme) for e in returned)
+                          + ' (the patient was lost to follow-up).')
         appointment = self.object.appointment
         if appointment and appointment.status != 'attended':
             old = appointment.status
@@ -289,3 +297,111 @@ class AdmissionDischargeView(PatientChildUpdateMixin, UpdateView):
 
     def get_initial(self):
         return {'discharged_at': timezone.now()}
+
+
+# ---------------------------------------------------------------- clinic days
+
+def scoped_sessions(user):
+    return scope_queryset(ClinicSession.objects.all(), user, 'facility')
+
+
+class ClinicSessionListView(PermissionRequiredMixin, ListView):
+    permission_required = 'encounters.view_clinicsession'
+    template_name = 'encounters/clinic_list.html'
+    paginate_by = 25
+
+    def get_queryset(self):
+        from django.db.models import Count, Q
+        return (scoped_sessions(self.request.user).select_related('facility').prefetch_related('programmes')
+                .annotate(booked=Count('appointments', distinct=True),
+                          attended=Count('appointments', filter=Q(appointments__status='attended'), distinct=True)))
+
+
+class ClinicSessionCreateView(PermissionRequiredMixin, AuditedCreateMixin, CreateView):
+    permission_required = 'encounters.add_clinicsession'
+    model = ClinicSession
+    form_class = ClinicSessionForm
+    template_name = 'generic_form.html'
+    extra_context = {'title': 'New clinic day',
+                     'subtitle': 'Schedule a group of patients for a PEN-Plus / specialist clinic and invite them by SMS.'}
+    success_message = 'Clinic day saved. Check the preview, then schedule the appointments.'
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), 'user': self.request.user}
+
+    def get_initial(self):
+        from django.conf import settings
+        from facilities.scope import default_facility
+        return {'facility': default_facility(self.request.user), 'contact_phone': settings.SMS_DEFAULT_CONTACT}
+
+
+class ClinicSessionUpdateView(PermissionRequiredMixin, AuditedUpdateMixin, UpdateView):
+    permission_required = 'encounters.change_clinicsession'
+    form_class = ClinicSessionForm
+    template_name = 'generic_form.html'
+    extra_context = {'title': 'Edit clinic day'}
+
+    def get_queryset(self):
+        return scoped_sessions(self.request.user).exclude(status='cancelled')
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), 'user': self.request.user}
+
+
+class ClinicSessionDetailView(PermissionRequiredMixin, DetailView):
+    permission_required = 'encounters.view_clinicsession'
+    template_name = 'encounters/clinic_detail.html'
+
+    def get_queryset(self):
+        return scoped_sessions(self.request.user).select_related('facility')
+
+    def get_context_data(self, **kwargs):
+        from django.db.models import Count
+        from encounters.clinic import preview
+        session = self.object
+        appointments = session.appointments.select_related('patient').order_by('scheduled_date', 'patient__patient_number')
+        latest_sms = {}
+        for message in session.sms_messages.order_by('created_at'):
+            latest_sms[message.appointment_id] = message
+        rows = [(a, latest_sms.get(a.pk)) for a in appointments]
+        return super().get_context_data(
+            preview=preview(session) if session.status == 'draft' else None, rows=rows,
+            attendance=dict(appointments.values_list('status').annotate(n=Count('id'))),
+            sms_counts=dict(session.sms_messages.values_list('status').annotate(n=Count('id'))),
+            sample_sms=session.render_sms(session.start_date), **kwargs)
+
+
+class ClinicSessionActionView(PermissionRequiredMixin, View):
+    permission_required = 'encounters.change_clinicsession'
+
+    def post(self, request, pk, action):
+        from encounters import clinic
+        session = get_object_or_404(scoped_sessions(request.user), pk=pk)
+        if session.status == 'cancelled':
+            messages.error(request, 'This clinic day was cancelled.')
+        elif action == 'schedule':
+            counts = clinic.schedule(session, request.user, request)
+            messages.success(request, 'Appointments: ' + ', '.join(f'{v} {k}' for k, v in counts.items()) if counts
+                             else 'No eligible patients found.')
+        elif action == 'sms':
+            if not request.user.has_perm('notifications.add_smsmessage'):
+                raise PermissionDenied
+            reasons, sent = clinic.send_invitations(session, request.user, request)
+            messages.success(request, f'SMS: {reasons.get("queued", 0)} queued, {sent["sent"]} sent, '
+                                      f'{sent["failed"]} failed.')
+            skipped = {k: v for k, v in reasons.items() if k != 'queued'}
+            if skipped:
+                messages.warning(request, 'Not sent: ' + ', '.join(f'{v} {k}' for k, v in skipped.items()))
+        elif action == 'close':
+            count = clinic.close_attendance(session, request.user, request)
+            messages.success(request, f'{count} patient(s) who did not attend were marked missed.')
+        elif action == 'cancel':
+            reason = request.POST.get('reason', '').strip()
+            if not reason:
+                messages.error(request, 'Give the reason for cancelling the clinic day.')
+            else:
+                count = clinic.cancel(session, request.user, reason, request)
+                messages.success(request, f'Clinic day cancelled; {count} appointment(s) cancelled.')
+        else:
+            raise PermissionDenied
+        return redirect(session.get_absolute_url())

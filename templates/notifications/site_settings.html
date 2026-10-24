@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Email settings{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Email settings</h1>
+  <div class="d-flex gap-2">
+    <form method="post" action="{% url 'email:test' %}">{% csrf_token %}<button class="btn btn-outline-primary" title="Sends to {{ user.email|default:'your account email' }}"><i class="bi bi-envelope-check"></i> Send me a test email</button></form>
+    {% if perms.notifications.add_siteconfiguration %}<a class="btn btn-primary" href="{% url 'email:settings_add' %}"><i class="bi bi-plus-lg"></i> Add configuration</a>{% endif %}
+  </div>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">In use now</div><div class="card-body">
+    <dl class="row mb-0 small">
+      <dt class="col-sm-4">Links point to</dt><dd class="col-sm-8">{{ site_url }}{% if not active %} <span class="text-body-secondary">(SITE_URL from .env)</span>{% endif %}</dd>
+      <dt class="col-sm-4">Sender</dt><dd class="col-sm-8">{{ sender }}{% if not active or not active.from_email %} <span class="text-body-secondary">(DEFAULT_FROM_EMAIL from .env)</span>{% endif %}</dd>
+      <dt class="col-sm-4">Source</dt><dd class="col-sm-8">{% if active %}Configuration “{{ active.name }}”{% else %}.env file – no active configuration{% endif %}</dd>
+    </dl></div></div></div>
+  <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Mail server (.env, read-only)</div><div class="card-body">
+    <dl class="row mb-0 small">
+      <dt class="col-sm-4">Backend</dt><dd class="col-sm-8"><code>{{ backend }}</code></dd>
+      {% if 'smtp' in backend %}<dt class="col-sm-4">SMTP host</dt><dd class="col-sm-8">{{ email_host }}</dd>{% endif %}
+      {% if 'filebased' in backend %}<dt class="col-sm-4">Saved to</dt><dd class="col-sm-8"><code>{{ file_path }}</code> – emails are not delivered</dd>{% endif %}
+      {% if 'console' in backend %}<dd class="col-12 text-warning-emphasis">Emails are only printed to the server console.</dd>{% endif %}
+    </dl>
+    <div class="small text-body-secondary mt-2">Server credentials stay in <code>.env</code>; change them there and restart the system and the Celery worker.</div></div></div></div>
+</div>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Name</th><th>Site address</th><th>Sender</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for c in object_list %}<tr>
+    <td>{{ c.name }}</td><td class="small">{{ c.site_url }}</td>
+    <td class="small">{% if c.from_name or c.from_email %}{{ c.from_name }} &lt;{{ c.from_email|default:"from .env" }}&gt;{% else %}<span class="text-body-secondary">from .env</span>{% endif %}</td>
+    <td>{% if c.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+    <td class="text-end text-nowrap">{% if perms.notifications.change_siteconfiguration %}
+      {% if not c.is_active %}<form class="d-inline" method="post" action="{% url 'email:settings_activate' c.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">Make active</button></form>{% endif %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'email:settings_edit' c.pk %}">Edit</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="text-center text-body-secondary py-4">No configurations yet – the .env values are used. Add one when the system gets its public address.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+<div class="mt-3"><a href="{% url 'email:log' %}"><i class="bi bi-journal-text"></i> Email log</a></div>
+{% endblock %}

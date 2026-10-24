@@ -2,7 +2,7 @@ from django import forms
 
 from core.forms import BootstrapForm, BootstrapModelForm, PatientChildForm, apply_bootstrap
 
-from .models import InvestigationOrder, LabCategory, LabOrder, LabPanel, LabTest
+from .models import LabCategory, LabOrder, LabPanel, LabTest
 
 
 class LabOrderForm(PatientChildForm):
@@ -105,20 +105,3 @@ class LabPanelForm(BootstrapModelForm):
         model = LabPanel
         fields = ['code', 'name', 'tests', 'is_active']
         widgets = {'tests': forms.CheckboxSelectMultiple}
-
-
-class InvestigationForm(PatientChildForm):
-    class Meta:
-        model = InvestigationOrder
-        fields = ['modality', 'description', 'facility', 'encounter', 'scheduled_for']
-
-
-class InvestigationReportForm(PatientChildForm):
-    class Meta:
-        model = InvestigationOrder
-        fields = ['performed_at', 'findings', 'conclusion', 'attachment']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['performed_at'].required = True
-        self.instance.status = InvestigationOrder.Status.COMPLETED

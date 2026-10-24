@@ -2,7 +2,7 @@
 {% block title %}{{ staff.username }}{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-  <div><h1 class="h3 mb-0">{{ staff.get_full_name|default:staff.username }}</h1><div class="text-body-secondary">{{ staff.username }} · {{ staff.job_title|default:"No job title" }}</div></div>
+  <div><h1 class="h3 mb-0">{{ staff.get_full_name|default:staff.username }}</h1><div class="text-body-secondary">{{ staff.username }} · {{ staff.position_label|default:"No position" }} · {{ staff.access_summary }}</div></div>
   <div class="d-flex gap-2">
     {% if perms.users.change_user %}
     <a class="btn btn-outline-secondary" href="{% url 'users:update' staff.pk %}"><i class="bi bi-pencil"></i> Edit</a>
@@ -15,11 +15,21 @@
   <div class="col-lg-5"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Account</div><div class="card-body"><dl class="row dl-compact mb-0">
     <dt class="col-5">Email</dt><dd class="col-7">{{ staff.email|default:"—" }}</dd>
     <dt class="col-5">Phone</dt><dd class="col-7">{{ staff.phone|default:"—" }}</dd>
+    <dt class="col-5">Position</dt><dd class="col-7">{{ staff.position_label|default:"—" }}</dd>
     <dt class="col-5">Roles</dt><dd class="col-7">{{ staff.groups.all|join:", "|default:"None" }}</dd>
+    <dt class="col-5">Patient identity</dt><dd class="col-7">{% if sees_identity %}<span class="badge text-bg-success">Can see</span>{% else %}<span class="badge text-bg-secondary">Hidden</span>{% endif %}
+      <div class="small text-body-secondary">{% if staff.is_superuser %}Superuser{% elif staff.identity_override %}{{ staff.get_identity_access_display }}{% if staff.identity_access_until %} until {{ staff.identity_access_until|date:"d M Y" }}{% endif %} – {{ staff.identity_access_reason }}{% else %}From the role{% endif %}</div></dd>
     <dt class="col-5">Status</dt><dd class="col-7">{{ staff.is_active|yesno:"Active,Inactive" }}{% if not staff.has_usable_password %} (password not yet set){% endif %}</dd>
     <dt class="col-5">Last login</dt><dd class="col-7">{{ staff.last_login|date:"d M Y H:i"|default:"Never" }}</dd>
     <dt class="col-5">Joined</dt><dd class="col-7">{{ staff.date_joined|date:"d M Y" }}</dd>
-  </dl></div></div></div>
+  </dl></div>
+  {% if perms.users.manage_identity_access and not staff.is_superuser %}
+  <div class="card-body border-top">
+    <div class="fw-semibold mb-1">Access to patient names &amp; identifiers</div>
+    <div class="small text-body-secondary mb-2">The role {% if role_gives_identity %}<strong>allows</strong>{% else %}<strong>does not allow</strong>{% endif %} it. Override only for a reason (e.g. source-data verification by a monitor); every change is audited.</div>
+    <form method="post" action="{% url 'users:identity_access' staff.pk %}" novalidate>{% csrf_token %}{% with form=identity_form %}{% include "_form_fields.html" %}{% endwith %}<button class="btn btn-outline-primary btn-sm mt-2">Save identity access</button></form>
+  </div>{% endif %}
+  </div></div>
   <div class="col-lg-7"><div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Access scope (facility / geographic assignments)</div>
     <ul class="list-group list-group-flush">
       {% for a in assignments %}<li class="list-group-item d-flex justify-content-between align-items-center">

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Data exports{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Data exports</h1><div class="small text-body-secondary">Scope: {{ scope }} · files are kept {{ retention }} days and only you can download yours.</div></div>
+  <a class="btn btn-outline-secondary" href="{% url 'exports:codebook' %}"><i class="bi bi-journal-code"></i> Codebook</a>
+</div>
+{% if deidentified_only %}<div class="alert alert-info py-2 small"><i class="bi bi-shield-lock"></i> Your exports are <strong>de-identified</strong>: no names, phone numbers, identifiers, addresses, dates of birth or free-text notes (age is included).</div>{% endif %}
+<div class="row g-3">
+  <div class="col-lg-5"><div class="card shadow-sm"><div class="card-header bg-body fw-semibold">New export</div><div class="card-body">
+    <form method="post" novalidate>{% csrf_token %}{% include "_form_fields.html" %}
+      <button class="btn btn-primary mt-3"><i class="bi bi-cloud-arrow-down"></i> Build export</button></form>
+    <div class="small text-body-secondary mt-3">“Codes” gives the stored values (e.g. 1/0, male/female) for analysis; the codebook lists what each code means. Excel exports include a codebook sheet.</div>
+  </div></div></div>
+  <div class="col-lg-7"><div class="card shadow-sm"><div class="card-header bg-body fw-semibold">My exports</div><div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+    <thead class="table-light"><tr><th>Requested</th><th>Dataset</th><th>Options</th><th style="min-width:9rem">Status</th><th></th></tr></thead>
+    <tbody>{% for j in jobs %}<tr data-job="{{ j.pk }}" data-status="{{ j.status }}">
+      <td class="small text-nowrap">{{ j.created_at|date:"d M Y H:i" }}</td>
+      <td>{{ j.dataset_label }}<div class="small text-body-secondary">{{ j.filters_label }}</div></td>
+      <td class="small">{{ j.get_fmt_display }} · {{ j.get_mode_display|truncatewords:1 }}<br>{% if j.deidentified %}De-identified{% else %}<span class="text-danger">Identifiable</span>{% endif %}</td>
+      <td class="js-status small">{% if j.status == 'queued' or j.status == 'running' %}<div class="progress" role="progressbar" aria-label="Progress" style="height:8px"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width: {{ j.progress }}%"></div></div><span class="js-label">{{ j.get_status_display }} {{ j.done }}/{{ j.total }}</span>
+        {% elif j.status == 'done' %}{{ j.rows }} rows · {{ j.file_size|filesizeformat }}<div class="text-body-secondary">until {{ j.expires_at|date:"d M" }}</div>
+        {% elif j.status == 'failed' %}<span class="text-danger" title="{{ j.error }}">Failed</span>{% else %}{{ j.get_status_display }}{% endif %}</td>
+      <td class="text-end text-nowrap">{% if j.status == 'done' %}<a class="btn btn-sm btn-success" href="{% url 'exports:download' j.pk %}"><i class="bi bi-download"></i></a>
+        <form class="d-inline" method="post" action="{% url 'exports:remove' j.pk %}">{% csrf_token %}<button class="btn btn-sm btn-link text-danger" title="Remove file"><i class="bi bi-trash"></i></button></form>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="5" class="text-center text-body-secondary py-4">No exports yet.</td></tr>{% endfor %}</tbody>
+  </table></div></div></div>
+</div>
+{% if running %}<script>
+(function () {
+  var url = "{% url 'exports:status' %}";
+  function poll() {
+    var rows = document.querySelectorAll('tr[data-status="queued"], tr[data-status="running"]');
+    if (!rows.length) return;
+    var ids = Array.prototype.map.call(rows, function (r) { return 'id=' + r.dataset.job; }).join('&');
+    fetch(url + '?' + ids, {credentials: 'same-origin'}).then(function (r) { return r.json(); }).then(function (data) {
+      var finished = false;
+      data.jobs.forEach(function (j) {
+        var row = document.querySelector('tr[data-job="' + j.id + '"]');
+        if (!row) return;
+        if (j.status === 'done' || j.status === 'failed') { finished = true; return; }
+        var bar = row.querySelector('.progress-bar'); if (bar) bar.style.width = j.progress + '%';
+        var label = row.querySelector('.js-label'); if (label) label.textContent = j.label + ' ' + j.done + '/' + j.total;
+      });
+      if (finished) { window.location.reload(); } else { setTimeout(poll, 2000); }
+    }).catch(function () { setTimeout(poll, 5000); });
+  }
+  setTimeout(poll, 1500);
+})();
+</script>{% endif %}
+{% endblock %}

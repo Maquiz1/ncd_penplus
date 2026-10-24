@@ -78,7 +78,7 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
 
     def get_queryset(self):
         return Patient.objects.in_scope(self.request.user).select_related(
-            'current_facility', 'registration_facility', 'residence_district')
+            'current_facility', 'registration_facility', 'residence_district__region', 'residence_ward', 'residence_street')
 
     def get_context_data(self, **kwargs):
         from crf.services import applicable_versions
@@ -91,7 +91,9 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             prescreenings=p.prescreenings.select_related('facility'),
             screenings=p.screenings.select_related('disease', 'facility', 'screened_by'),
             diagnoses=p.diagnoses.select_related('disease', 'clinician'),
-            programme_enrollments=p.programme_enrollments.select_related('programme__disease', 'facility'),
+            programme_enrollments=p.programme_enrollments.select_related('programme__disease', 'facility')
+            .prefetch_related('events'),
+            returnable_statuses=('ltfu', 'transferred_out', 'withdrawn', 'other', 'completed'),
             eligibility=p.study_eligibility.select_related('study'),
             consents=p.consents.select_related('study'),
             study_enrollments=p.study_enrollments.select_related('study', 'facility'),
@@ -99,8 +101,9 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             plans=p.followup_plans.select_related('facility'),
             encounters=p.encounters.select_related('facility', 'staff').order_by('-encounter_date')[:50],
             admissions=p.admissions.select_related('facility'),
+            family_members=p.family_members.all(),
             lab_orders=p.lab_orders.select_related('test', 'facility').order_by('-ordered_at'),
-            investigations=p.investigations.select_related('facility').order_by('-requested_at'),
+            investigations=p.investigations.select_related('facility', 'investigation_type').order_by('-requested_at'),
             submissions=p.form_submissions.select_related('version__definition', 'encounter').order_by('-created_at'),
             medication_records=p.medication_records.select_related('encounter')[:200],
             prescriptions=p.prescriptions.select_related('medication', 'facility', 'prescriber')
@@ -311,3 +314,23 @@ class PossibleDuplicatesView(PermissionRequiredMixin, View):
             groups.append((f'Same name and date of birth: {row["first_name"]} {row["last_name"]}, '
                            f'{row["date_of_birth"]:%d %b %Y}', members.select_related('current_facility')))
         return render(request, 'patients/duplicates.html', {'groups': groups})
+
+
+class SmsConsentView(PermissionRequiredMixin, View):
+    """Record the patient's SMS consent answer from any patient page (asked at the visit)."""
+
+    permission_required = ('patients.record_sms_consent', 'patients.view_patient_identity')
+
+    def post(self, request, pk):
+        from django.utils import timezone
+        patient = get_object_or_404(Patient.objects.in_scope(request.user), pk=pk)
+        answer = {'yes': True, 'no': False}.get(request.POST.get('answer'))
+        if answer is None:
+            raise PermissionDenied
+        old = patient.sms_consent
+        patient.sms_consent, patient.sms_consent_recorded_at = answer, timezone.now()
+        patient.save(update_fields=['sms_consent', 'sms_consent_recorded_at', 'updated_at'])
+        log_event(request=request, action=AuditEvent.Action.UPDATE, obj=patient,
+                  changes={'sms_consent': [old, answer]}, reason='SMS consent recorded at visit')
+        messages.success(request, 'SMS consent recorded: ' + ('Yes.' if answer else 'No – no SMS will be sent.'))
+        return redirect(request.POST.get('next') or patient.get_absolute_url())

@@ -16,6 +16,7 @@ urlpatterns = [
     path('<int:pk>/delete/', views.PatientSoftDeleteView.as_view(), name='delete'),
     path('<int:pk>/restore/', views.PatientRestoreView.as_view(), name='restore'),
     path('<int:pk>/death/', views.PatientRecordDeathView.as_view(), name='record_death'),
+    path('<int:pk>/sms-consent/', views.SmsConsentView.as_view(), name='sms_consent'),
     path('<int:patient_pk>/identifiers/add/', views.IdentifierCreateView.as_view(), name='identifier_add'),
     path('<int:patient_pk>/transfer/', views.TransferCreateView.as_view(), name='transfer_add'),
 ]

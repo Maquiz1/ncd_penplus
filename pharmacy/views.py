@@ -8,12 +8,15 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
+from audit.models import AuditEvent
+from audit.services import log_event
 from core.forms import ReasonForm
 from core.mixins import AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, ScopedQuerysetMixin
 from facilities.scope import facilities_for_user, scope_queryset
 
-from .forms import AdjustStockForm, DispenseForm, MedicationForm, PrescriptionForm, ReceiveStockForm
-from .models import EXPIRY_WARNING_DAYS, Medication, Prescription, StockBatch, StockMovement
+from .forms import AdjustStockForm, ConsumableUseForm, DispenseForm, MedicationForm, PrescriptionForm, ReceiveStockForm
+from .models import (EXPIRY_WARNING_DAYS, ConsumableUse, Medication, Prescription, StockBatch, StockMovement,
+                     StockShortfall)
 from .services import (StockError, adjust_stock, available_batches, cancel_prescription, dispense,
                        low_stock_rows, medications_with_stock, receive_stock)
 
@@ -36,10 +39,15 @@ class MedicationListView(PermissionRequiredMixin, ListView):
             qs = qs.filter(name__icontains=self.request.GET['q'])
         if self.request.GET.get('show') != 'all':
             qs = qs.filter(is_active=True)
-        return qs.order_by('name', 'strength')
+        if self.request.GET.get('type'):
+            qs = qs.filter(item_type=self.request.GET['type'])
+        return qs.order_by('item_type', 'name', 'strength')
 
     def get_context_data(self, **kwargs):
+        open_shortfalls = scope_queryset(StockShortfall.objects.filter(resolved=False), self.request.user, 'facility')
         return super().get_context_data(facilities=facilities_for_user(self.request.user),
+                                        item_types=Medication.ItemType.choices,
+                                        open_shortfalls=open_shortfalls.count(),
                                         low_stock=low_stock_rows(list(selected_facilities(self.request))), **kwargs)
 
 
@@ -294,3 +302,77 @@ class PrescriptionCancelView(PermissionRequiredMixin, View):
         except StockError as exc:
             messages.error(request, str(exc))
         return redirect(prescription.patient.get_absolute_url() + '#medications')
+
+
+class ConsumableTargetMixin(PermissionRequiredMixin):
+    """Consumables belong to a lab test (?lab_test=) or an investigation type (?investigation_type=)."""
+
+    permission_required = 'pharmacy.change_consumableuse'
+
+    def target(self, request):
+        from investigations.models import InvestigationType
+        from laboratory.models import LabTest
+        if request.GET.get('lab_test'):
+            test = get_object_or_404(LabTest, pk=request.GET['lab_test'])
+            return {'lab_test': test}, test, reverse('laboratory:test_update', args=[test.pk])
+        itype = get_object_or_404(InvestigationType, pk=request.GET.get('investigation_type'))
+        return {'investigation_type': itype}, itype, reverse('investigations:type_detail', args=[itype.pk])
+
+
+class ConsumableCreateView(ConsumableTargetMixin, View):
+    permission_required = 'pharmacy.add_consumableuse'
+
+    def get(self, request, form=None):
+        _link, target, back_url = self.target(request)
+        return render(request, 'generic_form.html', {
+            'form': form or ConsumableUseForm(), 'title': f'Stock used per {target}', 'cancel_url': back_url,
+            'subtitle': 'Deducted from the facility stock (first expiry first out) each time a result is entered.'})
+
+    def post(self, request):
+        link, target, back_url = self.target(request)
+        form = ConsumableUseForm(request.POST)
+        if not form.is_valid():
+            return self.get(request, form)
+        rule, created = ConsumableUse.objects.update_or_create(item=form.cleaned_data['item'], **link, defaults={
+            'quantity': form.cleaned_data['quantity'], 'is_active': True})
+        log_event(request=request, action=AuditEvent.Action.CREATE if created else AuditEvent.Action.UPDATE, obj=rule)
+        messages.success(request, f'{rule} saved.')
+        return redirect(back_url)
+
+
+class ConsumableRemoveView(PermissionRequiredMixin, View):
+    permission_required = 'pharmacy.change_consumableuse'
+
+    def post(self, request, pk):
+        rule = get_object_or_404(ConsumableUse, pk=pk)
+        rule.is_active = not rule.is_active
+        rule.save(update_fields=['is_active'])
+        log_event(request=request, action=AuditEvent.Action.UPDATE, obj=rule, changes={'is_active': rule.is_active})
+        return redirect(request.POST.get('next') or reverse('pharmacy:medication_list'))
+
+
+class ShortfallListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
+    """Stock-out events: tests and investigations done without enough consumables."""
+
+    permission_required = 'pharmacy.view_stockshortfall'
+    model = StockShortfall
+    template_name = 'pharmacy/shortfall_list.html'
+    paginate_by = 50
+    scope_field = 'facility'
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related('item', 'facility', 'lab_order__test', 'investigation__investigation_type')
+        if self.request.GET.get('show') != 'all':
+            qs = qs.filter(resolved=False)
+        return qs
+
+
+class ShortfallResolveView(PermissionRequiredMixin, View):
+    permission_required = 'pharmacy.change_stockshortfall'
+
+    def post(self, request, pk):
+        shortfall = get_object_or_404(scope_queryset(StockShortfall.objects.all(), request.user, 'facility'), pk=pk)
+        shortfall.resolved, shortfall.resolution_note = True, request.POST.get('note', '')[:255] or 'Restocked'
+        shortfall.save(update_fields=['resolved', 'resolution_note'])
+        log_event(request=request, action=AuditEvent.Action.STATUS, obj=shortfall, reason=shortfall.resolution_note)
+        return redirect('pharmacy:shortfall_list')

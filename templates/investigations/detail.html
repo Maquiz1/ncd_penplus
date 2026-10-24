@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}{{ inv.name }}{% endblock %}
+{% block content %}
+{% include "patients/_banner.html" %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div><h1 class="h4 mb-0">{{ inv.name }} {% status_badge inv.status inv.get_status_display %}{% if inv.is_abnormal %} <span class="badge text-bg-danger">Abnormal</span>{% elif inv.is_abnormal == False %} <span class="badge text-bg-success">Normal</span>{% endif %}</h1>
+    <div class="text-body-secondary small">{{ inv.description }} · {{ inv.facility }} · requested {{ inv.requested_at|date:"d M Y" }}{% if inv.performed_at %} · performed {{ inv.performed_at|date:"d M Y H:i" }}{% endif %}</div></div>
+  <div class="d-flex gap-2">
+    {% if inv.status != 'reviewed' and inv.status != 'cancelled' and perms.investigations.change_investigationorder %}<a class="btn btn-primary" href="{% url 'investigations:report' inv.pk %}">Enter / edit report</a>{% endif %}
+    {% if perms.investigations.delete_investigationorder %}<a class="btn btn-outline-danger" href="{% url 'records:delete' 'investigation' inv.pk %}?next={{ patient.get_absolute_url|urlencode }}%23labs"><i class="bi bi-trash"></i> Delete</a>{% endif %}
+    {% if inv.status == 'completed' and perms.investigations.review_investigationorder %}<form method="post" action="{% url 'investigations:review' inv.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-success">Mark reviewed</button></form>{% endif %}
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-7"><div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Report</div><div class="card-body">
+    {% with rows=inv.result_rows %}{% if rows %}<table class="table table-sm mb-3"><tbody>{% for f, value, abnormal in rows %}<tr><th class="fw-normal text-body-secondary" style="width:45%">{{ f.label }}</th><td class="{% if abnormal %}text-danger fw-semibold{% endif %}">{{ value }} {{ f.unit }}{% if abnormal %} <i class="bi bi-exclamation-triangle" title="Abnormal"></i>{% endif %}</td></tr>{% endfor %}</tbody></table>{% endif %}{% endwith %}
+    {% if inv.findings %}<div class="mb-2" style="white-space:pre-line">{{ inv.findings }}</div>{% endif %}
+    {% if inv.conclusion %}<div><strong>Conclusion:</strong> {{ inv.conclusion }}</div>{% endif %}
+    {% if not inv.results and not inv.findings %}<div class="text-body-secondary">No report yet.</div>{% endif %}
+    {% if inv.attachment %}<a class="btn btn-sm btn-outline-secondary mt-2" href="{% url 'investigations:attachment' inv.pk %}"><i class="bi bi-paperclip"></i> Attached report</a>{% endif %}
+  </div></div></div>
+  <div class="col-lg-5"><div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Stock used</div>
+    <ul class="list-group list-group-flush">{% for m in consumption %}<li class="list-group-item small d-flex justify-content-between"><span>{{ m.batch.medication }} · batch {{ m.batch.batch_number }}</span><span>{{ m.quantity }}</span></li>{% empty %}<li class="list-group-item small text-body-secondary">No consumables recorded.</li>{% endfor %}</ul>
+  </div>
+  <div class="small text-body-secondary mt-2">Reported by {{ inv.reported_by|default:"—" }}{% if inv.reviewed_by %} · reviewed by {{ inv.reviewed_by }} {{ inv.reviewed_at|date:"d M Y" }}{% endif %}</div></div>
+</div>
+{% endblock %}

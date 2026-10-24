@@ -3,7 +3,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
-from core.models import TimeStampedModel
+from core.models import SoftDeleteModel, TimeStampedModel
 from facilities.models import Facility
 from patients.models import Patient
 
@@ -11,6 +11,15 @@ EXPIRY_WARNING_DAYS = 90
 
 
 class Medication(models.Model):
+    """A stock item: a medicine, or a supply used by the lab, imaging or clinic (strips, cartridges, electrodes)."""
+
+    class ItemType(models.TextChoices):
+        MEDICINE = 'medicine', 'Medicine'
+        LAB_SUPPLY = 'lab_supply', 'Laboratory reagent / supply'
+        IMAGING_SUPPLY = 'imaging_supply', 'ECG / echo / imaging supply'
+        MEDICAL_SUPPLY = 'medical_supply', 'Medical supply (syringes, strips, …)'
+        EQUIPMENT = 'equipment', 'Equipment'
+
     class DosageForm(models.TextChoices):
         TABLET = 'tablet', 'Tablet'
         CAPSULE = 'capsule', 'Capsule'
@@ -20,6 +29,7 @@ class Medication(models.Model):
         TOPICAL = 'topical', 'Topical'
         OTHER = 'other', 'Other'
 
+    item_type = models.CharField(max_length=20, choices=ItemType.choices, default=ItemType.MEDICINE, db_index=True)
     code = models.SlugField(max_length=40, unique=True)
     name = models.CharField('Generic name', max_length=150)
     strength = models.CharField(max_length=50, blank=True, help_text='e.g. 500 mg, 100 IU/mL')
@@ -30,9 +40,16 @@ class Medication(models.Model):
 
     class Meta:
         ordering = ['name', 'strength']
+        verbose_name = 'stock item'
 
     def __str__(self):
+        if self.item_type != self.ItemType.MEDICINE:
+            return ' '.join(part for part in (self.name, self.strength) if part)
         return ' '.join(part for part in (self.name, self.strength, self.get_dosage_form_display().lower()) if part)
+
+    @property
+    def is_medicine(self):
+        return self.item_type == self.ItemType.MEDICINE
 
 
 class StockBatch(TimeStampedModel):
@@ -72,6 +89,7 @@ class StockMovement(models.Model):
         DISPENSE = 'dispense', 'Dispensed'
         ADJUSTMENT = 'adjustment', 'Adjustment'
         WRITE_OFF = 'write_off', 'Write-off (expired / damaged)'
+        CONSUMPTION = 'consumption', 'Used for a test / investigation'
 
     batch = models.ForeignKey(StockBatch, on_delete=models.PROTECT, related_name='movements')
     movement_type = models.CharField(max_length=20, choices=MovementType.choices)
@@ -79,6 +97,10 @@ class StockMovement(models.Model):
     balance_after = models.PositiveIntegerField()
     reason = models.CharField(max_length=255, blank=True)
     dispensing = models.ForeignKey('Dispensing', on_delete=models.PROTECT, null=True, blank=True, related_name='+')
+    lab_order = models.ForeignKey('laboratory.LabOrder', on_delete=models.PROTECT, null=True, blank=True,
+                                  related_name='stock_movements')
+    investigation = models.ForeignKey('investigations.InvestigationOrder', on_delete=models.PROTECT, null=True,
+                                      blank=True, related_name='stock_movements')
     performed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -98,7 +120,7 @@ class StockMovement(models.Model):
         raise ValueError('Stock movements cannot be deleted.')
 
 
-class Prescription(TimeStampedModel):
+class Prescription(SoftDeleteModel):
     class Route(models.TextChoices):
         ORAL = 'oral', 'Oral'
         IV = 'iv', 'Intravenous'
@@ -151,7 +173,7 @@ class Prescription(TimeStampedModel):
         return self.status in self.OPEN_STATUSES
 
 
-class MedicationRecord(TimeStampedModel):
+class MedicationRecord(SoftDeleteModel):
     """Medication history recorded at a visit (continue / start / stop). Not a prescription; no stock effect."""
 
     class Action(models.TextChoices):
@@ -193,3 +215,47 @@ class Dispensing(TimeStampedModel):
 
     def __str__(self):
         return f'{self.quantity} × {self.batch.medication} for {self.prescription.patient}'
+
+
+class ConsumableUse(models.Model):
+    """Stock used each time a lab test is resulted or an investigation is reported, e.g. 1 HbA1c cartridge."""
+
+    item = models.ForeignKey(Medication, on_delete=models.PROTECT, related_name='uses')
+    lab_test = models.ForeignKey('laboratory.LabTest', on_delete=models.CASCADE, null=True, blank=True,
+                                 related_name='consumables')
+    investigation_type = models.ForeignKey('investigations.InvestigationType', on_delete=models.CASCADE, null=True,
+                                           blank=True, related_name='consumables')
+    quantity = models.PositiveIntegerField(default=1, help_text="Per test, in the item's stock unit.")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['item__name']
+        constraints = [models.CheckConstraint(
+            condition=(models.Q(lab_test__isnull=False, investigation_type__isnull=True)
+                       | models.Q(lab_test__isnull=True, investigation_type__isnull=False)),
+            name='consumable_for_one_service')]
+
+    def __str__(self):
+        return f'{self.quantity} {self.item.dispensing_unit} {self.item} per {self.lab_test or self.investigation_type}'
+
+
+class StockShortfall(models.Model):
+    """A test or investigation was done without (enough) stock of a consumable: a stock-out event."""
+
+    item = models.ForeignKey(Medication, on_delete=models.PROTECT, related_name='shortfalls')
+    facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='+')
+    quantity_needed = models.PositiveIntegerField()
+    quantity_missing = models.PositiveIntegerField()
+    lab_order = models.ForeignKey('laboratory.LabOrder', on_delete=models.PROTECT, null=True, blank=True, related_name='+')
+    investigation = models.ForeignKey('investigations.InvestigationOrder', on_delete=models.PROTECT, null=True,
+                                      blank=True, related_name='+')
+    occurred_at = models.DateTimeField(default=timezone.now, db_index=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    resolved = models.BooleanField(default=False)
+    resolution_note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-occurred_at']
+
+    def __str__(self):
+        return f'{self.item} short by {self.quantity_missing} at {self.facility}'

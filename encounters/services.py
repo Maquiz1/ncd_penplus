@@ -48,7 +48,7 @@ def generate_visits(plan, user):
             patient=plan.patient, facility=plan.facility, scheduled_date=date, stage='follow_up',
             status=Appointment.Status.EXPECTED if date < today else Appointment.Status.SCHEDULED,
             programme_enrollment=plan.programme_enrollment, study_enrollment=plan.study_enrollment,
-            plan=plan, plan_version=plan.version, sequence=sequence, created_by=user,
+            plan=plan, plan_version=plan.version, sequence=sequence, created_by=user, origin='schedule',
         )
         created += 1
     return created

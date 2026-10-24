@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ report_title }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+  <div><h1 class="h3 mb-0">{{ report_title }}</h1><div class="small text-body-secondary">{{ filters.description }} · scope: {{ scope }} · generated {{ generated|date:"d M Y H:i" }}</div></div>
+  <div class="d-flex flex-wrap gap-2 d-print-none">
+    {% if studies|length > 1 %}<div class="dropdown"><button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">Study: {{ study.code }}</button><ul class="dropdown-menu">{% for s in studies %}<li><a class="dropdown-item" href="?{{ filters.querystring }}&study={{ s.pk }}">{{ s.code }} – {{ s.title|truncatechars:50 }}</a></li>{% endfor %}</ul></div>{% endif %}
+    {% if report_title == 'Period summary' %}
+      {% if perms.reporting.export_data %}<a class="btn btn-outline-secondary" href="{% url 'reporting:export_patients' %}"><i class="bi bi-download"></i> Patient register CSV</a>{% endif %}
+      {% if perms.reporting.view_reportrun %}<a class="btn btn-outline-secondary" href="{% url 'reporting:runs' %}"><i class="bi bi-envelope-check"></i> Monthly report log</a>{% endif %}
+    {% endif %}
+    {% if report_title == 'Data quality' and perms.issues.view_dataissue %}<a class="btn btn-primary" href="{% url 'issues:list' %}"><i class="bi bi-exclamation-diamond"></i> Open Data issues</a>{% endif %}
+  </div>
+</div>
+{% include "reporting/_filters.html" %}
+{% include body_template %}
+{% endblock %}

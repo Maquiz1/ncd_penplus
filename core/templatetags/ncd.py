@@ -35,3 +35,11 @@ def patient_name(context, patient):
 @register.filter
 def get_item(mapping, key):
     return mapping.get(key) if mapping else None
+
+
+@register.simple_tag
+def diagnosis_prompts_for(patient):
+    """Open "confirm the diagnosis" prompts for the patient banner."""
+    from issues.detectors import DX_CODES
+    from issues.models import DataIssue
+    return list(DataIssue.objects.open().filter(patient=patient, code__in=DX_CODES))

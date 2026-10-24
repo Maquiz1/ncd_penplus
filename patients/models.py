@@ -4,13 +4,13 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import NotDeletedManager, SoftDeleteModel, TimeStampedModel
-from facilities.models import District, Facility, Ward
+from facilities.models import District, Facility, Street, Ward
 from facilities.scope import scope_queryset
 
 
 IDENTITY_FIELDS = {
     'patients.Patient': {'first_name', 'middle_name', 'last_name', 'date_of_birth', 'phone', 'alternate_phone',
-                         'address', 'residence_ward', 'next_of_kin_name', 'next_of_kin_phone', 'cause_of_death'},
+                         'address', 'residence_ward', 'residence_street', 'next_of_kin_name', 'next_of_kin_phone', 'cause_of_death'},
     'patients.PatientIdentifier': {'value'},
     'clinical.Screening': {'guardian_name'},
     'research.ConsentRecord': {'witness_name', 'legally_authorized_representative'},
@@ -54,10 +54,15 @@ class Patient(SoftDeleteModel):
     phone = models.CharField(max_length=30, blank=True)
     phone_verified = models.BooleanField(default=False, editable=False)
     alternate_phone = models.CharField(max_length=30, blank=True)
-    sms_consent = models.BooleanField('Consents to SMS reminders', default=False)
+    sms_consent = models.BooleanField('Consents to SMS reminders', null=True, blank=True, default=None,
+                                      help_text='Ask the patient (or guardian). Messages are only sent after a Yes.')
+    sms_consent_recorded_at = models.DateTimeField(null=True, blank=True, editable=False)
     residence_district = models.ForeignKey(District, on_delete=models.PROTECT, null=True, blank=True, related_name='+')
     residence_ward = models.ForeignKey(Ward, on_delete=models.PROTECT, null=True, blank=True, related_name='+')
-    address = models.CharField('Village / street / landmark', max_length=255, blank=True)
+    residence_street = models.ForeignKey(Street, on_delete=models.PROTECT, null=True, blank=True, related_name='+',
+                                         verbose_name='Street / village')
+    address = models.CharField('House / landmark', max_length=255, blank=True,
+                               help_text='e.g. near the church, house number, directions.')
     next_of_kin_name = models.CharField(max_length=200, blank=True)
     next_of_kin_phone = models.CharField(max_length=30, blank=True)
     registration_facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='registered_patients')
@@ -78,6 +83,7 @@ class Patient(SoftDeleteModel):
             ('view_patient_identity', 'Can view patient identity fields (names, phones, identifiers)'),
             ('restore_patient', 'Can restore soft-deleted patients'),
             ('record_death', 'Can record patient death'),
+            ('record_sms_consent', 'Can record SMS consent at a visit'),
         ]
         indexes = [models.Index(fields=['last_name', 'first_name']), models.Index(fields=['phone'])]
 

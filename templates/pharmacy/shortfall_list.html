@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Stock-outs{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Stock-outs</h1><div class="small text-body-secondary">Tests and investigations done without enough consumables in stock. Resolve after restocking (or correcting the stock count).</div></div>
+  <a class="btn btn-outline-secondary" href="?{% if request.GET.show != 'all' %}show=all{% endif %}">{% if request.GET.show == 'all' %}Open only{% else %}Include resolved{% endif %}</a>
+</div>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>When</th><th>Facility</th><th>Item</th><th class="text-end">Needed</th><th class="text-end">Missing</th><th>For</th><th></th></tr></thead>
+  <tbody>{% for s in object_list %}<tr>
+    <td class="small text-nowrap">{{ s.occurred_at|date:"d M Y H:i" }}</td><td class="small">{{ s.facility }}</td><td>{{ s.item }}</td>
+    <td class="text-end">{{ s.quantity_needed }}</td><td class="text-end text-danger fw-semibold">{{ s.quantity_missing }}</td>
+    <td class="small">{% if s.lab_order %}{{ s.lab_order.test.name }}{% elif s.investigation %}<a href="{% url 'investigations:detail' s.investigation.pk %}">{{ s.investigation.name }}</a>{% endif %}</td>
+    <td class="text-end">{% if s.resolved %}<span class="badge text-bg-success" title="{{ s.resolution_note }}">Resolved</span>{% elif perms.pharmacy.change_stockshortfall %}<form class="d-flex gap-1 justify-content-end" method="post" action="{% url 'pharmacy:shortfall_resolve' s.pk %}">{% csrf_token %}<input class="form-control form-control-sm" style="max-width:12rem" name="note" placeholder="Note (e.g. restocked)"><button class="btn btn-sm btn-outline-success">Resolve</button></form>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No stock-outs.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

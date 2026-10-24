@@ -15,7 +15,7 @@ class LabCatalogueTests(BaseTestCase):
     def setUp(self):
         self.patient = self.make_patient()
         self.lab = self.make_user('labx', 'Laboratory Staff', facility=self.ilala)
-        self.manager = self.make_user('dmx', 'Data Manager', facility=self.ilala)
+        self.manager = self.make_user('dmx', 'Data Manager', level='national')
 
     def order_fbc(self):
         self.client.force_login(self.clinician_ilala)

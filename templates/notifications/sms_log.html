@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}SMS log{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">SMS log</h1><div class="small text-body-secondary">Gateway: <strong>{{ backend }}</strong>{% if backend == 'console' %} – messages are only logged, nothing is sent to phones yet{% endif %}</div></div>
+  {% if perms.notifications.add_smsmessage %}<form method="post" action="{% url 'notifications:send_queued' %}">{% csrf_token %}<button class="btn btn-outline-primary"><i class="bi bi-send"></i> Send queued / retry failed</button></form>{% endif %}
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-3"><select class="form-select" name="status"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><select class="form-select" name="purpose"><option value="">Any type</option>{% for v, l in purposes %}<option value="{{ v }}" {% if request.GET.purpose == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
+  <thead class="table-light"><tr><th>Created</th><th>Patient</th><th>To</th><th>Type</th><th>Message</th><th>Status</th><th>Sent</th></tr></thead>
+  <tbody>{% for m in object_list %}<tr>
+    <td class="text-nowrap small">{{ m.created_at|date:"d M Y H:i" }}</td>
+    <td><a href="{{ m.patient.get_absolute_url }}">{{ m.patient }}</a></td>
+    <td class="small text-nowrap">{% if can_view_identity %}+{{ m.phone }}{% else %}{{ m.phone|slice:":5" }}•••{% endif %}<div class="text-body-secondary">{{ m.recipient }}</div></td>
+    <td class="small">{{ m.get_purpose_display }}{% if m.clinic_session %}<div><a href="{{ m.clinic_session.get_absolute_url }}">{{ m.clinic_session.name|truncatechars:30 }}</a></div>{% endif %}</td>
+    <td class="small">{{ m.body }}</td>
+    <td>{% status_badge m.status m.get_status_display %}{% if m.error %}<div class="small text-danger">{{ m.error|truncatechars:60 }}</div>{% endif %}</td>
+    <td class="small text-nowrap">{{ m.sent_at|date:"d M H:i"|default:"—" }}{% if m.attempts > 1 %} ({{ m.attempts }} tries){% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No messages.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

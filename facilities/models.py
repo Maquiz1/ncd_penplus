@@ -45,6 +45,7 @@ class District(models.Model):
 class Ward(models.Model):
     district = models.ForeignKey(District, on_delete=models.PROTECT, related_name='wards')
     name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, blank=True)
 
     class Meta:
         ordering = ['name']
@@ -52,6 +53,24 @@ class Ward(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.district.name})'
+
+
+class Street(models.Model):
+    """Street (mtaa) or village (kijiji): the lowest address level."""
+
+    ward = models.ForeignKey(Ward, on_delete=models.PROTECT, related_name='streets')
+    name = models.CharField(max_length=150)
+    code = models.CharField(max_length=20, blank=True)
+
+    class Meta:
+        ordering = ['name']
+        permissions = [('merge_locations', 'Can merge duplicate locations into the national list')]
+        verbose_name = 'street / village'
+        verbose_name_plural = 'streets / villages'
+        constraints = [models.UniqueConstraint(fields=['ward', 'name'], name='unique_street_per_ward')]
+
+    def __str__(self):
+        return self.name
 
 
 class Facility(models.Model):

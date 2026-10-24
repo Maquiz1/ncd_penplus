@@ -167,3 +167,85 @@ class ScreeningSessionTests(BaseTestCase):
         response = self.client.get(self.session.get_absolute_url())
         self.assertContains(response, 'Age 6–17')
         self.assertContains(response, 'Mollel')
+
+
+class ReturnToCareTests(BaseTestCase):
+    def test_return_after_ltfu_keeps_history_and_schedules(self):
+        from clinical.models import EnrollmentEvent
+        from encounters.models import Appointment
+        patient = self.make_patient()
+        enrollment = ProgrammeEnrollment.objects.create(
+            patient=patient, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'),
+            enrollment_date=datetime.date(2024, 1, 5), status='ltfu', outcome_date=datetime.date(2024, 6, 1),
+            outcome_reason='Defaulted')
+        self.client.force_login(self.clinician_ilala)
+        url = reverse('clinical:enrollment_return', args=[enrollment.pk])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        response = self.client.post(url, {'return_date': timezone.localdate().isoformat(), 'kind': 'return',
+                                          'reason': 'Came back to clinic', 'create_schedule': 'on',
+                                          'interval_months': 1, 'visit_count': 3})
+        self.assertEqual(response.status_code, 302)
+        enrollment.refresh_from_db()
+        self.assertEqual((enrollment.status, enrollment.outcome_date), ('active', None))
+        event = EnrollmentEvent.objects.get(enrollment=enrollment)
+        self.assertEqual((event.kind, event.from_status, event.to_status), ('return', 'ltfu', 'active'))
+        self.assertEqual(Appointment.objects.filter(patient=patient, status='scheduled').count(), 3)
+
+    def test_return_not_allowed_for_active_or_deceased(self):
+        patient = self.make_patient()
+        enrollment = ProgrammeEnrollment.objects.create(
+            patient=patient, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'))
+        self.client.force_login(self.clinician_ilala)
+        self.assertEqual(self.client.get(reverse('clinical:enrollment_return', args=[enrollment.pk])).status_code, 403)
+
+
+class LtfuRuleTests(BaseTestCase):
+    def setUp(self):
+        from encounters.models import Encounter
+        self.patient = self.make_patient()
+        self.enrollment = ProgrammeEnrollment.objects.create(
+            patient=self.patient, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'),
+            enrollment_date=datetime.date(2025, 1, 10))
+        Encounter.objects.create(patient=self.patient, facility=self.ilala, staff=self.admin,
+                                 encounter_date=timezone.make_aware(datetime.datetime(2025, 6, 15, 9)))
+
+    def test_three_months_without_attendance_becomes_ltfu(self):
+        from clinical.services import apply_ltfu_rule
+        self.assertEqual(apply_ltfu_rule(self.admin, today=datetime.date(2025, 9, 15)), [])  # exactly 3 months
+        changed = apply_ltfu_rule(self.admin, today=datetime.date(2025, 9, 16))
+        self.assertEqual(changed, [(self.enrollment, datetime.date(2025, 9, 15))])
+        self.enrollment.refresh_from_db()
+        self.assertEqual((self.enrollment.status, self.enrollment.outcome_date), ('ltfu', datetime.date(2025, 9, 15)))
+        self.assertEqual(self.enrollment.events.get().to_status, 'ltfu')
+
+    def test_return_date_resets_the_clock(self):
+        from clinical.models import EnrollmentEvent
+        from clinical.services import apply_ltfu_rule
+        EnrollmentEvent.objects.create(enrollment=self.enrollment, kind='return', from_status='ltfu',
+                                       to_status='active', event_date=datetime.date(2025, 8, 1))
+        self.assertEqual(apply_ltfu_rule(self.admin, today=datetime.date(2025, 10, 1)), [])
+
+    def test_dry_run_and_command(self):
+        from django.core.management import call_command
+        call_command('apply_ltfu_rule', '--dry-run', stdout=open('/dev/null', 'w'))
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.status, 'active')
+        call_command('apply_ltfu_rule', stdout=open('/dev/null', 'w'))
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.status, 'ltfu')  # last visit Jun 2025, today is later
+
+
+class FamilyMemberTests(BaseTestCase):
+    def test_nurse_records_sibling_and_patient_page_shows_it(self):
+        from .models import FamilyMember
+        patient = self.make_patient()
+        nurse = self.make_user('nurse_f', 'Nurse / Triage Officer', facility=self.ilala)
+        self.client.force_login(nurse)
+        self.assertEqual(self.client.get(reverse('clinical:family_add', args=[patient.pk])).status_code, 200)
+        self.client.post(reverse('clinical:family_add', args=[patient.pk]), {
+            'relation': 'sibling', 'sex': 'female', 'age_years': 7, 'alive': 'true', 'scd_status': 'affected',
+            'tested': 'true', 'test_type': 'Sickle SCAN', 'recorded_on': '2026-01-10'})
+        member = FamilyMember.objects.get(patient=patient)
+        self.assertEqual((member.scd_status, member.alive, member.age_years), ('affected', True, 7))
+        self.assertContains(self.client.get(reverse('patients:detail', args=[patient.pk])), 'Has sickle cell disease')
+        self.assertEqual(self.client.get(reverse('clinical:family_edit', args=[member.pk])).status_code, 200)

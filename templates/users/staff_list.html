@@ -4,6 +4,8 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Staff accounts</h1>
   <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'users:roles' %}"><i class="bi bi-grid-3x3"></i> Roles &amp; access</a>
+    {% if perms.users.view_position %}<a class="btn btn-outline-secondary" href="{% url 'users:positions' %}"><i class="bi bi-person-vcard"></i> Positions</a>{% endif %}
     {% if perms.users.change_user %}<a class="btn btn-outline-primary" href="{% url 'users:bulk_activation' %}"><i class="bi bi-envelope-paper"></i> Send activation links</a>{% endif %}
     {% if perms.users.add_user %}<a class="btn btn-primary" href="{% url 'users:create' %}"><i class="bi bi-person-plus"></i> New staff account</a>{% endif %}
   </div>
@@ -14,10 +16,10 @@
   <div class="col-md-2 d-grid"><button class="btn btn-primary">Search</button></div>
 </form>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Username</th><th>Name</th><th>Job title</th><th>Roles</th><th>Email</th><th>Status</th></tr></thead>
-  <tbody>{% for u in object_list %}<tr><td><a href="{% url 'users:detail' u.pk %}">{{ u.username }}</a></td><td>{{ u.get_full_name }}</td><td>{{ u.job_title }}</td><td class="small">{{ u.groups.all|join:", " }}</td><td>{{ u.email }}</td>
+  <thead class="table-light"><tr><th>Username</th><th>Name</th><th>Position</th><th>Roles</th><th>Access level</th><th>Email</th><th>Status</th></tr></thead>
+  <tbody>{% for u in object_list %}<tr><td><a href="{% url 'users:detail' u.pk %}">{{ u.username }}</a></td><td>{{ u.get_full_name }}</td><td>{{ u.position_label|default:"—" }}</td><td class="small">{{ u.groups.all|join:", " }}{% if u.identity_override == 'grant' %} <span class="badge text-bg-info" title="Identity access granted for this person">+ identity</span>{% elif u.identity_override == 'revoke' %} <span class="badge text-bg-secondary" title="Identity access removed for this person">− identity</span>{% endif %}</td><td class="small">{{ u.access_summary }}</td><td>{{ u.email }}</td>
     <td>{% if u.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-danger">Inactive</span>{% endif %}{% if not u.has_usable_password %} <span class="badge text-bg-warning">Not activated</span>{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No staff found.</td></tr>{% endfor %}</tbody>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No staff found.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% include "_pagination.html" %}
 {% endblock %}

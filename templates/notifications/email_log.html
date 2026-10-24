@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Email log{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Email log</h1>
+    <div class="small text-body-secondary">Mail backend: <strong>{{ backend }}</strong>{% if backend == 'filebased' %} – saved to files in <code>sent_emails/</code>, nothing is delivered{% elif backend == 'console' %} – printed to the server console only{% endif %} · Links use <strong>{{ site_url }}</strong> · From {{ sender }}</div></div>
+  <div class="d-flex gap-2">
+    {% if perms.notifications.view_siteconfiguration %}<a class="btn btn-outline-secondary" href="{% url 'email:settings' %}"><i class="bi bi-gear"></i> Email settings</a>{% endif %}
+    {% if perms.users.change_user %}<a class="btn btn-outline-primary" href="{% url 'users:bulk_activation' %}"><i class="bi bi-envelope-paper"></i> Send activation links</a>{% endif %}
+  </div>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-sm-4"><div class="card shadow-sm"><div class="card-body py-2"><div class="small text-body-secondary">Matching</div><div class="h4 mb-0">{{ paginator.count|default:0 }}</div></div></div></div>
+  <div class="col-sm-4"><div class="card shadow-sm"><div class="card-body py-2"><div class="small text-body-secondary">Sent</div><div class="h4 mb-0 text-success">{{ counts.sent|default:0 }}</div></div></div></div>
+  <div class="col-sm-4"><a class="text-decoration-none" href="?status=failed"><div class="card shadow-sm"><div class="card-body py-2"><div class="small text-body-secondary">Failed</div><div class="h4 mb-0 text-danger">{{ counts.failed|default:0 }}</div></div></div></a></div>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-3"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Recipient, username or subject"></div>
+  <div class="col-md-2"><select class="form-select" name="purpose"><option value="">Any type</option>{% for v, l in purposes %}<option value="{{ v }}" {% if request.GET.purpose == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="status"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><input class="form-control" type="date" name="start" value="{{ request.GET.start }}" title="From"></div>
+  <div class="col-md-2"><input class="form-control" type="date" name="end" value="{{ request.GET.end }}" title="To"></div>
+  <div class="col-md-1 d-grid"><button class="btn btn-primary">Filter</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
+  <thead class="table-light"><tr><th>Time</th><th>To</th><th>Type</th><th>Subject</th><th>Status</th><th>By</th></tr></thead>
+  <tbody>{% for e in object_list %}<tr>
+    <td class="text-nowrap small">{{ e.created_at|date:"d M Y H:i" }}</td>
+    <td class="small">{{ e.recipient }}{% if e.user %}<div><a href="{% url 'users:detail' e.user.pk %}">{{ e.user.username }}</a></div>{% endif %}</td>
+    <td class="small">{{ e.get_purpose_display }}</td>
+    <td class="small">{{ e.subject }}</td>
+    <td>{% status_badge e.status e.get_status_display %}{% if e.error %}<div class="small text-danger">{{ e.error|truncatechars:120 }}</div>{% endif %}<div class="small text-body-secondary">{{ e.backend }}</div></td>
+    <td class="small">{{ e.sent_by.username|default:"system" }}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No emails.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

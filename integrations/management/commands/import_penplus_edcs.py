@@ -22,9 +22,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--dry-run', action='store_true', help='Import inside a transaction, report, then roll back.')
+        parser.add_argument('--steps', nargs='+', choices=Importer.ADD_ON_STEPS,
+                            help='Only run these add-on steps on top of an earlier full migration.')
         parser.add_argument('--report-dir', default=str(Path(settings.BASE_DIR) / 'import_reports'))
 
-    def handle(self, *args, dry_run=False, report_dir=None, **options):
+    def handle(self, *args, dry_run=False, report_dir=None, steps=None, **options):
         call_command('setup_roles', stdout=open('/dev/null', 'w'))
         try:
             reader = MySQLReader(settings.LEGACY_EDCS)
@@ -34,7 +36,7 @@ class Command(BaseCommand):
         started = timezone.now()
         try:
             with transaction.atomic():
-                counts, issues = importer.run()
+                counts, issues = importer.run(steps=steps)
                 if dry_run:
                     raise DryRunRollback
                 log_event(action=AuditEvent.Action.CREATE, model='integrations.ExternalRecord',

@@ -9,6 +9,17 @@ def effective_assignments(user):
     )
 
 
+LEVEL_ORDER = ['facility', 'district', 'region', 'zone', 'national']
+
+
+def highest_level(user):
+    """Widest level among the user's effective assignments ('national' for superusers, None without any)."""
+    if user.is_superuser:
+        return 'national'
+    levels = set(effective_assignments(user).values_list('level', flat=True))
+    return next((level for level in reversed(LEVEL_ORDER) if level in levels), None)
+
+
 def facilities_for_user(user):
     """Facilities the user may access, computed from effective assignments.
 

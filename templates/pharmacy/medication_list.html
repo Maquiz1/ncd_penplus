@@ -1,16 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Medicines{% endblock %}
+{% block title %}Medicines & supplies{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-  <h1 class="h3 mb-0">Medicine catalogue &amp; stock</h1>
+  <div><h1 class="h3 mb-0">Medicines, supplies &amp; stock</h1><div class="small text-body-secondary">Medicines, lab reagents, ECG/echo supplies, medical supplies and equipment.</div></div>
   <div class="d-flex gap-2">
     {% if perms.pharmacy.add_stockbatch %}<a class="btn btn-primary" href="{% url 'pharmacy:stock_receive' %}"><i class="bi bi-box-arrow-in-down"></i> Receive stock</a>{% endif %}
-    {% if perms.pharmacy.add_medication %}<a class="btn btn-outline-primary" href="{% url 'pharmacy:medication_create' %}"><i class="bi bi-plus"></i> Add medicine</a>{% endif %}
+    {% if perms.pharmacy.view_stockshortfall %}<a class="btn btn-outline-danger" href="{% url 'pharmacy:shortfall_list' %}"><i class="bi bi-exclamation-octagon"></i> Stock-outs{% if open_shortfalls %} <span class="badge text-bg-danger">{{ open_shortfalls }}</span>{% endif %}</a>{% endif %}
+    {% if perms.pharmacy.add_medication %}<a class="btn btn-outline-primary" href="{% url 'pharmacy:medication_create' %}"><i class="bi bi-plus"></i> Add item</a>{% endif %}
   </div>
 </div>
 <form class="row g-2 mb-3" method="get">
-  <div class="col-md-4"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Search medicine"></div>
-  <div class="col-md-4"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Search"></div>
+  <div class="col-md-2"><select class="form-select" name="type"><option value="">All types</option>{% for v, l in item_types %}<option value="{{ v }}" {% if request.GET.type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
   <div class="col-md-2"><select class="form-select" name="show"><option value="">Active only</option><option value="all" {% if request.GET.show == 'all' %}selected{% endif %}>Include inactive</option></select></div>
   <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
 </form>
@@ -21,10 +23,10 @@
 </div>
 {% endif %}
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Medicine</th><th>Form</th><th>Unit</th><th class="text-end">Usable stock</th><th class="text-end">Expired (to write off)</th><th class="text-end">Reorder level</th><th></th></tr></thead>
+  <thead class="table-light"><tr><th>Item</th><th>Type / form</th><th>Unit</th><th class="text-end">Usable stock</th><th class="text-end">Expired (to write off)</th><th class="text-end">Reorder level</th><th></th></tr></thead>
   <tbody>{% for m in object_list %}<tr>
     <td><span class="fw-semibold">{{ m.name }}</span> {{ m.strength }}{% if not m.is_active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
-    <td>{{ m.get_dosage_form_display }}</td><td>{{ m.dispensing_unit }}</td>
+    <td class="small">{% if m.is_medicine %}{{ m.get_dosage_form_display }}{% else %}{{ m.get_item_type_display }}{% endif %}</td><td>{{ m.dispensing_unit }}</td>
     <td class="text-end"><a href="{% url 'pharmacy:stock_list' %}?medication={{ m.pk }}{% if request.GET.facility %}&facility={{ request.GET.facility }}{% endif %}" class="{% if m.on_hand == 0 %}text-danger fw-semibold{% endif %}">{{ m.on_hand }}</a></td>
     <td class="text-end">{% if m.expired_on_hand %}<a class="text-danger" href="{% url 'pharmacy:stock_list' %}?view=expired&medication={{ m.pk }}">{{ m.expired_on_hand }}</a>{% else %}0{% endif %}</td>
     <td class="text-end">{{ m.reorder_level }}</td>

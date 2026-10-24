@@ -3,7 +3,7 @@ import uuid
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.http import FileResponse, Http404
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -13,13 +13,13 @@ from django.views.generic import CreateView, ListView, UpdateView
 from audit.models import AuditEvent
 from audit.services import log_event
 from core.forms import ReasonForm
-from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientChildUpdateMixin,
-                         ScopedQuerysetMixin)
+from core.mixins import AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, ScopedQuerysetMixin
 from facilities.scope import scope_queryset
+from issues.detectors import diagnosis_prompts
+from pharmacy.services import consume_for_service, shortfall_message
 
-from .forms import (GroupResultForm, InvestigationForm, InvestigationReportForm, LabCategoryForm, LabOrderForm,
-                    LabPanelForm, LabTestForm, SpecimenForm)
-from .models import InvestigationOrder, LabCategory, LabOrder, LabPanel, LabTest
+from .forms import GroupResultForm, LabCategoryForm, LabOrderForm, LabPanelForm, LabTestForm, SpecimenForm
+from .models import LabCategory, LabOrder, LabPanel, LabTest
 
 
 def back(request, obj):
@@ -145,94 +145,20 @@ class LabOrderActionView(PermissionRequiredMixin, View):
         elif step == 'cancel':
             order.cancel_reason, order.status = form.cleaned_data['reason'], LabOrder.Status.CANCELLED
             changed.append(order)
+        shortfalls = []
         for o in changed:
             o.save()
             log_event(request=request, action=AuditEvent.Action.STATUS, obj=o, changes={'status': o.status},
                       reason=form.cleaned_data.get('reason', '') if form is not None else '')
+            if step == 'result':
+                shortfalls += consume_for_service(request.user, lab_order=o, request=request)[1]
+        if step == 'result':
+            diagnosis_prompts([order.patient_id])
+        if shortfalls:
+            messages.warning(request, f'Results saved, but stock was short: {shortfall_message(shortfalls)}. '
+                                      'Recorded as a stock-out; receive stock in Medicines & stock.')
         messages.success(request, f'{len(changed)} test(s): {self.STEPS[step][1].lower()} done.')
         return redirect(back(request, order))
-
-
-class InvestigationCreateView(PatientChildCreateMixin, CreateView):
-    permission_required = 'laboratory.add_investigationorder'
-    model = InvestigationOrder
-    form_class = InvestigationForm
-    title = 'Request investigation (ECG / echo / imaging)'
-    success_tab = '#labs'
-
-    def get_initial(self):
-        initial = super().get_initial()
-        initial['encounter'] = self.request.GET.get('encounter')
-        return initial
-
-    def form_valid(self, form):
-        form.instance.requested_by = self.request.user
-        return super().form_valid(form)
-
-
-class InvestigationWorklistView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
-    permission_required = 'laboratory.view_investigationorder'
-    model = InvestigationOrder
-    template_name = 'laboratory/investigation_worklist.html'
-    paginate_by = 50
-
-    def get_queryset(self):
-        qs = super().get_queryset().select_related('patient', 'facility')
-        status = self.request.GET.get('status', 'pending')
-        if status == 'pending':
-            qs = qs.filter(status__in=['requested', 'scheduled'])
-        elif status:
-            qs = qs.filter(status=status)
-        if self.request.GET.get('modality'):
-            qs = qs.filter(modality=self.request.GET['modality'])
-        return qs
-
-    def get_context_data(self, **kwargs):
-        return super().get_context_data(statuses=InvestigationOrder.Status.choices,
-                                        modalities=InvestigationOrder.Modality.choices,
-                                        current_status=self.request.GET.get('status', 'pending'), **kwargs)
-
-
-class InvestigationReportView(PatientChildUpdateMixin, UpdateView):
-    permission_required = 'laboratory.change_investigationorder'
-    model = InvestigationOrder
-    form_class = InvestigationReportForm
-    title = 'Enter investigation report'
-    success_tab = '#labs'
-
-    def get_queryset(self):
-        return super().get_queryset().filter(status__in=['requested', 'scheduled', 'completed'])
-
-    def form_valid(self, form):
-        form.instance.reported_by = self.request.user
-        return super().form_valid(form)
-
-
-class InvestigationReviewView(PermissionRequiredMixin, View):
-    permission_required = 'laboratory.review_laborder'
-
-    def post(self, request, pk):
-        inv = get_object_or_404(scope_queryset(InvestigationOrder.objects.all(), request.user,
-                                               'patient__current_facility'), pk=pk, status='completed')
-        inv.status, inv.reviewed_by, inv.reviewed_at = 'reviewed', request.user, timezone.now()
-        inv.save()
-        log_event(request=request, action=AuditEvent.Action.REVIEW, obj=inv)
-        messages.success(request, 'Investigation reviewed.')
-        return redirect(request.POST.get('next') or inv.patient.get_absolute_url() + '#labs')
-
-
-class InvestigationAttachmentView(PermissionRequiredMixin, View):
-    """Serve uploaded reports only after a permission and scope check."""
-
-    permission_required = 'laboratory.view_investigationorder'
-
-    def get(self, request, pk):
-        inv = get_object_or_404(scope_queryset(InvestigationOrder.objects.all(), request.user,
-                                               'patient__current_facility'), pk=pk)
-        if not inv.attachment:
-            raise Http404
-        log_event(request=request, action=AuditEvent.Action.EXPORT, obj=inv, reason='Report attachment viewed')
-        return FileResponse(inv.attachment.open('rb'), filename=inv.attachment.name.rsplit('/', 1)[-1])
 
 
 # ---------------------------------------------------------------- catalogue (units and ranges are configuration)
@@ -272,6 +198,11 @@ class LabTestUpdateView(CatalogueEditMixin, AuditedUpdateMixin, UpdateView):
     form_class = LabTestForm
     extra_context = {'title': 'Edit lab test, unit and reference range',
                      'subtitle': 'Results already recorded keep the unit and range they were recorded with.'}
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(after_template='pharmacy/_consumables.html', target='lab_test',
+                                        target_id=self.object.pk,
+                                        consumables=self.object.consumables.select_related('item'), **kwargs)
 
     def form_valid(self, form):
         old_unit = LabTest.objects.get(pk=self.object.pk).unit

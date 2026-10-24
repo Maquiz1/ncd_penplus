@@ -1,11 +1,12 @@
 from django import forms
 
 from core.forms import BootstrapForm, BootstrapModelForm, PatientChildForm, apply_bootstrap
+from facilities.forms import LocationFieldsMixin
 from facilities.models import Facility
 from facilities.scope import facilities_for_user
 from patients.forms import PatientForm
 
-from .models import (ClinicalProgramme, Diagnosis, Disease, PreScreening, ProgrammeEnrollment, Screening,
+from .models import (ClinicalProgramme, FamilyMember, Diagnosis, Disease, PreScreening, ProgrammeEnrollment, Screening,
                      ScreeningSession)
 
 
@@ -39,8 +40,18 @@ class ScreeningUpdateForm(PatientChildForm):
 class DiagnosisForm(PatientChildForm):
     class Meta:
         model = Diagnosis
-        fields = ['disease', 'description', 'code', 'status', 'onset_date', 'diagnosis_date', 'encounter',
+        fields = ['disease', 'description', 'condition', 'code', 'status', 'onset_date', 'diagnosis_date', 'encounter',
                   'complications', 'notes']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from diseases.models import Condition
+        self.fields['disease'].queryset = Disease.objects.filter(is_active=True)
+        self.fields['condition'].queryset = (Condition.objects.filter(is_active=True, disease__is_active=True)
+                                             .select_related('parent').order_by('disease__order', 'parent__order', 'parent_id', 'order'))
+        self.fields['condition'].label_from_instance = lambda obj: obj.label
+        self.fields['condition'].required = False
+        self.fields['condition'].help_text = 'Leave empty to set it from the description.'
 
 
 class ProgrammeEnrollmentForm(PatientChildForm):
@@ -51,15 +62,17 @@ class ProgrammeEnrollmentForm(PatientChildForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['programme'].queryset = ClinicalProgramme.objects.filter(is_active=True)
+        self.fields['programme'].queryset = ClinicalProgramme.objects.filter(is_active=True, disease__is_active=True)
         self.instance.patient = self.patient
 
 
-class ScreeningSessionForm(BootstrapModelForm):
+class ScreeningSessionForm(LocationFieldsMixin, BootstrapModelForm):
+    location_fields = {'region': 'region', 'district': 'district', 'ward': 'ward', 'street': 'street'}
+
     class Meta:
         model = ScreeningSession
-        fields = ['name', 'facility', 'session_date', 'source', 'location_type', 'place_name', 'ward', 'district',
-                  'diseases', 'min_age', 'team_notes', 'is_closed']
+        fields = ['name', 'facility', 'session_date', 'source', 'location_type', 'place_name', 'district', 'ward',
+                  'street', 'diseases', 'min_age', 'team_notes', 'is_closed']
         widgets = {'diseases': forms.CheckboxSelectMultiple}
 
     def __init__(self, *args, user=None, **kwargs):
@@ -68,6 +81,9 @@ class ScreeningSessionForm(BootstrapModelForm):
         self.fields['diseases'].queryset = Disease.objects.filter(is_active=True)
         if not self.instance.pk:
             del self.fields['is_closed']
+        facility = facilities_for_user(user).first() if user else None
+        self.setup_locations(default_district=facility.district if facility and not self.instance.pk else None)
+        self.order_location_fields(before='diseases')
 
 
 class SessionScreeningForm(BootstrapForm):
@@ -148,3 +164,75 @@ class PatientQuickForm(PatientForm):
         for name in ('registration_facility', 'registration_date', 'alternate_phone'):
             self.fields.pop(name, None)
         self.fields['next_of_kin_name'].label = 'Next of kin / parent or guardian'
+
+
+class ReturnToCareForm(BootstrapForm):
+    KIND_CHOICES = [('return', 'Returned after default / lost to follow-up'),
+                    ('return_withdrawal', 'Returned after withdrawal / stopping treatment'),
+                    ('transfer_in', 'Transferred back in'),
+                    ('return_other', 'Other return')]
+    return_date = forms.DateField()
+    kind = forms.ChoiceField(choices=KIND_CHOICES, label='Type of return')
+    reason = forms.CharField(max_length=255, required=False, label='Notes')
+    create_schedule = forms.BooleanField(required=False, initial=True,
+                                         label='Create a follow-up schedule starting from the return date')
+    interval_months = forms.TypedChoiceField(coerce=int, initial=1, label='Visit interval', choices=[
+        (1, 'Monthly'), (2, 'Every 2 months'), (3, 'Every 3 months'), (6, 'Every 6 months')])
+    visit_count = forms.IntegerField(min_value=1, max_value=36, initial=6, label='Number of future visits')
+
+    def __init__(self, *args, enrollment=None, **kwargs):
+        self.enrollment = enrollment
+        super().__init__(*args, **kwargs)
+
+    def clean_return_date(self):
+        date = self.cleaned_data['return_date']
+        if self.enrollment.outcome_date and date < self.enrollment.outcome_date:
+            raise forms.ValidationError('The return date cannot be before the date the enrollment was closed.')
+        return date
+
+
+class ConditionChoiceField(forms.ModelMultipleChoiceField):
+    def label_from_instance(self, obj):
+        return f'{obj.disease.name}: {obj.label}'
+
+
+class DiagnosisCreateForm(PatientChildForm):
+    """Record one or more diagnoses at once: tick every condition / sub-type the patient has."""
+
+    conditions = ConditionChoiceField(queryset=None, widget=forms.CheckboxSelectMultiple, required=False,
+                                      label='Conditions (tick all that apply)',
+                                      help_text='Choose a sub-type when known, e.g. Rheumatic heart disease – Mixed mitral '
+                                                'valve disease. One diagnosis is recorded for each ticked condition.')
+
+    class Meta:
+        model = Diagnosis
+        fields = ['disease', 'conditions', 'description', 'code', 'status', 'onset_date', 'diagnosis_date', 'encounter',
+                  'complications', 'notes']
+        labels = {'description': 'Description / details (optional)'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from diseases.models import Condition
+        self.fields['disease'].queryset = Disease.objects.filter(is_active=True)
+        self.fields['conditions'].queryset = (Condition.objects.filter(is_active=True, disease__is_active=True)
+                                              .select_related('disease', 'parent')
+                                              .order_by('disease__order', 'parent__order', 'parent_id', 'order'))
+        self.fields['description'].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        disease, conditions = cleaned.get('disease'), cleaned.get('conditions') or []
+        if disease and any(c.disease_id != disease.pk for c in conditions):
+            self.add_error('conditions', f'Choose only conditions of {disease}.')
+        if not conditions and not cleaned.get('description'):
+            self.add_error('conditions', 'Tick at least one condition, or write the diagnosis in the description.')
+        return cleaned
+
+
+class FamilyMemberForm(PatientChildForm):
+    class Meta:
+        model = FamilyMember
+        fields = ['relation', 'sex', 'age_years', 'alive', 'scd_status', 'tested', 'test_date', 'test_type',
+                  'referred_for_screening', 'recorded_on', 'notes']
+        widgets = {'alive': forms.NullBooleanSelect, 'tested': forms.NullBooleanSelect}
+        help_texts = {'scd_status': 'Do not record names: relatives are not registered patients.'}

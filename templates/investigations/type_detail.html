@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ itype.name }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div><h1 class="h3 mb-0">{{ itype.name }} {% if not itype.is_active %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</h1>
+    <div class="text-body-secondary small">{{ itype.get_modality_display }} · {{ itype.code }}{% if itype.description %} · {{ itype.description }}{% endif %}{% if itype.preparation %}<br>Preparation: {{ itype.preparation }}{% endif %}</div></div>
+  {% if perms.investigations.change_investigationtype %}<a class="btn btn-outline-secondary" href="{% url 'investigations:type_update' itype.pk %}"><i class="bi bi-pencil"></i> Edit</a>{% endif %}
+</div>
+<div class="row g-3">
+  <div class="col-lg-7"><div class="card shadow-sm"><div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Report fields</span>{% if perms.investigations.change_investigationtype %}<a class="btn btn-sm btn-outline-primary" href="{% url 'investigations:field_create' itype.pk %}"><i class="bi bi-plus"></i> Add field</a>{% endif %}</div>
+    <div class="table-responsive"><table class="table table-sm mb-0 align-middle"><thead class="table-light"><tr><th>Field</th><th>Type</th><th>Normal / options</th><th></th></tr></thead>
+    <tbody>{% for f in fields %}<tr class="{% if not f.is_active %}text-body-tertiary{% endif %}"><td>{{ f.label }}{% if f.required %} <span class="text-danger">*</span>{% endif %}<div class="small text-body-secondary">{{ f.key }}</div></td><td class="small">{{ f.get_field_type_display }}{% if f.unit %} ({{ f.unit }}){% endif %}</td>
+      <td class="small">{% if f.field_type == 'number' %}{{ f.reference_low|default_if_none:"" }}–{{ f.reference_high|default_if_none:"" }}{% else %}{{ f.choices|linebreaksbr }}{% endif %}</td>
+      <td class="text-end">{% if perms.investigations.change_investigationtype %}<a class="btn btn-sm btn-link" href="{% url 'investigations:field_update' f.pk %}">Edit</a>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="4" class="text-body-secondary">No structured fields: the report is free text.</td></tr>{% endfor %}</tbody></table></div>
+    <div class="card-footer bg-body small text-body-secondary">Options starting with “!” and numbers outside the range mark the report abnormal.</div></div></div>
+  <div class="col-lg-5">{% include "pharmacy/_consumables.html" with consumables=consumables target="investigation_type" target_id=itype.pk %}</div>
+</div>
+{% endblock %}

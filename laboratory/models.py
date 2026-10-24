@@ -3,11 +3,10 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
-from core.models import TimeStampedModel
+from core.models import SoftDeleteModel
 from facilities.models import Facility
 from patients.models import Patient
 
@@ -105,7 +104,7 @@ class LabPanel(models.Model):
         return self.name
 
 
-class LabOrder(TimeStampedModel):
+class LabOrder(SoftDeleteModel):
     """Separate request, specimen and result lifecycle for a laboratory test."""
 
     class Status(models.TextChoices):
@@ -175,55 +174,3 @@ class LabOrder(TimeStampedModel):
         if self.resulted_at:
             return round((self.resulted_at - self.ordered_at).total_seconds() / 3600, 1)
         return None
-
-
-class InvestigationOrder(TimeStampedModel):
-    """ECG, echocardiography, imaging and other procedure requests and reports."""
-
-    class Modality(models.TextChoices):
-        ECG = 'ecg', 'ECG'
-        ECHO = 'echo', 'Echocardiography'
-        XRAY = 'xray', 'X-ray'
-        ULTRASOUND = 'ultrasound', 'Ultrasound'
-        CT = 'ct', 'CT scan'
-        TCD = 'tcd', 'Transcranial doppler (TCD)'
-        OTHER = 'other', 'Other'
-
-    class Status(models.TextChoices):
-        REQUESTED = 'requested', 'Requested'
-        SCHEDULED = 'scheduled', 'Scheduled'
-        COMPLETED = 'completed', 'Report available'
-        REVIEWED = 'reviewed', 'Reviewed'
-        CANCELLED = 'cancelled', 'Cancelled'
-
-    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='investigations')
-    encounter = models.ForeignKey('encounters.Encounter', on_delete=models.PROTECT, null=True, blank=True,
-                                  related_name='investigations')
-    facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='+')
-    modality = models.CharField(max_length=20, choices=Modality.choices)
-    description = models.CharField('Procedure / indication', max_length=255)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.REQUESTED)
-    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
-    requested_at = models.DateTimeField(default=timezone.now)
-    scheduled_for = models.DateTimeField(null=True, blank=True)
-    performed_at = models.DateTimeField(null=True, blank=True)
-    findings = models.TextField('Findings / report', blank=True)
-    conclusion = models.CharField(max_length=255, blank=True)
-    attachment = models.FileField(upload_to='investigations/%Y/%m/', blank=True,
-                                  validators=[FileExtensionValidator(['pdf', 'png', 'jpg', 'jpeg'])])
-    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
-                                    related_name='+')
-    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
-                                    related_name='+')
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-    cancel_reason = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        ordering = ['-requested_at']
-
-    def __str__(self):
-        return f'{self.get_modality_display()} for {self.patient}'
-
-    def clean(self):
-        if self.status == self.Status.COMPLETED and not (self.findings or self.attachment):
-            raise ValidationError('Enter the findings or attach the report.')

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Diseases{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Diseases</h1>
+  {% if perms.clinical.add_disease %}<a class="btn btn-primary" href="{% url 'diseases:create' %}"><i class="bi bi-plus"></i> Add disease</a>{% endif %}
+</div>
+<p class="small text-body-secondary">Only <strong>active</strong> diseases appear in forms, screening, clinic days, indicators and reports. Deactivating or deleting a disease never removes patient records.</p>
+<div class="card shadow-sm mb-4"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Disease</th><th>Code</th><th class="text-end">Conditions</th><th class="text-end">Patients diagnosed</th><th class="text-end">Programme enrollments (active)</th><th>Status</th></tr></thead>
+  <tbody>{% for d in object_list %}<tr>
+    <td><a class="fw-semibold" href="{{ d.get_absolute_url }}">{{ d.name }}</a></td><td><code>{{ d.code }}</code></td>
+    <td class="text-end">{{ d.n_conditions }}</td><td class="text-end">{{ d.n_patients }}</td><td class="text-end">{{ d.n_enrollments }} ({{ d.n_active }})</td>
+    <td>{% if d.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No diseases.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if deleted is not None %}
+<h2 class="h5">Deleted diseases <span class="small text-body-secondary fw-normal">(only superusers see and restore these)</span></h2>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table mb-0">
+  <thead class="table-light"><tr><th>Disease</th><th>Deleted</th><th>By</th><th>Reason</th><th class="text-end">Patients</th><th></th></tr></thead>
+  <tbody>{% for d in deleted %}<tr><td><a href="{{ d.get_absolute_url }}">{{ d.name }}</a></td><td>{{ d.deleted_at|date:"d M Y H:i" }}</td><td>{{ d.deleted_by }}</td><td class="small">{{ d.deletion_reason }}</td><td class="text-end">{{ d.n_patients }}</td>
+    <td class="text-end"><form method="post" action="{% url 'diseases:restore' d.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button></form></td></tr>
+  {% empty %}<tr><td colspan="6" class="text-body-secondary">None.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}

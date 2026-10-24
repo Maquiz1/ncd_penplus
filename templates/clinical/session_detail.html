@@ -4,7 +4,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">{{ object.name }} {% if object.is_closed %}<span class="badge text-bg-secondary">Closed</span>{% endif %}</h1>
-    <div class="text-body-secondary small">{{ object.session_date|date:"l d M Y" }} · {{ object.place_name }}{% if object.ward %}, {{ object.ward }} ward{% endif %}{% if object.district %}, {{ object.district }}{% endif %} · {{ object.get_source_display }} · {{ object.facility }} · minimum age {{ object.min_age }}</div>
+    <div class="text-body-secondary small">{{ object.session_date|date:"l d M Y" }} · {{ object.place_name }}{% if object.street %}, {{ object.street.name }}{% endif %}{% if object.ward %}, {{ object.ward.name }} ward{% endif %}{% if object.district %}, {{ object.district.name }}{% endif %} · {{ object.get_source_display }} · {{ object.facility }} · minimum age {{ object.min_age }}</div>
   </div>
   <div class="d-flex gap-2">
     {% if not object.is_closed and perms.clinical.add_screening and can_view_identity %}<a class="btn btn-success" href="{% url 'clinical:session_screen' object.pk %}"><i class="bi bi-person-plus"></i> Register &amp; screen</a>{% endif %}

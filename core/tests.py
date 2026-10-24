@@ -460,7 +460,8 @@ class PageSmokeTests(BaseTestCase):
         self.appointment = Appointment.objects.create(patient=p, facility=self.ilala, scheduled_date=today)
         self.study = Study.objects.create(code='s1', title='Study', status='active')
         self.plan = FollowUpPlan.objects.create(patient=p, facility=self.ilala, anchor_date=today)
-        from laboratory.models import InvestigationOrder, LabOrder, LabTest
+        from investigations.models import InvestigationOrder
+        from laboratory.models import LabOrder, LabTest
         self.lab = LabOrder.objects.create(patient=p, facility=self.ilala, test=LabTest.objects.first(),
                                            ordered_by=self.admin)
         self.inv = InvestigationOrder.objects.create(patient=p, facility=self.ilala, modality='ecg',
@@ -504,8 +505,8 @@ class PageSmokeTests(BaseTestCase):
             reverse('crf:submission_detail', args=[self.submission.pk]),
             reverse('laboratory:lab_worklist'), reverse('laboratory:lab_add', args=[p]),
             reverse('laboratory:lab_action', args=[self.lab.pk, 'collect']),
-            reverse('laboratory:investigation_worklist'), reverse('laboratory:investigation_add', args=[p]),
-            reverse('laboratory:investigation_report', args=[self.inv.pk]),
+            reverse('investigations:worklist'), reverse('investigations:add', args=[p]),
+            reverse('investigations:report', args=[self.inv.pk]),
             reverse('reporting:report'), reverse('reporting:runs'), reverse('audit:list'),
             reverse('users:list'), reverse('users:create'), reverse('users:detail', args=[self.clinician_ilala.pk]),
             reverse('users:update', args=[self.clinician_ilala.pk]), reverse('facilities:list'),
@@ -533,3 +534,15 @@ class PageSmokeTests(BaseTestCase):
     def test_login_and_password_reset_pages_are_public(self):
         for url in (reverse('login'), reverse('password_reset'), reverse('password_reset_done')):
             self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class BackButtonTests(BaseTestCase):
+    def test_back_button_on_pages_but_not_dashboard_or_login(self):
+        self.client.force_login(self.admin)
+        self.assertNotContains(self.client.get(reverse('dashboard')), 'js-back')
+        for url in (reverse('patients:list'), reverse('reporting:report'), reverse('users:list')):
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), 'js-back')
+        self.client.logout()
+        self.assertNotContains(self.client.get(reverse('login')), 'js-back')
+        self.assertContains(self.client.get(reverse('password_reset')), 'js-back')

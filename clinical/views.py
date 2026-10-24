@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
@@ -13,13 +14,15 @@ from audit.services import log_event
 from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientChildUpdateMixin,
                          ScopedQuerysetMixin)
 from facilities.scope import default_facility, scope_queryset
+from research.services import mirror_programme_status
 from patients.models import Patient
 from patients.services import register_patient
 
-from .forms import (DiagnosisForm, PatientQuickForm, PreScreeningForm, ProgrammeEnrollmentForm, ScreeningCreateForm,
+from issues.detectors import diagnosis_prompts
+from .forms import (DiagnosisCreateForm, FamilyMemberForm, DiagnosisForm, PatientQuickForm, ReturnToCareForm, PreScreeningForm, ProgrammeEnrollmentForm, ScreeningCreateForm,
                     ScreeningSessionForm, ScreeningUpdateForm, SessionScreeningForm)
-from .models import (ClinicalProgramme, Diagnosis, Disease, PreScreening, ProgrammeEnrollment, Screening,
-                     ScreeningSession)
+from .models import (CLOSED_RETURNABLE, ClinicalProgramme, FamilyMember, Diagnosis, Disease, EnrollmentEvent, PreScreening,
+                     ProgrammeEnrollment, Screening, ScreeningSession)
 
 
 class PreScreeningCreateView(PatientChildCreateMixin, CreateView):
@@ -66,7 +69,7 @@ class ScreeningUpdateView(PatientChildUpdateMixin, UpdateView):
 class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
     permission_required = 'clinical.add_diagnosis'
     model = Diagnosis
-    form_class = DiagnosisForm
+    form_class = DiagnosisCreateForm
     title = 'Record diagnosis'
     success_tab = '#clinical'
 
@@ -76,8 +79,21 @@ class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
         return initial
 
     def form_valid(self, form):
-        form.instance.clinician = self.request.user
-        return super().form_valid(form)
+        data = {k: v for k, v in form.cleaned_data.items() if k not in ('conditions', 'description')}
+        details = form.cleaned_data.get('description', '').strip()
+        conditions = list(form.cleaned_data.get('conditions') or []) or [None]
+        created = []
+        for condition in conditions:
+            description = condition.label if condition else details
+            if condition and details:
+                description = f'{condition.label} – {details}'
+            diagnosis = Diagnosis.objects.create(patient=self.patient, condition=condition, description=description[:255],
+                                                 clinician=self.request.user, created_by=self.request.user, **data)
+            log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=diagnosis)
+            created.append(diagnosis.description)
+        messages.success(self.request, f'{len(created)} diagnosis/diagnoses recorded: {"; ".join(created)}.')
+        diagnosis_prompts([self.patient.pk])
+        return redirect(self.get_success_url())
 
 
 class DiagnosisUpdateView(PatientChildUpdateMixin, UpdateView):
@@ -86,6 +102,11 @@ class DiagnosisUpdateView(PatientChildUpdateMixin, UpdateView):
     form_class = DiagnosisForm
     title = 'Update diagnosis'
     success_tab = '#clinical'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        diagnosis_prompts([self.object.patient_id])
+        return response
 
 
 class ProgrammeEnrollmentCreateView(PatientChildCreateMixin, CreateView):
@@ -102,6 +123,91 @@ class ProgrammeEnrollmentUpdateView(PatientChildUpdateMixin, UpdateView):
     form_class = ProgrammeEnrollmentForm
     title = 'Update programme enrollment / outcome'
     success_tab = '#clinical'
+
+    def form_valid(self, form):
+        old_status = ProgrammeEnrollment.objects.get(pk=self.object.pk).status
+        response = super().form_valid(form)
+        if old_status != self.object.status:
+            EnrollmentEvent.objects.create(
+                enrollment=self.object, from_status=old_status, to_status=self.object.status,
+                event_date=self.object.outcome_date or timezone.localdate(), reason=self.object.outcome_reason,
+                created_by=self.request.user)
+            changed, _skipped = mirror_programme_status(self.object, self.request.user, self.request)
+            if changed:
+                messages.info(self.request, 'Research enrollment updated to match: '
+                              + ', '.join(f'{s.study.code} → {s.get_status_display()}' for s in changed))
+        return response
+
+
+class ReturnToCareView(PermissionRequiredMixin, View):
+    """Reopen a closed enrollment (default/LTFU, withdrawal, transfer out) while keeping its history."""
+
+    permission_required = 'clinical.change_programmeenrollment'
+
+    def get_enrollment(self, request, pk):
+        enrollment = get_object_or_404(scope_queryset(ProgrammeEnrollment.objects.select_related('patient', 'programme'),
+                                                      request.user, 'patient__current_facility'), pk=pk)
+        if enrollment.status not in CLOSED_RETURNABLE:
+            raise PermissionDenied('Only closed enrollments (default, lost to follow-up, withdrawn, transferred out) '
+                                   'can be reopened.')
+        if enrollment.patient.is_deceased:
+            raise PermissionDenied('The patient is recorded as deceased.')
+        return enrollment
+
+    def render_form(self, request, enrollment, form):
+        return render(request, 'confirm_action.html', {
+            'title': f'Return to care – {enrollment.programme}', 'patient': enrollment.patient, 'form': form,
+            'message': f'Currently {enrollment.get_status_display().lower()}'
+                       + (f' since {enrollment.outcome_date:%d %b %Y}' if enrollment.outcome_date else '')
+                       + '. The earlier status stays in the enrollment history. Research participation closed '
+                         'the same way is reopened too (unless consent was withdrawn).',
+            'button': 'Return to care', 'cancel_url': enrollment.patient.get_absolute_url() + '#clinical'})
+
+    def get(self, request, pk):
+        enrollment = self.get_enrollment(request, pk)
+        return self.render_form(request, enrollment, ReturnToCareForm(enrollment=enrollment,
+                                                                       initial={'return_date': timezone.localdate()}))
+
+    def post(self, request, pk):
+        from encounters.models import FollowUpPlan
+        from encounters.services import generate_visits
+
+        enrollment = self.get_enrollment(request, pk)
+        form = ReturnToCareForm(request.POST, enrollment=enrollment)
+        if not form.is_valid():
+            return self.render_form(request, enrollment, form)
+        if ProgrammeEnrollment.objects.filter(patient=enrollment.patient, programme=enrollment.programme,
+                                              status__in=['pending', 'active']).exclude(pk=enrollment.pk).exists():
+            form.add_error(None, 'The patient already has another open enrollment in this programme.')
+            return self.render_form(request, enrollment, form)
+        data = form.cleaned_data
+        kind = 'transfer_in' if data['kind'] == 'transfer_in' else 'return'
+        label = dict(ReturnToCareForm.KIND_CHOICES)[data['kind']]
+        with transaction.atomic():
+            old_status = enrollment.status
+            EnrollmentEvent.objects.create(enrollment=enrollment, kind=kind, from_status=old_status, to_status='active',
+                                           event_date=data['return_date'],
+                                           reason=f'{label}. {data["reason"]}'.strip(' .')[:255],
+                                           created_by=request.user)
+            enrollment.status, enrollment.outcome_date, enrollment.outcome_reason = 'active', None, ''
+            enrollment.save(update_fields=['status', 'outcome_date', 'outcome_reason', 'updated_at'])
+            log_event(request=request, action=AuditEvent.Action.STATUS, obj=enrollment,
+                      changes={'status': [old_status, 'active']}, reason=label)
+            studies, skipped = mirror_programme_status(enrollment, request.user, request)
+            created = 0
+            if data['create_schedule']:
+                plan = FollowUpPlan.objects.create(
+                    patient=enrollment.patient, facility=enrollment.patient.current_facility,
+                    programme_enrollment=enrollment, interval_months=data['interval_months'], anchor_type='custom',
+                    anchor_date=data['return_date'], visit_count=data['visit_count'], created_by=request.user)
+                created = generate_visits(plan, request.user)
+        messages.success(request, f'{enrollment.programme}: back in care from {data["return_date"]:%d %b %Y}.'
+                                  + (f' {created} follow-up visits scheduled.' if created else '')
+                                  + (f' Research reopened: {", ".join(s.study.code for s in studies)}.' if studies else ''))
+        for study in skipped:
+            messages.warning(request, f'{study.study.code}: consent was withdrawn, so research participation was not '
+                                      f'reopened. Record new consent to re-enroll.')
+        return redirect(enrollment.patient.get_absolute_url() + '#visits')
 
 
 class ScreeningListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
@@ -286,3 +392,19 @@ class SessionScreenView(PermissionRequiredMixin, View):
                 log_event(request=request, action=AuditEvent.Action.CREATE, obj=screening)
         messages.success(request, f'{patient.patient_number} screened. Ready for the next person.')
         return redirect(reverse('clinical:session_screen', args=[self.session.pk]) + f'?saved={patient.pk}')
+
+
+class FamilyMemberCreateView(PatientChildCreateMixin, CreateView):
+    permission_required = 'clinical.add_familymember'
+    model = FamilyMember
+    form_class = FamilyMemberForm
+    title = 'Add family member'
+    success_tab = '#clinical'
+
+
+class FamilyMemberUpdateView(PatientChildUpdateMixin, UpdateView):
+    permission_required = 'clinical.change_familymember'
+    model = FamilyMember
+    form_class = FamilyMemberForm
+    title = 'Edit family member'
+    success_tab = '#clinical'

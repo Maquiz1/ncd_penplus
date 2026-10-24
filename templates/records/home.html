@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Records{% endblock %}
+{% block content %}
+<h1 class="h3">Records by form</h1>
+<p class="text-body-secondary">Every form and section, as in the old EDCS tables. Open one to search, view, edit or delete records (a reason is required and the record stays restorable{% if user.is_superuser %} – you can restore from the <em>Deleted</em> tab{% else %} by a superuser{% endif %}). Setup items (diseases, tests, investigations, medicines, positions) are switched off with <em>Deactivate</em> in their own catalogues instead.</p>
+{% for group, items in groups.items %}
+<h2 class="h6 text-uppercase text-body-secondary mt-4">{{ group }}</h2>
+<div class="row g-2">{% for rtype, count, deleted in items %}
+  <div class="col-sm-6 col-lg-4 col-xl-3"><a class="card shadow-sm h-100 text-decoration-none" href="{% url 'records:list' rtype.key %}"><div class="card-body py-2">
+    <div class="fw-semibold">{{ rtype.label }}</div>
+    <div class="small text-body-secondary">{{ count }} record{{ count|pluralize }}{% if deleted %} · <span class="text-danger">{{ deleted }} deleted</span>{% endif %}</div>
+  </div></a></div>{% endfor %}
+</div>
+{% empty %}<p class="text-body-secondary">You have no access to patient records.</p>{% endfor %}
+{% endblock %}

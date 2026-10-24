@@ -4,21 +4,43 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import LocationType, TimeStampedModel
+from core.models import LocationType, SoftDeleteModel, TimeStampedModel
 from facilities.models import Facility
 from patients.models import Patient
 
 
+class ActiveDiseaseManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+
 class Disease(models.Model):
+    """A disease area (e.g. Diabetes). Inactive or deleted diseases are hidden from forms, indicators and reports;
+    their history is kept. Managed in Diseases (the diseases app)."""
+
     code = models.SlugField(max_length=30, unique=True)
     name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    order = models.PositiveSmallIntegerField(default=10)
     is_active = models.BooleanField(default=True)
+    is_deleted = models.BooleanField(default=False, editable=False)
+    deleted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    deleted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                                   related_name='+', editable=False)
+    deletion_reason = models.CharField(max_length=255, blank=True, editable=False)
+
+    objects = ActiveDiseaseManager()
+    all_objects = models.Manager()
 
     class Meta:
-        ordering = ['name']
+        ordering = ['order', 'name']
+        permissions = [('restore_disease', 'Can restore deleted diseases')]
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse('diseases:detail', args=[self.pk])
 
 
 class ClinicalProgramme(models.Model):
@@ -34,7 +56,7 @@ class ClinicalProgramme(models.Model):
         return self.name
 
 
-class PreScreening(TimeStampedModel):
+class PreScreening(SoftDeleteModel):
     """General pre-screening, before any disease-specific screening."""
 
     class Disposition(models.TextChoices):
@@ -58,7 +80,7 @@ class PreScreening(TimeStampedModel):
         return f'Pre-screening {self.patient} {self.date}'
 
 
-class Screening(TimeStampedModel):
+class Screening(SoftDeleteModel):
     """One disease-specific screening event. Never creates a diagnosis or enrollment by itself."""
 
     class Source(models.TextChoices):
@@ -114,9 +136,11 @@ class ScreeningSession(TimeStampedModel):
     location_type = models.CharField('Actual location', max_length=20, choices=LocationType.choices,
                                      default=LocationType.COMMUNITY)
     place_name = models.CharField('School / village / street', max_length=150)
-    ward = models.CharField(max_length=100, blank=True)
     district = models.ForeignKey('facilities.District', on_delete=models.PROTECT, null=True, blank=True,
                                  related_name='+')
+    ward = models.ForeignKey('facilities.Ward', on_delete=models.PROTECT, null=True, blank=True, related_name='+')
+    street = models.ForeignKey('facilities.Street', on_delete=models.PROTECT, null=True, blank=True, related_name='+',
+                               verbose_name='Street / village')
     diseases = models.ManyToManyField(Disease, related_name='screening_sessions')
     min_age = models.PositiveSmallIntegerField('Minimum age (years)', default=6)
     team_notes = models.TextField(blank=True)
@@ -132,7 +156,7 @@ class ScreeningSession(TimeStampedModel):
         return reverse('clinical:session_detail', args=[self.pk])
 
 
-class Diagnosis(TimeStampedModel):
+class Diagnosis(SoftDeleteModel):
     class Status(models.TextChoices):
         PROVISIONAL = 'provisional', 'Provisional / suspected'
         CONFIRMED = 'confirmed', 'Confirmed'
@@ -145,6 +169,9 @@ class Diagnosis(TimeStampedModel):
     description = models.CharField('Condition / specific diagnosis', max_length=255,
                                    help_text='e.g. Type 2 diabetes mellitus, Rheumatic heart disease, HbSS')
     code = models.CharField('Code (ICD-10/11)', max_length=20, blank=True)
+    condition = models.ForeignKey('diseases.Condition', on_delete=models.PROTECT, null=True, blank=True,
+                                  related_name='diagnoses', help_text='Reporting condition; set automatically, '
+                                                                      'change it if it is wrong.')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PROVISIONAL)
     onset_date = models.DateField(null=True, blank=True)
     diagnosis_date = models.DateField(default=timezone.localdate)
@@ -159,6 +186,12 @@ class Diagnosis(TimeStampedModel):
     def __str__(self):
         return f'{self.description} ({self.get_status_display()})'
 
+    def save(self, *args, **kwargs):
+        if self.condition_id is None and self.disease_id:
+            from diseases.models import match_condition
+            self.condition, _matched = match_condition(self.description, self.disease)
+        super().save(*args, **kwargs)
+
 
 class EnrollmentStatus(models.TextChoices):
     PENDING = 'pending', 'Pending'
@@ -169,6 +202,9 @@ class EnrollmentStatus(models.TextChoices):
     WITHDRAWN = 'withdrawn', 'Withdrawn'
     DECEASED = 'deceased', 'Deceased'
     OTHER = 'other', 'Other closure'
+
+
+CLOSED_RETURNABLE = ('ltfu', 'transferred_out', 'withdrawn', 'other', 'completed')
 
 
 class ProgrammeEnrollment(TimeStampedModel):
@@ -205,3 +241,61 @@ class ProgrammeEnrollment(TimeStampedModel):
                                                        status__in=['pending', 'active']).exclude(pk=self.pk)
             if clash.exists():
                 raise ValidationError('The patient already has an open enrollment in this programme.')
+
+
+class EnrollmentEvent(TimeStampedModel):
+    """History of a programme enrollment's status: closures, returns to care, transfers in."""
+
+    class Kind(models.TextChoices):
+        STATUS = 'status', 'Status change'
+        RETURN = 'return', 'Returned to care'
+        TRANSFER_IN = 'transfer_in', 'Transferred in'
+
+    enrollment = models.ForeignKey(ProgrammeEnrollment, on_delete=models.PROTECT, related_name='events')
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.STATUS)
+    event_date = models.DateField()
+    from_status = models.CharField(max_length=20, choices=EnrollmentStatus.choices, blank=True)
+    to_status = models.CharField(max_length=20, choices=EnrollmentStatus.choices)
+    reason = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-event_date', '-pk']
+
+    def __str__(self):
+        return f'{self.enrollment}: {self.from_status or "—"} → {self.to_status} on {self.event_date}'
+
+
+class FamilyMember(SoftDeleteModel):
+    """A relative of the patient, mainly siblings for sickle cell family screening (no names are recorded)."""
+
+    class Relation(models.TextChoices):
+        SIBLING = 'sibling', 'Sibling'
+        PARENT = 'parent', 'Parent'
+        CHILD = 'child', 'Child'
+        OTHER = 'other', 'Other relative'
+
+    class ScdStatus(models.TextChoices):
+        AFFECTED = 'affected', 'Has sickle cell disease'
+        CARRIER = 'carrier', 'Carrier (trait)'
+        NOT_AFFECTED = 'not_affected', 'Not affected'
+        UNKNOWN = 'unknown', 'Unknown / not tested'
+
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='family_members')
+    relation = models.CharField(max_length=10, choices=Relation.choices, default=Relation.SIBLING)
+    sex = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')], blank=True)
+    age_years = models.PositiveSmallIntegerField('Age (years)', null=True, blank=True)
+    alive = models.BooleanField(null=True, blank=True)
+    scd_status = models.CharField('Sickle cell status', max_length=15, choices=ScdStatus.choices,
+                                  default=ScdStatus.UNKNOWN)
+    tested = models.BooleanField('Tested for sickle cell', null=True, blank=True)
+    test_date = models.DateField(null=True, blank=True)
+    test_type = models.CharField(max_length=60, blank=True, help_text='e.g. Sickle SCAN, HPLC, sickling test')
+    referred_for_screening = models.BooleanField(default=False)
+    recorded_on = models.DateField(default=timezone.localdate)
+    notes = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['relation', '-age_years', 'pk']
+
+    def __str__(self):
+        return f'{self.get_relation_display()} of {self.patient} ({self.get_scd_status_display()})'

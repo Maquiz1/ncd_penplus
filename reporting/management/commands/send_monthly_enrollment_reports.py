@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
 from django.core.management.base import BaseCommand
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -9,6 +8,7 @@ from audit.models import AuditEvent
 from audit.services import log_event
 from core.utils import last_sunday, month_bounds
 from facilities.scope import scope_description
+from notifications.email import send_logged_email, site_url
 
 from reporting.models import ReportRun
 from reporting.services import period_report
@@ -45,7 +45,7 @@ class Command(BaseCommand):
             try:
                 report = period_report(user, start, end)
                 body = render_to_string('reporting/monthly_email.txt', {
-                    'user': user, 'report': report, 'scope': run.scope_description, 'site_url': settings.SITE_URL,
+                    'user': user, 'report': report, 'scope': run.scope_description, 'site_url': site_url(),
                     'generated': timezone.localtime(), 'tz': settings.TIME_ZONE})
                 run.generated_at = timezone.now()
                 user.refresh_from_db()
@@ -53,7 +53,8 @@ class Command(BaseCommand):
                     run.status, run.error = 'cancelled', 'Recipient deactivated before delivery'
                     run.save()
                     continue
-                send_mail(f'Monthly enrollment report {start:%B %Y}', body, settings.DEFAULT_FROM_EMAIL, [user.email])
+                send_logged_email(user.email, f'Monthly enrollment report {start:%B %Y}', body, purpose='monthly_report',
+                                  user=user)
                 run.status, run.sent_at = 'sent', timezone.now()
                 run.summary = {'programme_total': report['programme_total'], 'research_total': report['research_total']}
                 sent += 1
