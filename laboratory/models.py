@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -174,6 +175,32 @@ class LabOrder(SoftDeleteModel):
         if self.resulted_at:
             return round((self.resulted_at - self.ordered_at).total_seconds() / 3600, 1)
         return None
+
+
+class MonitoringRule(models.Model):
+    """How often a routine test is due for patients enrolled in a disease (e.g. HbA1c every 3 months for diabetes).
+
+    Edited by administrators under Administration → Monitoring settings."""
+
+    test = models.OneToOneField(LabTest, on_delete=models.PROTECT, related_name='monitoring_rule')
+    disease = models.ForeignKey('clinical.Disease', on_delete=models.PROTECT, related_name='+',
+                                help_text='Active patients enrolled in this disease are monitored.')
+    interval_months = models.PositiveSmallIntegerField(
+        'Due every (months)', default=3, validators=[MinValueValidator(1), MaxValueValidator(24)],
+        help_text='Months after the last result (or after enrolment when there is none).')
+    retry_months = models.PositiveSmallIntegerField(
+        'Due again after "not done" (months)', default=1, validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text='When an overdue test is recorded as not done, the patient is due again this many months later.')
+    is_active = models.BooleanField(default=True, help_text='Untick to stop the due list, banner and overdue flags.')
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                                   related_name='+', editable=False)
+
+    class Meta:
+        ordering = ['test__name']
+
+    def __str__(self):
+        return f'{self.test.name} every {self.interval_months} months ({self.disease})'
 
 
 class MonitoringGap(models.Model):

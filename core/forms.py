@@ -75,6 +75,10 @@ class PatientChildForm(BootstrapModelForm):
             for name, queryset in related.items():
                 if name in self.fields:
                     self.fields[name].queryset = queryset
+            encounter = self.fields.get('encounter')
+            if encounter is not None and not encounter.required:
+                encounter.empty_label = 'Not linked to a visit'
+                encounter.help_text = encounter.help_text or 'Optional. Link it to a visit (encounter) if one was recorded.'
 
 
 class ReasonForm(BootstrapForm):

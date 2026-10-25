@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Monitoring settings{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Monitoring settings</h1>
+<p class="text-body-secondary small mb-3">How often routine tests are due. Used by the due list, the patient banner and the nightly “overdue” data issues. Only staff with a National assignment can change them.</p>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Test</th><th>Patients</th><th class="text-end">Due every</th><th class="text-end">Due again after “not done”</th><th>Status</th><th>Last changed</th><th></th></tr></thead>
+  <tbody>{% for r in rules %}<tr>
+    <td class="fw-semibold">{{ r.test.name }}</td><td>Active {{ r.disease.name|lower }} patients</td>
+    <td class="text-end">{{ r.interval_months }} month{{ r.interval_months|pluralize }}</td>
+    <td class="text-end">{{ r.retry_months }} month{{ r.retry_months|pluralize }}</td>
+    <td>{% if r.is_active %}<span class="badge text-bg-success">On</span>{% else %}<span class="badge text-bg-secondary">Off</span>{% endif %}</td>
+    <td class="small text-body-secondary">{{ r.updated_at|date:"d M Y H:i" }}{% if r.updated_by %} · {{ r.updated_by.display_name }}{% endif %}</td>
+    <td class="text-end">{% if perms.laboratory.change_monitoringrule %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'laboratory:monitoring_rule_edit' r.pk %}">Edit</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No monitored tests yet. The HbA1c rule appears once the HbA1c test and the Diabetes disease exist.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+<div class="mt-3"><a href="{% url 'laboratory:monitoring' %}"><i class="bi bi-droplet"></i> HbA1c due list</a></div>
+{% endblock %}

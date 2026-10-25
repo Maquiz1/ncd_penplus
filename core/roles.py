@@ -38,7 +38,7 @@ def _changes(*models):
 # whatever their role. Everyone keeps the matching view permissions.
 NATIONAL_ONLY = _changes(
     'clinical.disease', 'clinical.clinicalprogramme', 'diseases.condition', 'laboratory.labtest', 'laboratory.labpanel',
-    'laboratory.labcategory', 'investigations.investigationtype', 'investigations.investigationfield',
+    'laboratory.labcategory', 'laboratory.monitoringrule', 'investigations.investigationtype', 'investigations.investigationfield',
     'pharmacy.consumableuse', 'crf.formdefinition', 'crf.formversion', 'crf.formsection', 'crf.formfield',
     'pharmacy.medication', 'facilities.facility', 'facilities.zone', 'facilities.region', 'facilities.district',
     'facilities.ward', 'facilities.street', 'notifications.siteconfiguration', 'users.position',
@@ -49,6 +49,7 @@ ROLES = {
                              'clinical.change_disease', 'clinical.delete_disease', 'diseases.*', 'clinical.view_clinicalprogramme',
                              'clinical.add_clinicalprogramme', 'clinical.change_clinicalprogramme',
                              'laboratory.view_labtest', 'laboratory.add_labtest', 'laboratory.change_labtest',
+                             'laboratory.view_monitoringrule', 'laboratory.change_monitoringrule',
                              'pharmacy.view_medication', 'pharmacy.add_medication', 'pharmacy.change_medication',
                              'audit.view_auditevent', 'reporting.view_reportrun',
                              'notifications.*siteconfiguration', 'notifications.view_emaillog',
@@ -103,6 +104,7 @@ ROLES = {
         'reporting.export_data', 'exports.export_identifiable', 'reporting.receive_monthly_report',
         'audit.view_auditevent', 'pharmacy.view_*',
         'laboratory.view_labtest', 'laboratory.add_labtest', 'laboratory.change_labtest', 'issues.*',
+        'laboratory.change_monitoringrule',
         'encounters.add_clinicsession', 'encounters.change_clinicsession', 'notifications.*smsmessage',
         'notifications.view_emaillog', 'notifications.view_siteconfiguration', 'facilities.merge_locations', 'facilities.view_ward', 'facilities.view_street',
         'clinical.add_disease', 'clinical.change_disease', 'clinical.delete_disease', 'diseases.*',

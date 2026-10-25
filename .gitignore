@@ -9,3 +9,6 @@ import_reports/
 backups/
 sent_emails/
 private_exports/
+documentations/gothomis/*.pdf
+documentations/proposal/
+documentations/Database/

@@ -1,6 +1,5 @@
 import uuid
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -21,8 +20,8 @@ from issues.detectors import diagnosis_prompts, hba1c_overdue
 from pharmacy.services import consume_for_service, shortfall_message
 
 from .forms import (GroupResultForm, LabCategoryForm, LabOrderForm, LabPanelForm, LabTestForm, MonitoringGapForm,
-                    SpecimenForm)
-from .models import LabCategory, LabOrder, LabPanel, LabTest, MonitoringGap
+                    MonitoringRuleForm, SpecimenForm)
+from .models import LabCategory, LabOrder, LabPanel, LabTest, MonitoringGap, MonitoringRule
 
 
 def back(request, obj):
@@ -259,8 +258,9 @@ class MonitoringListView(PermissionRequiredMixin, View):
         from patients.models import Patient
         from reporting.filters import ReportFilters
 
-        from .monitoring import STATES, monitoring_list
+        from .monitoring import STATES, get_rule, monitoring_list
 
+        rule = get_rule(self.code)
         filters = ReportFilters(request, with_disease=False)
         patients = Patient.objects.in_scope(request.user).filter(current_facility__in=filters.facilities)
         rows = monitoring_list(patients, self.code)
@@ -295,8 +295,7 @@ class MonitoringListView(PermissionRequiredMixin, View):
             'filters': filters, 'rows': rows, 'counts': counts, 'explained': explained, 'state': state,
             'states': STATES, 'state_label': labels[state], 'total': sum(counts.values()),
             'hidden_filters': {'state': state}, 'hide_pdf': True, 'hide_period': True, 'csv_available': True,
-            'qs': filters.querystring(), 'months': settings.HBA1C_INTERVAL_MONTHS,
-            'retry_months': settings.HBA1C_RETRY_MONTHS})
+            'qs': filters.querystring(), 'rule': rule})
 
 
 class MonitoringGapCreateView(PermissionRequiredMixin, PatientContextMixin, View):
@@ -317,7 +316,7 @@ class MonitoringGapCreateView(PermissionRequiredMixin, PatientContextMixin, View
         return render(request, 'confirm_action.html', {
             'title': f'{status["test"]} not done', 'patient': self.patient, 'form': form, 'button': 'Save',
             'message': f'{status["test"]} {when}. Record why it was not done. The patient stays on the list and is '
-                       f'due again {settings.HBA1C_RETRY_MONTHS} month(s) from the date recorded; enter the result as '
+                       f'due again {status["retry_months"]} month(s) from the date recorded; enter the result as '
                        f'usual once the test is done.',
             'cancel_url': request.GET.get('next') or self.patient.get_absolute_url(), 'next': request.GET.get('next', '')})
 
@@ -344,3 +343,40 @@ class MonitoringGapCreateView(PermissionRequiredMixin, PatientContextMixin, View
         hba1c_overdue([self.patient.pk])
         messages.success(request, f'Recorded: {status["test"]} not done ({reason}).')
         return redirect(request.POST.get('next') or self.patient.get_absolute_url())
+
+
+class MonitoringRuleListView(PermissionRequiredMixin, View):
+    """Administration → Monitoring settings: how often each routine test is due."""
+    permission_required = 'laboratory.view_monitoringrule'
+
+    def get(self, request):
+        from .monitoring import DEFAULTS, get_rule
+
+        for code in DEFAULTS:
+            get_rule(code)  # make sure the default rules exist
+        return render(request, 'laboratory/monitoring_rules.html',
+                      {'rules': MonitoringRule.objects.select_related('test', 'disease', 'updated_by')})
+
+
+class MonitoringRuleUpdateView(PermissionRequiredMixin, UpdateView):
+    permission_required = 'laboratory.change_monitoringrule'
+    model = MonitoringRule
+    form_class = MonitoringRuleForm
+    template_name = 'generic_form.html'
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(
+            title=f'{self.object.test.name} monitoring', cancel_url=reverse('laboratory:monitoring_rules'),
+            subtitle='Changes apply straight away to the due list, the patient banner and the overdue data issues.',
+            **kwargs)
+
+    def form_valid(self, form):
+        rule = form.save(commit=False)
+        rule.updated_by = self.request.user
+        rule.save()
+        log_event(request=self.request, action=AuditEvent.Action.UPDATE, obj=rule,
+                  changes={f: str(form.cleaned_data[f]) for f in form.changed_data})
+        if rule.test.code == 'hba1c' and form.changed_data:
+            hba1c_overdue()  # re-flag patients with the new interval
+        messages.success(self.request, f'Saved: {rule}.')
+        return redirect('laboratory:monitoring_rules')

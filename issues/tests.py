@@ -102,7 +102,7 @@ class HbA1cOverdueTests(BaseTestCase):
     def test_due_list_and_not_done(self):
         from clinical.models import ClinicalProgramme, ProgrammeEnrollment
         from laboratory.models import LabOrder, LabTest, MonitoringGap
-        from laboratory.monitoring import compute
+        from laboratory.monitoring import compute, get_rule
 
         from .detectors import hba1c_overdue
         today = timezone.localdate()
@@ -137,7 +137,7 @@ class HbA1cOverdueTests(BaseTestCase):
         self.assertEqual(self.client.get(url, {'state': 'not_done'}).context['rows'][0][0], late)
         # Still nothing a month later: overdue again, with the reason in the new issue.
         later = rows[late]['due'] + datetime.timedelta(days=1)
-        self.assertEqual(compute('hba1c', today - datetime.timedelta(days=200), gap=gap, today=later)['state'], 'overdue')
+        self.assertEqual(compute(get_rule(), today - datetime.timedelta(days=200), gap=gap, today=later)['state'], 'overdue')
         # A result for the next cycle makes the old record irrelevant.
         result = LabOrder(patient=late, facility=self.ilala, test=hba1c, ordered_by=self.admin)
         result.record_result('8.0', self.admin)
@@ -145,3 +145,35 @@ class HbA1cOverdueTests(BaseTestCase):
         status = dict(self.client.get(url, {'state': 'all'}).context['rows'])[late]
         self.assertEqual(status['state'], 'ok')
         self.assertIsNone(status['gap'])
+
+    def test_settings_change_interval_and_switch_off(self):
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        from laboratory.models import LabOrder, LabTest, MonitoringRule
+        from laboratory.monitoring import monitoring_status
+
+        from .detectors import hba1c_overdue
+        patient = self.make_patient()
+        ProgrammeEnrollment.objects.create(patient=patient, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'),
+                                           enrollment_date=timezone.localdate() - datetime.timedelta(days=200))
+        hba1c = LabTest.objects.get_or_create(code='hba1c', defaults={'name': 'HbA1c', 'result_type': 'numeric', 'unit': '%'})[0]
+        order = LabOrder(patient=patient, facility=self.ilala, test=hba1c, ordered_by=self.admin)
+        order.record_result('7.5', self.admin, when=timezone.now() - datetime.timedelta(days=120))
+        order.save()
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse('laboratory:monitoring_rules')), 'HbA1c')
+        rule = MonitoringRule.objects.get(test=hba1c)
+        self.assertEqual((rule.interval_months, rule.retry_months), (3, 1))
+        hba1c_overdue()
+        issue = DataIssue.objects.get(code='hba1c_overdue', patient=patient)
+        edit = reverse('laboratory:monitoring_rule_edit', args=[rule.pk])
+        self.client.post(edit, {'interval_months': 6, 'retry_months': 2, 'is_active': 'on'})
+        rule.refresh_from_db()
+        self.assertEqual((rule.interval_months, rule.retry_months, rule.updated_by), (6, 2, self.admin))
+        self.assertFalse(monitoring_status(patient)['overdue'])
+        issue.refresh_from_db()
+        self.assertEqual(issue.status, DataIssue.Status.RESOLVED)  # no longer due with 6 months
+        self.client.post(edit, {'interval_months': 1, 'retry_months': 1})  # switched off
+        self.assertIsNone(monitoring_status(patient))
+        self.assertEqual(hba1c_overdue(), 0)
+        self.assertNotContains(self.client.get(patient.get_absolute_url()), 'next due')
+        self.assertEqual(self.client.post(edit, {'interval_months': 0, 'retry_months': 1}).status_code, 200)  # invalid

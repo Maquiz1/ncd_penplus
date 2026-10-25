@@ -200,12 +200,14 @@ HBA1C_CODE = 'hba1c_overdue'
 
 
 def hba1c_overdue(patient_ids=None):
-    """Active diabetes patients without an HbA1c in the last HBA1C_INTERVAL_MONTHS (or since enrolment).
+    """Active diabetes patients without an HbA1c within the interval in Monitoring settings (or since enrolment).
+    When monitoring is switched off, open flags are closed.
     One issue per due date, so the next cycle raises a new one; it closes by itself when a result arrives."""
     from clinical.models import ProgrammeEnrollment
-    from laboratory.monitoring import monitoring_status
+    from laboratory.monitoring import active_rule, monitoring_status
 
-    enrollments = ProgrammeEnrollment.objects.filter(status='active', programme__disease__code='diabetes',
+    rule = active_rule('hba1c')
+    enrollments = ProgrammeEnrollment.objects.filter(status='active', programme__disease__code=rule.disease.code if rule else None,
                                                      patient__is_deleted=False).select_related('patient')
     if patient_ids is not None:
         enrollments = enrollments.filter(patient_id__in=patient_ids)

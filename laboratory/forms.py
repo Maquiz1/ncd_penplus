@@ -2,7 +2,7 @@ from django import forms
 
 from core.forms import BootstrapForm, BootstrapModelForm, PatientChildForm, apply_bootstrap
 
-from .models import LabCategory, LabOrder, LabPanel, LabTest, MonitoringGap
+from .models import LabCategory, LabOrder, LabPanel, LabTest, MonitoringGap, MonitoringRule
 
 
 class LabOrderForm(PatientChildForm):
@@ -113,3 +113,10 @@ class MonitoringGapForm(BootstrapModelForm):
         fields = ['reason', 'note']
         labels = {'reason': 'Why was it not done?'}
         help_texts = {'note': 'Optional, e.g. "kits expected next week".'}
+
+
+class MonitoringRuleForm(BootstrapModelForm):
+    class Meta:
+        model = MonitoringRule
+        fields = ['interval_months', 'retry_months', 'is_active']
+        labels = {'is_active': 'Monitoring on'}

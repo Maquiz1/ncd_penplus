@@ -165,6 +165,7 @@
               {% if perms.facilities.view_facility %}<a class="nav-link {% if path == '/facilities/' %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Facilities</a>{% endif %}
               {% if perms.notifications.view_emaillog %}<a class="nav-link {% if path == '/email/' %}active{% endif %}" href="{% url 'email:log' %}"><i class="bi bi-envelope"></i> Email log</a>{% endif %}
               {% if perms.notifications.view_siteconfiguration %}<a class="nav-link {% if '/email/settings' in path %}active{% endif %}" href="{% url 'email:settings' %}"><i class="bi bi-gear"></i> Email settings</a>{% endif %}
+              {% if perms.laboratory.view_monitoringrule %}<a class="nav-link {% if '/lab/monitoring/settings' in path %}active{% endif %}" href="{% url 'laboratory:monitoring_rules' %}"><i class="bi bi-sliders"></i> Monitoring settings</a>{% endif %}
               {% if perms.audit.view_auditevent %}<a class="nav-link {% if 'audit' in path %}active{% endif %}" href="{% url 'audit:list' %}"><i class="bi bi-shield-check"></i> Audit trail</a>{% endif %}
               {% if perms.patients.restore_patient %}<a class="nav-link {% if 'deleted' in path %}active{% endif %}" href="{% url 'patients:deleted' %}"><i class="bi bi-trash3"></i> Deleted patients</a>{% endif %}
               </div>
