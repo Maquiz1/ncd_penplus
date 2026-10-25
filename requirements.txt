@@ -10,8 +10,11 @@ django-celery-beat==2.8.1
 redis==5.2.1
 # MySQL driver (DB_ENGINE=mysql, the default):
 mysqlclient==2.2.7
-# PostgreSQL driver (only if DB_ENGINE=postgresql):
-# psycopg[binary]==3.2.10
+# PostgreSQL driver (DB_ENGINE=postgresql, used on the server):
+psycopg[binary]==3.2.10
+# Production web server and static files (Docker deployment):
+gunicorn==23.0.0
+whitenoise==6.9.0
 # Exports (Excel) and PDF reports (needs the Pango system libraries: apt install libpango-1.0-0 libpangoft2-1.0-0):
 openpyxl==3.1.5
 weasyprint==65.1

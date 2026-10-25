@@ -1,0 +1,59 @@
+# NCD - PENPLUS STUDY on the Hostinger server (/opt/ncd-penplus), https://penplus.tamris.org
+#
+# Like the other apps on the server, the web container listens only on 127.0.0.1:WEB_PORT (default 8090) and the
+# host nginx forwards penplus.tamris.org to it (docker/nginx-penplus.conf); certbot adds HTTPS.
+# Service names start with "penplus-" so they are easy to tell apart in `docker ps`.
+
+x-app: &app
+  build: .
+  image: penplus:latest
+  env_file: .env
+  environment:
+    DB_ENGINE: postgresql
+    DB_HOST: penplus-db
+    DB_PORT: "5432"
+    CELERY_BROKER_URL: redis://penplus-redis:6379/1
+  volumes:
+    - media:/app/private_media
+    - exports:/app/private_exports
+    - sent_emails:/app/sent_emails
+    - import_reports:/app/import_reports
+  depends_on:
+    - penplus-db
+    - penplus-redis
+  restart: always
+
+services:
+  penplus-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  penplus-redis:
+    image: redis:7-alpine
+    restart: always
+
+  penplus-web:
+    <<: *app
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8090}:8000"
+
+  penplus-worker:
+    <<: *app
+    command: celery -A config worker -l info --concurrency 2
+
+  penplus-beat:
+    <<: *app
+    command: celery -A config beat -l info
+
+volumes:
+  postgres_data:
+  media:
+  exports:
+  sent_emails:
+  import_reports:
