@@ -52,11 +52,42 @@ def facilities_for_user(user):
     return Facility.objects.filter(pk__in=ids)
 
 
+def disease_ids_for_user(user):
+    """Disease ids the user is assigned to, or None when the user works on all diseases."""
+    if not user or not user.is_authenticated or user.is_superuser:
+        return None
+    cache = getattr(user, '_disease_scope_cache', False)
+    if cache is False:
+        cache = list(user.diseases.values_list('pk', flat=True)) or None
+        user._disease_scope_cache = cache
+    return cache
+
+
+def patients_for_diseases(disease_ids):
+    """Patients not yet enrolled in any programme, or enrolled in one of these diseases."""
+    from django.db.models import Exists, OuterRef
+
+    from clinical.models import ProgrammeEnrollment
+    from patients.models import Patient
+
+    enrollments = ProgrammeEnrollment.objects.filter(patient=OuterRef('pk'))
+    return Patient.all_objects.filter(~Exists(enrollments) | Exists(enrollments.filter(programme__disease__in=disease_ids)))
+
+
 def scope_queryset(queryset, user, field):
-    """Restrict a queryset to rows whose `field` facility is within the user's scope."""
+    """Restrict a queryset to rows whose `field` facility is within the user's scope.
+
+    When `field` goes through the patient (e.g. 'patient__current_facility'), rows are also limited to the
+    diseases the user is assigned to.
+    """
     if user.is_superuser:
         return queryset
-    return queryset.filter(**{f'{field}__in': facilities_for_user(user)})
+    queryset = queryset.filter(**{f'{field}__in': facilities_for_user(user)})
+    disease_ids = disease_ids_for_user(user)
+    if disease_ids and field.endswith('current_facility'):
+        prefix = field[:-len('current_facility')]
+        queryset = queryset.filter(**{f'{prefix}pk__in': patients_for_diseases(disease_ids).values('pk')})
+    return queryset
 
 
 def scope_description(user):

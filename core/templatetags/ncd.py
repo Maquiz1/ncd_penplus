@@ -38,6 +38,13 @@ def get_item(mapping, key):
 
 
 @register.simple_tag
+def monitoring_for(patient, code='hba1c'):
+    """Last result, due date and pending order of a routine monitoring test (None when not applicable)."""
+    from laboratory.monitoring import monitoring_status
+    return monitoring_status(patient, code)
+
+
+@register.simple_tag
 def diagnosis_prompts_for(patient):
     """Open "confirm the diagnosis" prompts for the patient banner."""
     from issues.detectors import DX_CODES

@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from core.utils import add_months
 from facilities.models import District, Region, Zone
-from facilities.scope import facilities_for_user
+from facilities.scope import disease_ids_for_user, facilities_for_user
 
 PERIODS = [('this_month', 'This month'), ('last_month', 'Last month'), ('this_quarter', 'This quarter'),
            ('last_quarter', 'Last quarter'), ('this_year', 'This year'), ('last_12', 'Last 12 months'),
@@ -77,7 +77,12 @@ class ReportFilters:
         self.start, self.end = start, end
         from clinical.models import Disease
         self.diseases = Disease.objects.filter(is_active=True)
+        allowed = disease_ids_for_user(request.user)
+        if allowed:
+            self.diseases = self.diseases.filter(pk__in=allowed)
         self.disease = self.diseases.filter(code=get.get('disease')).first() if with_disease and get.get('disease') else None
+        if with_disease and allowed and self.disease is None and len(self.diseases) == 1:
+            self.disease = self.diseases[0]
         self.periods = PERIODS
 
     @property

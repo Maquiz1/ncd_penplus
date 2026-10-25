@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -13,13 +14,15 @@ from django.views.generic import CreateView, ListView, UpdateView
 from audit.models import AuditEvent
 from audit.services import log_event
 from core.forms import ReasonForm
-from core.mixins import AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, ScopedQuerysetMixin
+from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientContextMixin,
+                         ScopedQuerysetMixin)
 from facilities.scope import scope_queryset
-from issues.detectors import diagnosis_prompts
+from issues.detectors import diagnosis_prompts, hba1c_overdue
 from pharmacy.services import consume_for_service, shortfall_message
 
-from .forms import GroupResultForm, LabCategoryForm, LabOrderForm, LabPanelForm, LabTestForm, SpecimenForm
-from .models import LabCategory, LabOrder, LabPanel, LabTest
+from .forms import (GroupResultForm, LabCategoryForm, LabOrderForm, LabPanelForm, LabTestForm, MonitoringGapForm,
+                    SpecimenForm)
+from .models import LabCategory, LabOrder, LabPanel, LabTest, MonitoringGap
 
 
 def back(request, obj):
@@ -154,6 +157,7 @@ class LabOrderActionView(PermissionRequiredMixin, View):
                 shortfalls += consume_for_service(request.user, lab_order=o, request=request)[1]
         if step == 'result':
             diagnosis_prompts([order.patient_id])
+            hba1c_overdue([order.patient_id])
         if shortfalls:
             messages.warning(request, f'Results saved, but stock was short: {shortfall_message(shortfalls)}. '
                                       'Recorded as a stock-out; receive stock in Medicines & stock.')
@@ -243,3 +247,100 @@ class LabPanelUpdateView(CatalogueEditMixin, AuditedUpdateMixin, UpdateView):
     model = LabPanel
     form_class = LabPanelForm
     extra_context = {'title': 'Edit lab panel'}
+
+
+class MonitoringListView(PermissionRequiredMixin, View):
+    """Diabetes patients by HbA1c status: overdue, due this month, due next month, up to date."""
+    permission_required = 'laboratory.view_monitoringgap'
+    code = 'hba1c'
+
+    def get(self, request):
+        from indicators.views import csv_response
+        from patients.models import Patient
+        from reporting.filters import ReportFilters
+
+        from .monitoring import STATES, monitoring_list
+
+        filters = ReportFilters(request, with_disease=False)
+        patients = Patient.objects.in_scope(request.user).filter(current_facility__in=filters.facilities)
+        rows = monitoring_list(patients, self.code)
+        counts = {key: 0 for key, _ in STATES}
+        explained = 0
+        for _, status in rows:
+            counts[status['state']] += 1
+            explained += status['gap'] is not None
+        state = request.GET.get('state', 'overdue')
+        if state == 'not_done':
+            rows = [r for r in rows if r[1]['gap'] is not None]
+        elif state in counts:
+            rows = [r for r in rows if r[1]['state'] == state]
+        else:
+            state = 'all'
+        rows.sort(key=lambda r: (r[1]['due'], r[0].patient_number))
+        labels = dict(STATES, not_done='Not done recorded', all='All diabetes patients')
+        if request.GET.get('format') == 'csv':
+            log_event(request=request, action=AuditEvent.Action.EXPORT, model='laboratory.Monitoring',
+                      object_repr=f'HbA1c {labels[state]} · {filters.area_label}')
+            return csv_response(f'hba1c-{state}-{timezone.localdate()}.csv',
+                                ['Patient ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last HbA1c', 'Last HbA1c date',
+                                 'Days since', 'Due date', 'Status', 'Ordered (waiting for result)', 'Not done reason',
+                                 'Not done recorded'],
+                                [[p.patient_number, p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
+                                  s['last'].result_value if s['last'] else '', s['last_date'] or '',
+                                  '' if s['days'] is None else s['days'], s['due'], labels[s['state']],
+                                  timezone.localtime(s['pending'].ordered_at).date() if s['pending'] else '',
+                                  s['gap'].get_reason_display() if s['gap'] else '',
+                                  s['gap'].recorded_on if s['gap'] else ''] for p, s in rows])
+        return render(request, 'laboratory/monitoring.html', {
+            'filters': filters, 'rows': rows, 'counts': counts, 'explained': explained, 'state': state,
+            'states': STATES, 'state_label': labels[state], 'total': sum(counts.values()),
+            'hidden_filters': {'state': state}, 'hide_pdf': True, 'hide_period': True, 'csv_available': True,
+            'qs': filters.querystring(), 'months': settings.HBA1C_INTERVAL_MONTHS,
+            'retry_months': settings.HBA1C_RETRY_MONTHS})
+
+
+class MonitoringGapCreateView(PermissionRequiredMixin, PatientContextMixin, View):
+    """Record that the due HbA1c was not done, and why. Closes the overdue data issue for that due date."""
+    permission_required = 'laboratory.add_monitoringgap'
+    code = 'hba1c'
+
+    def setup_status(self):
+        from .monitoring import monitoring_status
+        status = monitoring_status(self.patient, self.code)
+        if status is None:
+            raise Http404('The patient is not enrolled in active diabetes care.')
+        return status
+
+    def render_form(self, request, status, form):
+        when = f'due {status["due"]:%d %b %Y}' + (f', last result {status["last_date"]:%d %b %Y}'
+                                                  if status['last_date'] else ', no result since enrolment')
+        return render(request, 'confirm_action.html', {
+            'title': f'{status["test"]} not done', 'patient': self.patient, 'form': form, 'button': 'Save',
+            'message': f'{status["test"]} {when}. Record why it was not done. The patient stays on the list and is '
+                       f'due again {settings.HBA1C_RETRY_MONTHS} month(s) from the date recorded; enter the result as '
+                       f'usual once the test is done.',
+            'cancel_url': request.GET.get('next') or self.patient.get_absolute_url(), 'next': request.GET.get('next', '')})
+
+    def get(self, request, patient_pk):
+        status = self.setup_status()
+        return self.render_form(request, status, MonitoringGapForm())
+
+    def post(self, request, patient_pk):
+        from issues.detectors import HBA1C_CODE
+        from issues.models import DataIssue
+
+        status = self.setup_status()
+        form = MonitoringGapForm(request.POST)
+        if not form.is_valid():
+            return self.render_form(request, status, form)
+        test = get_object_or_404(LabTest, code=self.code)
+        gap, _ = MonitoringGap.objects.update_or_create(
+            patient=self.patient, test=test, due_date=status['due'],
+            defaults={**form.cleaned_data, 'recorded_on': timezone.localdate(), 'recorded_by': request.user})
+        log_event(request=request, action=AuditEvent.Action.CREATE, obj=gap)
+        reason = gap.get_reason_display() + (f': {gap.note}' if gap.note else '')
+        DataIssue.objects.open().filter(code=HBA1C_CODE, patient=self.patient).update(
+            status=DataIssue.Status.RESOLVED, resolution_note=f'Not done ({reason}), recorded by {request.user}.')
+        hba1c_overdue([self.patient.pk])
+        messages.success(request, f'Recorded: {status["test"]} not done ({reason}).')
+        return redirect(request.POST.get('next') or self.patient.get_absolute_url())

@@ -94,7 +94,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'ncd_penplus.urls'
+ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
     {
@@ -112,7 +112,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'ncd_penplus.wsgi.application'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database is chosen in .env: DB_ENGINE = mysql (default), postgresql or sqlite.
 DB_ENGINE = os.environ.get('DB_ENGINE', 'mysql').lower()
@@ -206,6 +206,10 @@ LEGACY_EDCS = {
 # Programme rule: a patient in care with no attended visit for this many months after the last attended
 # visit is defaulted / lost to follow-up (applied daily by `manage.py apply_ltfu_rule`).
 LTFU_MONTHS = int(os.environ.get('LTFU_MONTHS', '3'))
+# Diabetes patients should have an HbA1c at least this often; overdue patients are flagged as data issues.
+HBA1C_INTERVAL_MONTHS = int(os.environ.get('HBA1C_INTERVAL_MONTHS', '3'))
+# After recording that a due HbA1c was not done, the patient is due again this many months later.
+HBA1C_RETRY_MONTHS = int(os.environ.get('HBA1C_RETRY_MONTHS', '1'))
 
 # Celery: background jobs (SMS, LTFU rule, data-quality checks, monthly report). Redis is the broker; the
 # schedules live in the database (django-celery-beat) and are edited in Django admin → Periodic tasks.

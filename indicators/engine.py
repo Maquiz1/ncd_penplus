@@ -2,6 +2,7 @@
 reporting conditions. Only ACTIVE diseases and conditions are counted. Status on a past date comes from the
 enrollment history (EnrollmentEvent), so earlier quarters stay correct when patients later change status."""
 import datetime
+import re
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 
@@ -13,7 +14,7 @@ from core.utils import add_months
 from crf.models import FormSubmission
 from diseases.models import Condition
 from encounters.models import Admission, Encounter
-from facilities.scope import facilities_for_user
+from facilities.scope import disease_ids_for_user, facilities_for_user
 from investigations.models import InvestigationOrder
 from laboratory.models import LabOrder
 from pharmacy.models import MedicationRecord, Prescription
@@ -24,7 +25,7 @@ MISSING_CODES = {'', '98', '99', '98.0', '99.0', '999', '9999', '-', 'nil', 'non
 
 def number(value):
     text = str(value if value is not None else '').strip().casefold()
-    if text in MISSING_CODES:
+    if text in MISSING_CODES or re.fullmatch(r'0+(98|99|999|9999)', text):  # '098' is the 98 code, zero-padded
         return None
     try:
         return Decimal(text.replace(',', ''))
@@ -42,14 +43,21 @@ def age_on(dob, date):
 
 
 class Cohort:
-    def __init__(self, user, facility=None):
-        facilities = facilities_for_user(user)
+    def __init__(self, user, facility=None, facilities=None, disease=None):
+        """`facilities` (already within the user's scope) narrows the area; `disease` keeps only its enrollments."""
+        facilities = facilities if facilities is not None else facilities_for_user(user)
         if facility is not None:
             facilities = facilities.filter(pk=facility.pk)
         self.facility_ids = list(facilities.values_list('pk', flat=True))
+        enrollments = ProgrammeEnrollment.objects.filter(programme__disease__is_active=True, facility_id__in=self.facility_ids,
+                                                         patient__is_deleted=False)
+        disease_ids = disease_ids_for_user(user)
+        if disease_ids:
+            enrollments = enrollments.filter(programme__disease__in=disease_ids)
+        if disease is not None:
+            enrollments = enrollments.filter(programme__disease=disease)
         self.enrollments = list(
-            ProgrammeEnrollment.objects.filter(programme__disease__is_active=True, facility_id__in=self.facility_ids,
-                                               patient__is_deleted=False)
+            enrollments
             .select_related('patient', 'programme__disease').prefetch_related('events'))
         self.by_patient = defaultdict(list)
         for e in self.enrollments:
@@ -128,6 +136,10 @@ class Cohort:
         return {pid for pid in pids if any(self.conditions[c].disease.code == disease_code for c in self.conditions_of(pid, date))}
 
     # ---------------------------------------------------------------- clinical data (loaded once per cohort)
+    def last_visit(self, pid, date):
+        dates = [d for d in self.encounter_dates().get(pid, []) if d <= date]
+        return max(dates) if dates else None
+
     def encounter_dates(self):
         if 'encounters' not in self._cache:
             dates = defaultdict(list)

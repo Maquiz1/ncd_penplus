@@ -13,14 +13,20 @@ from .models import Position, User
 class StaffCreateForm(BootstrapModelForm):
     groups = forms.ModelMultipleChoiceField(queryset=Group.objects.order_by('name'), required=False,
                                             widget=forms.CheckboxSelectMultiple, label='Roles')
+    diseases = forms.ModelMultipleChoiceField(queryset=None, required=False, widget=forms.CheckboxSelectMultiple,
+                                              help_text='Patients enrolled only in other diseases are hidden from this person. '
+                                                        'Leave empty for all diseases.')
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'phone', 'position', 'job_title', 'groups']
+        fields = ['username', 'prefix', 'first_name', 'last_name', 'email', 'phone', 'position', 'job_title', 'groups',
+                  'diseases']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['position'].queryset = Position.objects.filter(is_active=True)
+        from clinical.models import Disease
+        self.fields['diseases'].queryset = Disease.objects.filter(is_active=True)
         self.fields['groups'].help_text = 'Leave empty to give the position\'s default role.'
         self.fields['email'].required = True
         self.fields['first_name'].required = True
@@ -42,7 +48,7 @@ class StaffCreateForm(BootstrapModelForm):
 
 class StaffUpdateForm(StaffCreateForm):
     class Meta(StaffCreateForm.Meta):
-        fields = ['first_name', 'last_name', 'email', 'phone', 'position', 'job_title', 'groups']
+        fields = ['prefix', 'first_name', 'last_name', 'email', 'phone', 'position', 'job_title', 'groups', 'diseases']
 
 
 class StaffAssignmentForm(BootstrapModelForm):

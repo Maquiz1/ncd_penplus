@@ -3,8 +3,8 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
   <div>
-    <h1 class="h3 mb-0">Welcome, {{ user.get_full_name|default:user.username }}</h1>
-    <div class="text-body-secondary small">{{ today|date:"l, j F Y" }} · Access scope: {{ scope }}</div>
+    <h1 class="h3 mb-0">Welcome, {{ user.display_name }}</h1>
+    <div class="text-body-secondary small">{% if user.role_label %}{{ user.role_label }} · {% endif %}{{ today|date:"l, j F Y" }} · Access scope: {{ scope }}</div>
   </div>
   <div class="d-flex gap-2">
     {% if perms.patients.add_patient and can_view_identity %}<a href="{% url 'patients:create' %}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Register patient</a>{% endif %}

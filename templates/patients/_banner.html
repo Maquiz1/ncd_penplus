@@ -9,6 +9,14 @@
     {% if patient.status == 'inactive' %}{% status_badge 'inactive' %}{% endif %}
     {% if patient.sms_consent is True %}<span class="badge text-bg-light" title="Consents to SMS reminders"><i class="bi bi-chat-dots"></i> SMS OK</span>
     {% elif patient.sms_consent is False %}<span class="badge text-bg-light" title="Declined SMS"><i class="bi bi-chat-dots"></i> No SMS</span>{% endif %}
+    {% monitoring_for patient 'hba1c' as a1c %}{% if a1c %}
+    <span class="small {% if a1c.overdue %}text-danger-emphasis{% endif %}" title="HbA1c is due every {{ a1c.months }} months">
+      <i class="bi bi-droplet"></i> HbA1c:
+      {% if a1c.last %}<strong>{{ a1c.last.result_value }}{% if a1c.last.result_unit %} {{ a1c.last.result_unit }}{% endif %}</strong> on {{ a1c.last_date|date:"d M Y" }} ({{ a1c.days }} day{{ a1c.days|pluralize }} ago){% else %}none recorded{% endif %}
+      {% if a1c.pending %}<span class="badge text-bg-info">ordered {{ a1c.pending.ordered_at|date:"d M" }}</span>{% elif a1c.overdue %}<span class="badge text-bg-danger">overdue since {{ a1c.due|date:"d M Y" }}</span>{% else %}<span class="badge text-bg-light">next due {{ a1c.due|date:"d M Y" }}</span>{% endif %}
+      {% if a1c.gap %}<span class="text-body-secondary">· not done {{ a1c.gap.recorded_on|date:"d M" }}: {{ a1c.gap.get_reason_display }}</span>{% endif %}
+      {% if a1c.overdue and not a1c.pending and perms.laboratory.add_monitoringgap %}<a class="small d-print-none" href="{% url 'laboratory:gap_add' patient.pk %}?next={{ request.get_full_path|urlencode }}">record not done</a>{% endif %}
+    </span>{% endif %}
   </div>
   {% if patient.sms_consent is None and not patient.is_deceased and perms.patients.record_sms_consent and can_view_identity %}
   <div class="card-footer bg-warning-subtle py-2 d-flex flex-wrap align-items-center gap-2 small">

@@ -105,6 +105,7 @@ class StaffUpdateView(PermissionRequiredMixin, UpdateView):
         obj = super().get_object(queryset)
         self._before = snapshot(obj)
         self._groups_before = sorted(g.name for g in obj.groups.all())
+        self._diseases_before = sorted(d.name for d in obj.diseases.all())
         return obj
 
     def form_valid(self, form):
@@ -113,6 +114,9 @@ class StaffUpdateView(PermissionRequiredMixin, UpdateView):
         groups_after = sorted(g.name for g in self.object.groups.all())
         if groups_after != self._groups_before:
             changes['groups'] = [self._groups_before, groups_after]
+        diseases_after = sorted(d.name for d in self.object.diseases.all())
+        if diseases_after != self._diseases_before:
+            changes['diseases'] = [self._diseases_before, diseases_after]
         log_event(request=self.request, action=AuditEvent.Action.UPDATE, obj=self.object, changes=changes)
         messages.success(self.request, 'Staff account updated.')
         return response

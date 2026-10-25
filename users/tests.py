@@ -120,3 +120,21 @@ class AccessRuleTests(BaseTestCase):
                     reverse('users:list')):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class DiseaseAssignmentTests(BaseTestCase):
+    def test_patients_limited_to_assigned_diseases(self):
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        from patients.models import Patient
+        diabetic = self.make_patient(first_name='Dia')
+        cardiac = self.make_patient(first_name='Card', phone='0712000001')
+        new = self.make_patient(first_name='New', phone='0712000002')
+        ProgrammeEnrollment.objects.create(patient=diabetic, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'))
+        ProgrammeEnrollment.objects.create(patient=cardiac, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='cardiac-care'))
+        user = User.objects.get(pk=self.clinician_ilala.pk)
+        self.assertEqual(set(Patient.objects.in_scope(user)), {diabetic, cardiac, new})
+        user.diseases.add(self.diabetes)
+        user = User.objects.get(pk=user.pk)
+        self.assertEqual(set(Patient.objects.in_scope(user)), {diabetic, new})
+        self.assertEqual(user.disease_summary, self.diabetes.name)
+        self.assertEqual(User.objects.get(pk=self.admin.pk).disease_summary, 'All diseases')

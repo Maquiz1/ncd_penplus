@@ -1,11 +1,16 @@
 {% extends "base.html" %}{% load ncd %}
 {% block title %}Indicator patients{% endblock %}
 {% block content %}
-<h1 class="h5 mb-1">{{ title }}</h1>
-<div class="small text-body-secondary mb-3">{{ patients|length }} patient(s) · <a href="{{ back }}">back to the indicators</a></div>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div><h1 class="h5 mb-1">{{ title }}</h1>
+  <div class="small text-body-secondary">{% if subtitle %}{{ subtitle }} · {% endif %}{{ patients|length }} patient(s) · <a href="{{ back }}">back to the indicators</a></div></div>
+  {% if csv_url %}<a class="btn btn-sm btn-outline-secondary d-print-none" href="{{ csv_url }}"><i class="bi bi-filetype-csv"></i> CSV</a>{% endif %}
+</div>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
-  <thead class="table-light"><tr><th>Patient</th><th>Old ID</th><th>Name</th><th>Sex</th><th>Age</th><th>Facility</th><th>Status</th></tr></thead>
-  <tbody>{% for p in patients %}<tr><td><a href="{{ p.get_absolute_url }}">{{ p.patient_number }}</a></td><td>{{ p.old_id|default:"" }}</td><td>{% patient_name p %}</td><td>{{ p.get_sex_display }}</td><td>{{ p.age }}</td><td>{{ p.current_facility }}</td><td>{% status_badge p.vital_status %}</td></tr>
-  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No patients.</td></tr>{% endfor %}</tbody>
+  <thead class="table-light"><tr><th>Patient</th><th>Old ID</th><th>Name</th><th>Sex</th><th>Age</th><th>Facility</th>{% if with_visits %}<th>Last visit</th><th class="text-end">Days since</th>{% endif %}<th>Status</th></tr></thead>
+  <tbody>{% for p in patients %}<tr><td><a href="{{ p.get_absolute_url }}">{{ p.patient_number }}</a></td><td>{{ p.old_id|default:"" }}</td><td>{% patient_name p %}</td><td>{{ p.get_sex_display }}</td><td>{{ p.age }}</td><td>{{ p.current_facility }}</td>
+    {% if with_visits %}<td>{{ p.last_visit|date:"d M Y"|default:"—" }}</td><td class="text-end {% if p.days_since_visit > 90 %}text-danger fw-semibold{% endif %}">{{ p.days_since_visit|default_if_none:"—" }}</td>{% endif %}
+    <td>{% status_badge p.vital_status %}</td></tr>
+  {% empty %}<tr><td colspan="9" class="text-center text-body-secondary py-4">No patients.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% endblock %}

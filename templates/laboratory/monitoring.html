@@ -1,0 +1,36 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}HbA1c monitoring{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+  <div><h1 class="h3 mb-0">HbA1c monitoring</h1>
+  <div class="small text-body-secondary">Active diabetes patients · HbA1c every {{ months }} months · {{ filters.area_label }} · {{ total }} patient{{ total|pluralize }}</div></div>
+  <a class="btn btn-sm btn-outline-secondary d-print-none" href="?{{ qs }}&state={{ state }}&format=csv"><i class="bi bi-filetype-csv"></i> CSV</a>
+</div>
+{% include "reporting/_filters.html" %}
+<ul class="nav nav-pills mb-3 d-print-none">
+  {% for key, label in states %}<li class="nav-item"><a class="nav-link {% if state == key %}active{% endif %}" href="?{{ qs }}&state={{ key }}">{{ label }} <span class="badge {% if key == 'overdue' and counts|get_item:key %}text-bg-danger{% else %}text-bg-light{% endif %}">{{ counts|get_item:key }}</span></a></li>{% endfor %}
+  <li class="nav-item"><a class="nav-link {% if state == 'not_done' %}active{% endif %}" href="?{{ qs }}&state=not_done">Not done recorded <span class="badge text-bg-light">{{ explained }}</span></a></li>
+  <li class="nav-item"><a class="nav-link {% if state == 'all' %}active{% endif %}" href="?{{ qs }}&state=all">All <span class="badge text-bg-light">{{ total }}</span></a></li>
+</ul>
+<div class="card shadow-sm"><div class="card-header bg-body fw-semibold">{{ state_label }} <span class="text-body-secondary fw-normal">({{ rows|length }})</span></div>
+<div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Patient</th><th>Name</th><th>Facility</th><th>Last HbA1c</th><th class="text-end">Days since</th><th>Due</th><th>Status</th><th class="text-end d-print-none">Action</th></tr></thead>
+  <tbody>{% for p, s in rows %}<tr>
+    <td><a href="{{ p.get_absolute_url }}#labs">{{ p.patient_number }}</a>{% if p.old_id %}<div class="small text-body-secondary">old {{ p.old_id }}</div>{% endif %}</td>
+    <td>{% patient_name p %}</td>
+    <td>{{ p.current_facility }}</td>
+    <td>{% if s.last %}<span class="fw-semibold">{{ s.last.result_value }}{% if s.last.result_unit %} {{ s.last.result_unit }}{% endif %}</span> <span class="small text-body-secondary">{{ s.last_date|date:"d M Y" }}</span>{% else %}<span class="text-body-secondary">none since enrolment</span>{% endif %}</td>
+    <td class="text-end">{{ s.days|default_if_none:"—" }}</td>
+    <td class="text-nowrap">{{ s.due|date:"d M Y" }}{% if s.days_overdue %}<div class="small text-danger">{{ s.days_overdue }} day{{ s.days_overdue|pluralize }} late</div>{% endif %}</td>
+    <td>{% if s.state == 'overdue' %}<span class="badge text-bg-danger">Overdue</span>{% elif s.state == 'this_month' %}<span class="badge text-bg-warning">Due this month</span>{% elif s.state == 'next_month' %}<span class="badge text-bg-info">Due next month</span>{% else %}<span class="badge text-bg-success">Up to date</span>{% endif %}
+      {% if s.pending %}<div class="small">Ordered {{ s.pending.ordered_at|date:"d M" }}, waiting for result</div>{% endif %}
+      {% if s.gap %}<div class="small text-body-secondary" title="{{ s.gap.note }}">Not done: {{ s.gap.get_reason_display }} ({{ s.gap.recorded_on|date:"d M" }})</div>{% endif %}</td>
+    <td class="text-end text-nowrap d-print-none">{% with nxt=request.get_full_path|urlencode %}
+      {% if s.pending and perms.laboratory.change_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:lab_worklist' %}">Worklist</a>
+      {% elif s.state != 'ok' and perms.laboratory.add_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:lab_add' p.pk %}">Order</a>{% endif %}
+      {% if s.state == 'overdue' and not s.pending and perms.laboratory.add_monitoringgap %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'laboratory:gap_add' p.pk %}?next={{ nxt }}" title="Record why it was not done">Not done…</a>{% endif %}
+    {% endwith %}</td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No patients in this list.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+<p class="small text-body-secondary mt-2">Due = {{ months }} months after the last HbA1c result (or after enrolment when there is none). <strong>Not done…</strong> records why an overdue HbA1c was missed (no kits, machine down, patient absent, refused…). It closes the data issue and the patient is due again {{ retry_months }} month{{ retry_months|pluralize }} later. Only a result removes the patient from the list for good.</p>
+{% endblock %}

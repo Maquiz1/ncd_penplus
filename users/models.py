@@ -38,10 +38,22 @@ class User(AbstractUser):
         GRANT = 'grant', 'Allowed (granted for this person)'
         REVOKE = 'revoke', 'Not allowed (removed for this person)'
 
+    class Prefix(models.TextChoices):
+        DR = 'Dr.', 'Dr.'
+        PROF = 'Prof.', 'Prof.'
+        MR = 'Mr.', 'Mr.'
+        MRS = 'Mrs.', 'Mrs.'
+        MS = 'Ms.', 'Ms.'
+        SR = 'Sr.', 'Sr. (Sister)'
+
+    prefix = models.CharField(max_length=10, choices=Prefix.choices, blank=True,
+                              help_text='Shown before the name, e.g. in the welcome message.')
     phone = models.CharField(max_length=30, blank=True)
     phone_verified = models.BooleanField(default=False)
     position = models.ForeignKey(Position, on_delete=models.PROTECT, null=True, blank=True, related_name='staff')
     job_title = models.CharField(max_length=100, blank=True, help_text='Optional; shown when no position is set.')
+    diseases = models.ManyToManyField('clinical.Disease', blank=True, related_name='staff',
+                                      help_text='Diseases this person works on. Leave empty for all diseases.')
     identity_access = models.CharField(
         'Patient names and identifiers', max_length=10, choices=IdentityAccess.choices, default=IdentityAccess.ROLE)
     identity_access_reason = models.CharField(max_length=255, blank=True)
@@ -58,6 +70,21 @@ class User(AbstractUser):
     @property
     def position_label(self):
         return self.position.name if self.position_id else self.job_title
+
+    @property
+    def display_name(self):
+        """Name with prefix, e.g. 'Dr. Asha Mushi'."""
+        return ' '.join(part for part in (self.prefix, self.get_full_name() or self.username) if part)
+
+    @property
+    def role_label(self):
+        """Position if set, otherwise the roles (groups)."""
+        return self.position_label or ', '.join(self.groups.values_list('name', flat=True))
+
+    @property
+    def disease_summary(self):
+        names = [d.name for d in self.diseases.all()]
+        return ', '.join(names) if names and not self.is_superuser else 'All diseases'
 
     @property
     def access_summary(self):

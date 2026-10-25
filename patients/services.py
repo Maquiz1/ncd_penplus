@@ -9,7 +9,7 @@ from .models import Patient, PatientFacilityAssignment, PatientIdSequence, Patie
 
 
 def next_patient_number(year):
-    """Issue the next NCDYY-NNNN number using a row-locked per-year counter.
+    """Issue the next NPYY-NNNN number (NP = NCD PEN-Plus) using a row-locked per-year counter.
 
     The counter is never derived from a count of patients, so numbers are never
     reused after deletion or merge, and concurrent registrations cannot collide.
@@ -23,7 +23,7 @@ def next_patient_number(year):
         sequence = PatientIdSequence.objects.select_for_update().get(year=year)
         sequence.last_value += 1
         sequence.save(update_fields=['last_value'])
-        return f'NCD{year % 100:02d}-{sequence.last_value:04d}'
+        return f'NP{year % 100:02d}-{sequence.last_value:04d}'
 
 
 def find_possible_duplicates(first_name='', last_name='', date_of_birth=None, phone='', identifiers=()):

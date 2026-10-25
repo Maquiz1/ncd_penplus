@@ -18,3 +18,11 @@ body { background-color: var(--bs-body-bg); }
 
 .ts-wrapper.form-select, .ts-wrapper.form-control { padding: 0; }
 .ts-wrapper .ts-control { min-height: calc(1.5em + .75rem + 2px); }
+.sidebar-toggle { width: 100%; display: flex; gap: .5rem; align-items: center; border: 0; background: none; text-align: left; padding: .7rem 1rem .5rem; font-weight: 600; }
+.sidebar-toggle:hover { color: var(--bs-body-color); }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
+.sidebar-toggle .bi-chevron-down { transition: transform .2s; font-size: .7rem; }
+.sidebar-toggle:not(.collapsed) { color: var(--bs-primary-text-emphasis); }
+.sidebar-toggle:not(.collapsed) .bi-chevron-down { transform: rotate(180deg); }
+.sidebar-section .collapse .nav-link, .sidebar-section .collapsing .nav-link { padding-left: 1.6rem; }
+@media (prefers-reduced-motion: reduce) { .sidebar-toggle .bi-chevron-down, .sidebar-section .collapsing { transition: none; } }

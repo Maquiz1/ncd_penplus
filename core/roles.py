@@ -24,6 +24,8 @@ RECORD_CORRECTION = [f'{model.split(".")[0]}.{action}_{model.split(".")[1]}' for
                                    'encounters.vitals', 'encounters.admission', 'laboratory.laborder',
                                    'investigations.investigationorder', 'pharmacy.prescription',
                                    'pharmacy.medicationrecord', 'crf.formsubmission')]
+# Recording that a due monitoring test (HbA1c) was not done, with the reason.
+MONITORING = ['laboratory.add_monitoringgap']
 STOCK_VIEW = ['pharmacy.view_medication', 'pharmacy.view_stockbatch', 'pharmacy.view_stockshortfall', 'pharmacy.view_consumableuse']
 
 
@@ -66,7 +68,7 @@ ROLES = {
         'clinical.add_screeningsession', 'clinical.change_screeningsession', 'patients.add_patient',
         'encounters.add_encounter', 'encounters.change_encounter', 'encounters.add_vitals',
         'encounters.add_appointment', 'encounters.change_appointment', 'crf.add_formsubmission',
-        'crf.change_formsubmission', 'laboratory.add_laborder', 'issues.view_dataissue', 'issues.change_dataissue'],
+        'crf.change_formsubmission', 'laboratory.add_laborder', 'issues.view_dataissue', 'issues.change_dataissue'] + MONITORING,
     'Clinician': VIEW_CLINICAL + IDENTITY + REPORTS + SMS_CONSENT + [
         'clinical.add_prescreening', 'clinical.add_screening', 'clinical.add_diagnosis', 'clinical.add_programmeenrollment',
         'clinical.add_screeningsession', 'clinical.change_screening', 'clinical.change_diagnosis',
@@ -77,9 +79,10 @@ ROLES = {
         'clinical.change_familymember', 'crf.add_formsubmission', 'crf.change_formsubmission',
         'patients.add_patienttransfer', 'patients.view_patienttransfer', 'patients.change_patienttransfer',
         'patients.record_death', 'patients.add_patient', 'research.view_*', 'pharmacy.view_medication', 'pharmacy.view_stockbatch',
-        'pharmacy.view_prescription', 'pharmacy.add_prescription', 'pharmacy.change_prescription', 'issues.view_dataissue', 'issues.change_dataissue'],
+        'pharmacy.view_prescription', 'pharmacy.add_prescription', 'pharmacy.change_prescription', 'issues.view_dataissue', 'issues.change_dataissue'] + MONITORING,
     'Laboratory Staff': ['patients.view_patient', 'laboratory.view_laborder', 'laboratory.change_laborder',
                          'laboratory.view_labtest', 'laboratory.review_laborder', 'issues.view_dataissue', 'issues.change_dataissue'] + IDENTITY
+                        + MONITORING + ['laboratory.view_monitoringgap']
                         + STOCK_VIEW,
     'Pharmacist / Dispenser': ['patients.view_patient', 'pharmacy.view_*', 'pharmacy.add_*', 'pharmacy.change_*',
                                'pharmacy.adjust_stock', 'facilities.view_facility',
@@ -94,7 +97,7 @@ ROLES = {
         'clinical.change_familymember',
         'encounters.add_encounter', 'encounters.change_encounter', 'encounters.add_vitals',
         'encounters.add_appointment', 'encounters.change_appointment',
-        'crf.add_formsubmission', 'crf.change_formsubmission'],
+        'crf.add_formsubmission', 'crf.change_formsubmission'] + MONITORING,
     'Data Manager': VIEW_CLINICAL + IDENTITY + REPORTS + [
         'patients.*', 'clinical.change_*', 'encounters.change_*', 'crf.*', 'research.view_*',
         'reporting.export_data', 'exports.export_identifiable', 'reporting.receive_monthly_report',
@@ -104,7 +107,7 @@ ROLES = {
         'notifications.view_emaillog', 'notifications.view_siteconfiguration', 'facilities.merge_locations', 'facilities.view_ward', 'facilities.view_street',
         'clinical.add_disease', 'clinical.change_disease', 'clinical.delete_disease', 'diseases.*',
         'investigations.*investigationtype', 'investigations.*investigationfield', 'pharmacy.*consumableuse',
-        'clinical.add_familymember', 'clinical.change_familymember'] + RECORD_CORRECTION,
+        'clinical.add_familymember', 'clinical.change_familymember'] + RECORD_CORRECTION + MONITORING,
     'Facility Coordinator': VIEW_CLINICAL + REPORTS + [
         'patients.view_patienttransfer', 'patients.add_patienttransfer', 'patients.change_patienttransfer',
         'encounters.add_followupplan', 'encounters.change_followupplan', 'encounters.change_appointment',

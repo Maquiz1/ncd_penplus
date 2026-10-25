@@ -16,7 +16,7 @@ class ScheduledJobTests(BaseTestCase):
         self.assertFalse(PeriodicTask.objects.get(name='Default / LTFU rule').enabled)
 
     def test_tasks_are_registered_and_run(self):
-        from ncd_penplus.celery import app
+        from config.celery import app
         from clinical.tasks import apply_ltfu_rule_task
         from issues.tasks import detect_data_issues
         from notifications.tasks import send_sms

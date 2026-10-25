@@ -103,7 +103,7 @@ class EDCSImportTests(TestCase):
 
     def test_patients_get_new_ids_and_keep_old_id(self):
         p = Patient.all_objects.get(old_id=1)
-        self.assertTrue(p.patient_number.startswith('NCD23-'))
+        self.assertTrue(p.patient_number.startswith('NP23-'))
         self.assertEqual(p.current_facility.code, 'KONDOA-DH')
         self.assertEqual(p.residence_ward.name, 'Bereke')
         self.assertEqual(set(p.identifiers.values_list('id_type', 'value')), {('hospital', 'KDH-55'), ('edcs_study', '1-001')})

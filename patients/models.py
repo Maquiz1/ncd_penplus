@@ -109,7 +109,7 @@ class Patient(SoftDeleteModel):
 
 
 class PatientIdSequence(models.Model):
-    """Per-year counter for NCDYY-NNNN identifiers; issued numbers are never reused."""
+    """Per-year counter for NPYY-NNNN identifiers; issued numbers are never reused."""
 
     year = models.PositiveSmallIntegerField(unique=True)
     last_value = models.PositiveIntegerField(default=0)

@@ -174,3 +174,36 @@ class LabOrder(SoftDeleteModel):
         if self.resulted_at:
             return round((self.resulted_at - self.ordered_at).total_seconds() / 3600, 1)
         return None
+
+
+class MonitoringGap(models.Model):
+    """A routine monitoring test (e.g. HbA1c) that was due but not done, with the reason.
+
+    It explains the gap for reports and gives the team a short grace period to repeat the test."""
+
+    class Reason(models.TextChoices):
+        NOT_ORDERED = 'not_ordered', 'Not ordered at the visit'
+        DID_NOT_ATTEND = 'did_not_attend', 'Patient did not attend'
+        NOT_COLLECTED = 'not_collected', 'Sample not collected'
+        STOCK_OUT = 'stock_out', 'Test kits / reagents out of stock'
+        EQUIPMENT = 'equipment', 'Machine not working'
+        REFUSED = 'refused', 'Patient refused'
+        COST = 'cost', 'Patient could not afford it'
+        RESULT_LOST = 'result_lost', 'Done but result not available / lost'
+        OTHER = 'other', 'Other'
+
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='monitoring_gaps')
+    test = models.ForeignKey(LabTest, on_delete=models.PROTECT, related_name='+')
+    due_date = models.DateField(help_text='The due date this record explains.')
+    reason = models.CharField(max_length=20, choices=Reason.choices)
+    note = models.CharField(max_length=255, blank=True)
+    recorded_on = models.DateField(default=timezone.localdate)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-recorded_on', '-pk']
+        constraints = [models.UniqueConstraint(fields=['patient', 'test', 'due_date'], name='one_gap_per_due_date')]
+
+    def __str__(self):
+        return f'{self.test.name} not done for {self.patient} (due {self.due_date:%d %b %Y})'

@@ -92,3 +92,26 @@ document.querySelectorAll('.js-period').forEach(function (select) {
     });
   });
 });
+
+// Side menu: one section open at a time. The section holding the current page opens; otherwise the last one opened stays open.
+document.addEventListener('DOMContentLoaded', () => {
+  const nav = document.getElementById('sidebar-nav');
+  if (!nav) return;
+  const KEY = 'ncd.sidebar.open';
+  const open = (section) => {
+    if (!section) return;
+    section.classList.add('show');
+    const button = nav.querySelector(`[data-bs-target="#${section.id}"]`);
+    if (button) { button.classList.remove('collapsed'); button.setAttribute('aria-expanded', 'true'); }
+  };
+  const active = nav.querySelector('.collapse .nav-link.active');
+  let remembered = null;
+  try { remembered = localStorage.getItem(KEY); } catch (e) { /* storage unavailable */ }
+  open(active ? active.closest('.collapse') : (remembered && document.getElementById(remembered)));
+  nav.addEventListener('shown.bs.collapse', (event) => {
+    try { localStorage.setItem(KEY, event.target.id); } catch (e) { /* storage unavailable */ }
+  });
+  nav.addEventListener('hidden.bs.collapse', (event) => {
+    try { if (localStorage.getItem(KEY) === event.target.id) localStorage.removeItem(KEY); } catch (e) { /* storage unavailable */ }
+  });
+});

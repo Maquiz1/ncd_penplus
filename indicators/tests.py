@@ -10,7 +10,7 @@ from laboratory.models import LabOrder, LabTest
 from pharmacy.models import MedicationRecord
 
 from . import clinical, core
-from .engine import Cohort
+from .engine import Cohort, number
 
 Y = timezone.localdate().year - 1   # a full past year
 
@@ -118,6 +118,42 @@ class IndicatorTests(BaseTestCase):
         self.assertIn('Patients active at PEN-Plus clinic', csv.content.decode())
         self.client.force_login(self.clinician_ilala)
         self.assertEqual(self.client.get(reverse('indicators:quarterly')).status_code, 200)
+        period = {'period': 'custom', 'start': f'{Y}-01-01', 'end': f'{Y}-09-30'}
+        self.assertEqual(self.client.get(reverse('indicators:clinical'), {**period, 'disease': 'diabetes'}).status_code, 200)
+        missed = self.client.get(reverse('indicators:drill'), {'key': 'dm-a1c-6m', 'part': 'missed', **period})
+        self.assertContains(missed, 'not meeting the indicator')
+        csv = self.client.get(reverse('indicators:drill'), {'key': 'dm-a1c-6m', 'part': 'missed', 'format': 'csv', **period})
+        self.assertIn('Days since last visit', csv.content.decode())
         nurse = self.make_user('n_i', 'Laboratory Staff', facility=self.ilala)
         self.client.force_login(nurse)
         self.assertEqual(self.client.get(reverse('indicators:quarterly')).status_code, 403)
+
+
+class NumberTests(BaseTestCase):
+    def test_missing_codes_including_zero_padded(self):
+        for text in ('98', '99', '098', '0099', ' 999 ', ''):
+            self.assertIsNone(number(text), text)
+        self.assertEqual(number('0'), 0)
+        self.assertEqual(number('7.5'), 7.5)
+
+
+class HelperTests(BaseTestCase):
+    class FakeCohort:
+        def __init__(self, values, enrolled):
+            self.values, self.enrolled = values, enrolled
+
+        def latest_crf(self, pid, key, date, since=None):
+            return self.values.get(key)
+
+        def first_enrollment(self, pid):
+            return self.enrolled
+
+    def test_nyha_reads_edcs_dyspnea(self):
+        self.assertEqual(clinical.nyha(self.FakeCohort({'dyspnea': '2'}, d(1)), 1, d(6)), '2')
+        self.assertEqual(clinical.nyha(self.FakeCohort({'nyha': 'III', 'dyspnea': '1'}, d(1)), 1, d(6)), '3')
+        self.assertEqual(clinical.nyha(self.FakeCohort({}, d(1)), 1, d(6)), '')
+
+    def test_after_enrollment_skips_enrollment_visit(self):
+        self.assertEqual(clinical.after_enrollment(self.FakeCohort({}, d(3)), 1, d(6)), d(3, 16))
+        self.assertEqual(clinical.after_enrollment(self.FakeCohort({}, datetime.date(Y - 3, 1, 1)), 1, d(6)),
+                         d(6, year=Y - 1))

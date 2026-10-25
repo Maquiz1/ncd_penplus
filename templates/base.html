@@ -24,10 +24,11 @@
   {% endif %}
   <div class="dropdown">
     <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-      <i class="bi bi-person-circle"></i> <span class="d-none d-sm-inline">{{ user.get_full_name|default:user.username }}</span> <span class="d-none d-xl-inline small opacity-75">· {{ access_level_label }}</span>
+      <i class="bi bi-person-circle"></i> <span class="d-none d-sm-inline">{{ user.display_name }}</span> <span class="d-none d-xl-inline small opacity-75">· {{ access_level_label }}</span>
     </button>
     <ul class="dropdown-menu dropdown-menu-end">
-      <li><span class="dropdown-item-text small"><span class="fw-semibold">{{ user.position_label|default:"No position" }}</span><br><span class="text-body-secondary">{{ user.groups.all|join:", "|default:"No role assigned" }}</span><br><i class="bi bi-geo-alt"></i> {{ user.access_summary }}</span></li>
+      <li><span class="dropdown-item-text small"><span class="fw-semibold d-block">{{ user.display_name }}</span>{{ user.position_label|default:"No position" }}<br><span class="text-body-secondary">{{ user.groups.all|join:", "|default:"No role assigned" }}</span><br><i class="bi bi-geo-alt"></i> {{ user.access_summary }}<br><i class="bi bi-virus"></i> {{ user.disease_summary }}</span></li>
+      <li><hr class="dropdown-divider"></li>
       <li><a class="dropdown-item" href="{% url 'password_change' %}"><i class="bi bi-key me-2"></i>Change password</a></li>
       {% if user.is_staff %}<li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="bi bi-gear me-2"></i>Configuration (admin)</a></li>{% endif %}
       <li><hr class="dropdown-divider"></li>
@@ -49,79 +50,125 @@
         </div>
         <div class="offcanvas-body p-0">
           {% with path=request.path %}
-          <nav class="nav flex-column sidebar-nav py-2 w-100">
+          <nav class="nav flex-column sidebar-nav py-2 w-100" id="sidebar-nav">
             <a class="nav-link {% if path == '/' %}active{% endif %}" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
-            {% if perms.issues.view_dataissue or perms.reporting.view_reports %}
-            <div class="sidebar-heading">Data quality</div>
-            {% if perms.issues.view_dataissue %}<a class="nav-link {% if '/issues/' in path and request.GET.category != 'locations' %}active{% endif %}" href="{% url 'issues:list' %}"><i class="bi bi-exclamation-diamond"></i> Data issues</a>{% endif %}
-            {% if perms.reporting.view_reports %}<a class="nav-link {% if 'data-quality' in path %}active{% endif %}" href="{% url 'reporting:data_quality' %}"><i class="bi bi-clipboard-data"></i> Data quality report</a>{% endif %}
-            {% if perms.patients.change_patient and can_view_identity %}<a class="nav-link {% if 'duplicates' in path %}active{% endif %}" href="{% url 'patients:duplicates' %}"><i class="bi bi-people"></i> Duplicate review</a>{% endif %}
-            {% if perms.issues.view_dataissue %}<a class="nav-link {% if request.GET.category == 'locations' %}active{% endif %}" href="{% url 'issues:list' %}?category=locations"><i class="bi bi-geo-alt"></i> Location issues</a>{% endif %}
-            {% endif %}
             {% if perms.patients.view_patient %}
-            <div class="sidebar-heading">Patients</div>
-            <a class="nav-link {% if path == '/patients/' %}active{% endif %}" href="{% url 'patients:list' %}"><i class="bi bi-people"></i> Patient register</a>
-            {% if perms.patients.add_patient and can_view_identity %}<a class="nav-link {% if 'register' in path %}active{% endif %}" href="{% url 'patients:create' %}"><i class="bi bi-person-plus"></i> Register patient</a>{% endif %}
-            {% if perms.patients.view_patienttransfer %}<a class="nav-link {% if 'transfers' in path %}active{% endif %}" href="{% url 'patients:transfers' %}"><i class="bi bi-arrow-left-right"></i> Transfers</a>{% endif %}
-            <a class="nav-link {% if '/records/' in path %}active{% endif %}" href="{% url 'records:home' %}"><i class="bi bi-folder2-open"></i> Records by form</a>
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-patients" aria-expanded="false" aria-controls="nav-patients"><i class="bi bi-people"></i><span>Patients</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-patients" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if path == '/patients/' %}active{% endif %}" href="{% url 'patients:list' %}"><i class="bi bi-people"></i> Patient register</a>
+              {% if perms.patients.add_patient and can_view_identity %}<a class="nav-link {% if 'register' in path %}active{% endif %}" href="{% url 'patients:create' %}"><i class="bi bi-person-plus"></i> Register patient</a>{% endif %}
+              {% if perms.patients.view_patienttransfer %}<a class="nav-link {% if 'transfers' in path %}active{% endif %}" href="{% url 'patients:transfers' %}"><i class="bi bi-arrow-left-right"></i> Transfers</a>{% endif %}
+              <a class="nav-link {% if '/records/' in path %}active{% endif %}" href="{% url 'records:home' %}"><i class="bi bi-folder2-open"></i> Records by form</a>
+              </div>
+            </div>
             {% endif %}
             {% if perms.encounters.view_appointment or perms.encounters.view_encounter %}
-            <div class="sidebar-heading">Care</div>
-            {% if perms.encounters.view_appointment %}<a class="nav-link {% if 'appointments' in path %}active{% endif %}" href="{% url 'encounters:appointment_list' %}"><i class="bi bi-calendar-check"></i> Appointments</a>{% endif %}
-            {% if perms.encounters.view_clinicsession %}<a class="nav-link {% if 'clinic-days' in path %}active{% endif %}" href="{% url 'encounters:clinic_list' %}"><i class="bi bi-calendar-week"></i> Clinic days</a>{% endif %}
-            {% if perms.notifications.view_smsmessage %}<a class="nav-link {% if '/sms/' in path %}active{% endif %}" href="{% url 'notifications:log' %}"><i class="bi bi-chat-dots"></i> SMS log</a>{% endif %}
-            {% if perms.encounters.view_encounter %}<a class="nav-link {% if path == '/encounters/' %}active{% endif %}" href="{% url 'encounters:encounter_list' %}"><i class="bi bi-clipboard2-pulse"></i> Encounters</a>{% endif %}
-            {% if perms.clinical.view_screening %}<a class="nav-link {% if 'screenings' in path %}active{% endif %}" href="{% url 'clinical:screening_list' %}"><i class="bi bi-search-heart"></i> Screenings</a>{% endif %}
-            {% if perms.clinical.view_screeningsession %}<a class="nav-link {% if 'sessions' in path %}active{% endif %}" href="{% url 'clinical:session_list' %}"><i class="bi bi-people-fill"></i> Screening sessions</a>{% endif %}
-            {% if perms.clinical.view_programmeenrollment %}<a class="nav-link {% if 'clinical/enrollments' in path %}active{% endif %}" href="{% url 'clinical:enrollment_list' %}"><i class="bi bi-journal-medical"></i> Programmes</a>{% endif %}
-            {% if perms.encounters.view_admission %}<a class="nav-link {% if 'admissions' in path %}active{% endif %}" href="{% url 'encounters:admission_list' %}"><i class="bi bi-hospital"></i> Admissions</a>{% endif %}
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-care" aria-expanded="false" aria-controls="nav-care"><i class="bi bi-clipboard2-pulse"></i><span>Care</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-care" data-bs-parent="#sidebar-nav">
+              {% if perms.encounters.view_appointment %}<a class="nav-link {% if 'appointments' in path %}active{% endif %}" href="{% url 'encounters:appointment_list' %}"><i class="bi bi-calendar-check"></i> Appointments</a>{% endif %}
+              {% if perms.encounters.view_clinicsession %}<a class="nav-link {% if 'clinic-days' in path %}active{% endif %}" href="{% url 'encounters:clinic_list' %}"><i class="bi bi-calendar-week"></i> Clinic days</a>{% endif %}
+              {% if perms.notifications.view_smsmessage %}<a class="nav-link {% if '/sms/' in path %}active{% endif %}" href="{% url 'notifications:log' %}"><i class="bi bi-chat-dots"></i> SMS log</a>{% endif %}
+              {% if perms.encounters.view_encounter %}<a class="nav-link {% if path == '/encounters/' %}active{% endif %}" href="{% url 'encounters:encounter_list' %}"><i class="bi bi-clipboard2-pulse"></i> Encounters</a>{% endif %}
+              {% if perms.clinical.view_screening %}<a class="nav-link {% if 'screenings' in path %}active{% endif %}" href="{% url 'clinical:screening_list' %}"><i class="bi bi-search-heart"></i> Screenings</a>{% endif %}
+              {% if perms.clinical.view_screeningsession %}<a class="nav-link {% if 'sessions' in path %}active{% endif %}" href="{% url 'clinical:session_list' %}"><i class="bi bi-people-fill"></i> Screening sessions</a>{% endif %}
+              {% if perms.clinical.view_programmeenrollment %}<a class="nav-link {% if 'clinical/enrollments' in path %}active{% endif %}" href="{% url 'clinical:enrollment_list' %}"><i class="bi bi-journal-medical"></i> Programmes</a>{% endif %}
+              {% if perms.encounters.view_admission %}<a class="nav-link {% if 'admissions' in path %}active{% endif %}" href="{% url 'encounters:admission_list' %}"><i class="bi bi-hospital"></i> Admissions</a>{% endif %}
+              </div>
+            </div>
             {% endif %}
             {% if perms.laboratory.view_laborder or perms.investigations.view_investigationorder or perms.pharmacy.view_prescription or perms.pharmacy.view_stockbatch %}
-            <div class="sidebar-heading">Services</div>
-            {% if perms.laboratory.view_laborder %}<a class="nav-link {% if '/lab/lab' in path %}active{% endif %}" href="{% url 'laboratory:lab_worklist' %}"><i class="bi bi-droplet-half"></i> Laboratory</a>{% endif %}
-            {% if perms.laboratory.view_labtest %}<a class="nav-link {% if 'lab/catalogue' in path %}active{% endif %}" href="{% url 'laboratory:catalogue' %}"><i class="bi bi-list-columns"></i> Lab catalogue</a>{% endif %}
-            {% if perms.investigations.view_investigationorder %}<a class="nav-link {% if '/investigations/' in path and 'catalogue' not in path %}active{% endif %}" href="{% url 'investigations:worklist' %}"><i class="bi bi-activity"></i> ECG / Echo / Imaging</a>{% endif %}
-            {% if perms.investigations.view_investigationtype %}<a class="nav-link {% if '/investigations/catalogue' in path %}active{% endif %}" href="{% url 'investigations:catalogue' %}"><i class="bi bi-list-columns-reverse"></i> Investigation catalogue</a>{% endif %}
-            {% if perms.pharmacy.view_prescription %}<a class="nav-link {% if 'pharmacy/prescriptions' in path %}active{% endif %}" href="{% url 'pharmacy:prescription_list' %}"><i class="bi bi-capsule"></i> Pharmacy dispensing</a>{% endif %}
-            {% if perms.pharmacy.view_stockbatch %}<a class="nav-link {% if 'pharmacy/stock' in path or 'pharmacy/medications' in path %}active{% endif %}" href="{% url 'pharmacy:medication_list' %}"><i class="bi bi-box-seam"></i> Medicines &amp; supplies</a>{% endif %}
-            {% if perms.pharmacy.view_stockshortfall %}<a class="nav-link {% if 'stock-outs' in path %}active{% endif %}" href="{% url 'pharmacy:shortfall_list' %}"><i class="bi bi-exclamation-octagon"></i> Stock-outs</a>{% endif %}
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-services" aria-expanded="false" aria-controls="nav-services"><i class="bi bi-droplet-half"></i><span>Services</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-services" data-bs-parent="#sidebar-nav">
+              {% if perms.laboratory.view_laborder %}<a class="nav-link {% if '/lab/lab' in path %}active{% endif %}" href="{% url 'laboratory:lab_worklist' %}"><i class="bi bi-droplet-half"></i> Laboratory</a>{% endif %}
+              {% if perms.laboratory.view_labtest %}<a class="nav-link {% if 'lab/catalogue' in path %}active{% endif %}" href="{% url 'laboratory:catalogue' %}"><i class="bi bi-list-columns"></i> Lab catalogue</a>{% endif %}
+              {% if perms.investigations.view_investigationorder %}<a class="nav-link {% if '/investigations/' in path and 'catalogue' not in path %}active{% endif %}" href="{% url 'investigations:worklist' %}"><i class="bi bi-activity"></i> ECG / Echo / Imaging</a>{% endif %}
+              {% if perms.investigations.view_investigationtype %}<a class="nav-link {% if '/investigations/catalogue' in path %}active{% endif %}" href="{% url 'investigations:catalogue' %}"><i class="bi bi-list-columns-reverse"></i> Investigation catalogue</a>{% endif %}
+              {% if perms.pharmacy.view_prescription %}<a class="nav-link {% if 'pharmacy/prescriptions' in path %}active{% endif %}" href="{% url 'pharmacy:prescription_list' %}"><i class="bi bi-capsule"></i> Pharmacy dispensing</a>{% endif %}
+              {% if perms.pharmacy.view_stockbatch %}<a class="nav-link {% if 'pharmacy/stock' in path or 'pharmacy/medications' in path %}active{% endif %}" href="{% url 'pharmacy:medication_list' %}"><i class="bi bi-box-seam"></i> Medicines &amp; supplies</a>{% endif %}
+              {% if perms.pharmacy.view_stockshortfall %}<a class="nav-link {% if 'stock-outs' in path %}active{% endif %}" href="{% url 'pharmacy:shortfall_list' %}"><i class="bi bi-exclamation-octagon"></i> Stock-outs</a>{% endif %}
+              </div>
+            </div>
             {% endif %}
             {% if perms.research.view_study or perms.crf.view_formsubmission %}
-            <div class="sidebar-heading">Research &amp; forms</div>
-            {% if perms.research.view_study %}<a class="nav-link {% if 'research' in path %}active{% endif %}" href="{% url 'research:study_list' %}"><i class="bi bi-mortarboard"></i> Studies</a>{% endif %}
-            {% if perms.crf.view_formsubmission %}<a class="nav-link {% if 'submissions' in path %}active{% endif %}" href="{% url 'crf:submission_list' %}"><i class="bi bi-ui-checks"></i> Form review</a>{% endif %}
-            {% if perms.crf.change_formversion %}<a class="nav-link {% if 'crf/forms' in path or 'crf/versions' in path %}active{% endif %}" href="{% url 'crf:definition_list' %}"><i class="bi bi-ui-radios-grid"></i> Form builder</a>{% endif %}
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-research" aria-expanded="false" aria-controls="nav-research"><i class="bi bi-ui-checks"></i><span>Research &amp; forms</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-research" data-bs-parent="#sidebar-nav">
+              {% if perms.research.view_study %}<a class="nav-link {% if 'research' in path %}active{% endif %}" href="{% url 'research:study_list' %}"><i class="bi bi-mortarboard"></i> Studies</a>{% endif %}
+              {% if perms.crf.view_formsubmission %}<a class="nav-link {% if 'submissions' in path %}active{% endif %}" href="{% url 'crf:submission_list' %}"><i class="bi bi-ui-checks"></i> Form review</a>{% endif %}
+              {% if perms.crf.change_formversion %}<a class="nav-link {% if 'crf/forms' in path or 'crf/versions' in path %}active{% endif %}" href="{% url 'crf:definition_list' %}"><i class="bi bi-ui-radios-grid"></i> Form builder</a>{% endif %}
+              </div>
+            </div>
             {% endif %}
             {% if perms.reporting.view_reports %}
-            <div class="sidebar-heading">Reports</div>
-            <a class="nav-link {% if path == '/reports/' %}active{% endif %}" href="{% url 'reporting:home' %}"><i class="bi bi-file-earmark-bar-graph"></i> All reports</a>
-            <a class="nav-link {% if '/reports/recruitment' in path %}active{% endif %}" href="{% url 'reporting:recruitment' %}"><i class="bi bi-person-lines-fill"></i> Recruitment by site</a>
-            <a class="nav-link {% if '/reports/conditions' in path %}active{% endif %}" href="{% url 'reporting:conditions' %}"><i class="bi bi-diagram-3"></i> Patients by condition</a>
-            <a class="nav-link {% if '/reports/trends' in path %}active{% endif %}" href="{% url 'reporting:trends' %}"><i class="bi bi-activity"></i> Vitals &amp; HbA1c trends</a>
-            <a class="nav-link {% if 'study-progress' in path %}active{% endif %}" href="{% url 'reporting:study_progress' %}"><i class="bi bi-graph-up-arrow"></i> Study progress</a>
-            <a class="nav-link {% if 'follow-up' in path %}active{% endif %}" href="{% url 'reporting:follow_up' %}"><i class="bi bi-calendar2-check"></i> Follow-up &amp; retention</a>
-            <a class="nav-link {% if '/reports/summary' in path %}active{% endif %}" href="{% url 'reporting:report' %}"><i class="bi bi-bar-chart-line"></i> Period summary</a>
-            <div class="sidebar-heading">Indicators</div>
-            <a class="nav-link {% if '/indicators/quarterly' in path %}active{% endif %}" href="{% url 'indicators:quarterly' %}"><i class="bi bi-table"></i> Quarterly core (PP)</a>
-            <a class="nav-link {% if '/indicators/clinical' in path %}active{% endif %}" href="{% url 'indicators:clinical' %}"><i class="bi bi-heart-pulse"></i> Clinical</a>
-            <a class="nav-link {% if '/indicators/sociodemographic' in path %}active{% endif %}" href="{% url 'indicators:socio' %}"><i class="bi bi-people"></i> Sociodemographic</a>
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-reports" aria-expanded="false" aria-controls="nav-reports"><i class="bi bi-file-earmark-bar-graph"></i><span>Reports</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-reports" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if path == '/reports/' %}active{% endif %}" href="{% url 'reporting:home' %}"><i class="bi bi-file-earmark-bar-graph"></i> All reports</a>
+              <a class="nav-link {% if '/reports/recruitment' in path %}active{% endif %}" href="{% url 'reporting:recruitment' %}"><i class="bi bi-person-lines-fill"></i> Recruitment by site</a>
+              <a class="nav-link {% if '/reports/conditions' in path %}active{% endif %}" href="{% url 'reporting:conditions' %}"><i class="bi bi-diagram-3"></i> Patients by condition</a>
+              <a class="nav-link {% if '/reports/trends' in path %}active{% endif %}" href="{% url 'reporting:trends' %}"><i class="bi bi-activity"></i> Vitals &amp; HbA1c trends</a>
+              <a class="nav-link {% if 'study-progress' in path %}active{% endif %}" href="{% url 'reporting:study_progress' %}"><i class="bi bi-graph-up-arrow"></i> Study progress</a>
+              <a class="nav-link {% if 'follow-up' in path %}active{% endif %}" href="{% url 'reporting:follow_up' %}"><i class="bi bi-calendar2-check"></i> Follow-up &amp; retention</a>
+              <a class="nav-link {% if '/reports/summary' in path %}active{% endif %}" href="{% url 'reporting:report' %}"><i class="bi bi-bar-chart-line"></i> Period summary</a>
+              </div>
+            </div>
+            {% endif %}
+            {% if perms.reporting.view_reports %}
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-indicators" aria-expanded="false" aria-controls="nav-indicators"><i class="bi bi-speedometer"></i><span>Indicators</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-indicators" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if '/indicators/quarterly' in path %}active{% endif %}" href="{% url 'indicators:quarterly' %}"><i class="bi bi-table"></i> Quarterly core (PP)</a>
+              <a class="nav-link {% if '/indicators/clinical' in path %}active{% endif %}" href="{% url 'indicators:clinical' %}"><i class="bi bi-heart-pulse"></i> Clinical</a>
+              <a class="nav-link {% if '/indicators/sociodemographic' in path %}active{% endif %}" href="{% url 'indicators:socio' %}"><i class="bi bi-people"></i> Sociodemographic</a>
+              </div>
+            </div>
+            {% endif %}
+            {% if perms.laboratory.view_monitoringgap %}
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-monitoring" aria-expanded="false" aria-controls="nav-monitoring"><i class="bi bi-activity"></i><span>Monitoring</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-monitoring" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if '/lab/monitoring/hba1c' in path %}active{% endif %}" href="{% url 'laboratory:monitoring' %}"><i class="bi bi-droplet"></i> HbA1c due list</a>
+              </div>
+            </div>
+            {% endif %}
+            {% if perms.issues.view_dataissue or perms.reporting.view_reports %}
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-quality" aria-expanded="false" aria-controls="nav-quality"><i class="bi bi-clipboard-check"></i><span>Data quality</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-quality" data-bs-parent="#sidebar-nav">
+              {% if perms.issues.view_dataissue %}<a class="nav-link {% if '/issues/' in path and request.GET.category != 'locations' %}active{% endif %}" href="{% url 'issues:list' %}"><i class="bi bi-exclamation-diamond"></i> Data issues</a>{% endif %}
+              {% if perms.reporting.view_reports %}<a class="nav-link {% if 'data-quality' in path %}active{% endif %}" href="{% url 'reporting:data_quality' %}"><i class="bi bi-clipboard-data"></i> Data quality report</a>{% endif %}
+              {% if perms.patients.change_patient and can_view_identity %}<a class="nav-link {% if 'duplicates' in path %}active{% endif %}" href="{% url 'patients:duplicates' %}"><i class="bi bi-people"></i> Duplicate review</a>{% endif %}
+              {% if perms.issues.view_dataissue %}<a class="nav-link {% if request.GET.category == 'locations' %}active{% endif %}" href="{% url 'issues:list' %}?category=locations"><i class="bi bi-geo-alt"></i> Location issues</a>{% endif %}
+              </div>
+            </div>
             {% endif %}
             {% if perms.reporting.export_data %}
-            <div class="sidebar-heading">Exports</div>
-            <a class="nav-link {% if path == '/exports/' %}active{% endif %}" href="{% url 'exports:list' %}"><i class="bi bi-cloud-arrow-down"></i> Data exports</a>
-            <a class="nav-link {% if '/exports/codebook' in path %}active{% endif %}" href="{% url 'exports:codebook' %}"><i class="bi bi-journal-code"></i> Codebook</a>
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-exports" aria-expanded="false" aria-controls="nav-exports"><i class="bi bi-cloud-arrow-down"></i><span>Exports</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-exports" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if path == '/exports/' %}active{% endif %}" href="{% url 'exports:list' %}"><i class="bi bi-cloud-arrow-down"></i> Data exports</a>
+              <a class="nav-link {% if '/exports/codebook' in path %}active{% endif %}" href="{% url 'exports:codebook' %}"><i class="bi bi-journal-code"></i> Codebook</a>
+              </div>
+            </div>
             {% endif %}
             {% if perms.reporting.view_reports or perms.audit.view_auditevent or perms.users.view_user %}
-            <div class="sidebar-heading">Administration</div>
-            {% if perms.users.view_user %}<a class="nav-link {% if path == '/staff/' or '/staff/new' in path %}active{% endif %}" href="{% url 'users:list' %}"><i class="bi bi-person-badge"></i> Staff</a>
-            <a class="nav-link {% if '/staff/roles' in path %}active{% endif %}" href="{% url 'users:roles' %}"><i class="bi bi-grid-3x3"></i> Roles &amp; access</a>{% endif %}
-            {% if perms.users.view_position %}<a class="nav-link {% if '/staff/positions' in path %}active{% endif %}" href="{% url 'users:positions' %}"><i class="bi bi-person-vcard"></i> Positions</a>{% endif %}
-            {% if perms.clinical.view_disease %}<a class="nav-link {% if '/diseases/' in path %}active{% endif %}" href="{% url 'diseases:list' %}"><i class="bi bi-virus"></i> Diseases</a>{% endif %}
-            {% if perms.facilities.view_facility %}<a class="nav-link {% if path == '/facilities/' %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Facilities</a>{% endif %}
-            {% if perms.notifications.view_emaillog %}<a class="nav-link {% if path == '/email/' %}active{% endif %}" href="{% url 'email:log' %}"><i class="bi bi-envelope"></i> Email log</a>{% endif %}
-            {% if perms.notifications.view_siteconfiguration %}<a class="nav-link {% if '/email/settings' in path %}active{% endif %}" href="{% url 'email:settings' %}"><i class="bi bi-gear"></i> Email settings</a>{% endif %}
-            {% if perms.audit.view_auditevent %}<a class="nav-link {% if 'audit' in path %}active{% endif %}" href="{% url 'audit:list' %}"><i class="bi bi-shield-check"></i> Audit trail</a>{% endif %}
-            {% if perms.patients.restore_patient %}<a class="nav-link {% if 'deleted' in path %}active{% endif %}" href="{% url 'patients:deleted' %}"><i class="bi bi-trash3"></i> Deleted patients</a>{% endif %}
+            <div class="sidebar-section">
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-admin" aria-expanded="false" aria-controls="nav-admin"><i class="bi bi-gear"></i><span>Administration</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-admin" data-bs-parent="#sidebar-nav">
+              {% if perms.users.view_user %}<a class="nav-link {% if path == '/staff/' or '/staff/new' in path %}active{% endif %}" href="{% url 'users:list' %}"><i class="bi bi-person-badge"></i> Staff</a>
+              <a class="nav-link {% if '/staff/roles' in path %}active{% endif %}" href="{% url 'users:roles' %}"><i class="bi bi-grid-3x3"></i> Roles &amp; access</a>{% endif %}
+              {% if perms.users.view_position %}<a class="nav-link {% if '/staff/positions' in path %}active{% endif %}" href="{% url 'users:positions' %}"><i class="bi bi-person-vcard"></i> Positions</a>{% endif %}
+              {% if perms.clinical.view_disease %}<a class="nav-link {% if '/diseases/' in path %}active{% endif %}" href="{% url 'diseases:list' %}"><i class="bi bi-virus"></i> Diseases</a>{% endif %}
+              {% if perms.facilities.view_facility %}<a class="nav-link {% if path == '/facilities/' %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Facilities</a>{% endif %}
+              {% if perms.notifications.view_emaillog %}<a class="nav-link {% if path == '/email/' %}active{% endif %}" href="{% url 'email:log' %}"><i class="bi bi-envelope"></i> Email log</a>{% endif %}
+              {% if perms.notifications.view_siteconfiguration %}<a class="nav-link {% if '/email/settings' in path %}active{% endif %}" href="{% url 'email:settings' %}"><i class="bi bi-gear"></i> Email settings</a>{% endif %}
+              {% if perms.audit.view_auditevent %}<a class="nav-link {% if 'audit' in path %}active{% endif %}" href="{% url 'audit:list' %}"><i class="bi bi-shield-check"></i> Audit trail</a>{% endif %}
+              {% if perms.patients.restore_patient %}<a class="nav-link {% if 'deleted' in path %}active{% endif %}" href="{% url 'patients:deleted' %}"><i class="bi bi-trash3"></i> Deleted patients</a>{% endif %}
+              </div>
+            </div>
             {% endif %}
           </nav>
           {% endwith %}

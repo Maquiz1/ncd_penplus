@@ -39,7 +39,7 @@ class Indicator:
             avg = round(sum(values.values()) / len(values), 1) if values else None
             return {'value': avg, 'n': len(values), 'denominator': set(values), 'numerator': set(values)}
         numerator = {pid for pid in base if self._numerator(cohort, pid, date)}
-        return {'numerator': numerator, 'denominator': base,
+        return {'numerator': numerator, 'denominator': base, 'missed': len(base) - len(numerator),
                 'pct': round(100 * len(numerator) / len(base), 1) if base else None}
 
 
@@ -55,6 +55,21 @@ def year_ago(d):
     return add_months(d, -12)
 
 
+def after_enrollment(cohort, pid, d):
+    """Start of the last 12 months, excluding the enrollment visit (history taken at enrollment is not counted)."""
+    return max(year_ago(d), cohort.first_enrollment(pid) + datetime.timedelta(days=1))
+
+
+def any_units(cohort, pid, keys, date):
+    return any(positive(cohort.latest_crf(pid, k, date)) for k in keys)
+
+
+def nyha(cohort, pid, date):
+    """Latest NYHA class; the EDCS records it as "dyspnea" (1-4 = I-IV, 5 = cannot determine)."""
+    value = (cohort.latest_crf(pid, 'nyha', date) or cohort.latest_crf(pid, 'dyspnea', date) or '').upper()
+    return {'I': '1', 'II': '2', 'III': '3', 'IV': '4'}.get(value, value)
+
+
 def latest_number(cohort, pid, keys, date, since=None):
     values = [number(cohort.latest_crf(pid, k, date, since)) for k in keys]
     values = [v for v in values if v is not None]
@@ -64,10 +79,11 @@ def latest_number(cohort, pid, keys, date, since=None):
 INDICATORS = [
     # ---------------------------------------------------------------- Diabetes
     Indicator('dm-basal-bolus', 'diabetes', '% people with T1D on basal bolus insulin (not pre-mixed insulin)',
-              lambda c, p, d: (c.latest_crf(p, 'basal_insulin', d) in ('1', '2') and c.latest_crf(p, 'prandial_insulin', d) in ('1', '2'))
+              lambda c, p, d: (any_units(c, p, ('basal_am', 'basal_pm'), d)
+                               and any_units(c, p, ('prandial_am', 'prandial_lunch', 'prandial_pm'), d))
               or (c.on_any(p, d, ('lente', 'nph', 'basal', 'glargine')) and c.on_any(p, d, ('soluble', 'regular', 'actrapid', 'aspart', 'lispro'))
                   and not c.on_any(p, d, ('mixtard', 'premix', '30/70'))),
-              active_with('t1d'), note='Basal and prandial insulin at the last visit.'),
+              active_with('t1d'), note='Basal and prandial insulin units recorded at the last visit.'),
     Indicator('dm-glucometer', 'diabetes', '% people with T1D with home glucometer',
               lambda c, p, d: positive(c.latest_crf(p, 'bg_measurement', d)) or c.on_any(p, d, ('glucometer', 'accucheck')),
               active_with('t1d'), note='Home blood glucose measurements recorded at the last visit (proxy).'),
@@ -78,7 +94,8 @@ INDICATORS = [
               lambda c, d: {p for p in active_with('t1d')(c, d) if c.lab(p, 'hba1c', d)},
               note='Denominator: T1D patients with at least one HbA1c result.'),
     Indicator('dm-dka-12m', 'diabetes', 'Proportion of patients with T1D who have had DKA in the past 12 months',
-              lambda c, p, d: c.any_crf(p, 'dka_number', d, since=year_ago(d), test=positive), active_with('t1d')),
+              lambda c, p, d: c.any_crf(p, 'dka_number', d, test=positive, since=after_enrollment(c, p, d)),
+              active_with('t1d'), note='DKA reported at the enrollment visit is not counted.'),
     # ---------------------------------------------------------------- Cardiac
     Indicator('cardiac-echo-12m', 'cardiac', 'Proportion of patients who have had an echo in the past year',
               lambda c, p, d: bool(c.investigations(p, 'echo', d, since=year_ago(d))), active_disease('cardiac')),
@@ -91,13 +108,11 @@ INDICATORS = [
               lambda c, p, d: bool(c.lab(p, 'inr', d, since=add_months(d, -3))),
               lambda c, d: {p for p in c.active(d) if c.on_any(p, d, WARFARIN)}),
     Indicator('cardiac-nyha-1-2', 'cardiac', 'Proportion of patients with none or mild limitation in activity (NYHA I and II) at last visit',
-              lambda c, p, d: (c.latest_crf(p, 'nyha', d) or '').upper() in ('I', 'II', '1', '2'),
-              lambda c, d: {p for p in active_disease('cardiac')(c, d) if c.latest_crf(p, 'nyha', d)},
-              note='Needs NYHA on the cardiac assessment form (not recorded in the EDCS).'),
+              lambda c, p, d: nyha(c, p, d) in ('1', '2'), active_disease('cardiac'),
+              note='Denominator: all active cardiac patients (NYHA "cannot determine" or not recorded counts as neither).'),
     Indicator('cardiac-nyha-3-4', 'cardiac', 'Proportion of patients with marked limitation in activity (NYHA III and IV) at last visit',
-              lambda c, p, d: (c.latest_crf(p, 'nyha', d) or '').upper() in ('III', 'IV', '3', '4'),
-              lambda c, d: {p for p in active_disease('cardiac')(c, d) if c.latest_crf(p, 'nyha', d)},
-              note='Needs NYHA on the cardiac assessment form (not recorded in the EDCS).'),
+              lambda c, p, d: nyha(c, p, d) in ('3', '4'), active_disease('cardiac'),
+              note='Denominator: all active cardiac patients (NYHA "cannot determine" or not recorded counts as neither).'),
     Indicator('cardiac-surgical-referral', 'cardiac', '% of patients with suspected congenital or RHD referred for surgical evaluation',
               lambda c, p, d: any(c.any_crf(p, k, d) for k in ('cardiology', 'awaiting_surgery', 'cardiac_surgery')),
               active_with('rhd', 'chd'), note='Cardiology referral, awaiting surgery or cardiac surgery recorded.'),
@@ -110,12 +125,14 @@ INDICATORS = [
     Indicator('scd-folic-acid', 'scd', 'Proportion of patients with SCD who are on folic acid',
               lambda c, p, d: c.on_any(p, d, ('folic',)), active_disease('scd')),
     Indicator('scd-transfusion-12m', 'scd', '% of patients with SCD needing transfusion within the last 12 months',
-              lambda c, p, d: any(c.any_crf(p, k, d, since=year_ago(d), test=positive)
-                                  for k in ('lab_transfusion_sickle', 'transfusion_12months', 'transfusion'))
-              or c.any_crf(p, 'transfusion_needed', d, since=year_ago(d)), active_disease('scd')),
+              lambda c, p, d: any(c.any_crf(p, k, d, since=after_enrollment(c, p, d), test=positive)
+                                  for k in ('lab_transfusion_sickle', 'transfusion'))
+              or c.any_crf(p, 'transfusion_needed', d, since=after_enrollment(c, p, d)), active_disease('scd'),
+              note='Transfusion needed or given at a follow-up visit; the enrollment visit is not counted.'),
     Indicator('scd-hospitalized-12m', 'scd', 'Proportion of patients with SCD who had a hospitalization within the last 12 months',
-              lambda c, p, d: c.admitted(p, year_ago(d), d) or c.any_crf(p, 'hospitalizations', d, since=year_ago(d))
-              or c.any_crf(p, 'hospitalization_ncd', d, since=year_ago(d)), active_disease('scd')),
+              lambda c, p, d: c.admitted(p, after_enrollment(c, p, d), d)
+              or any(c.any_crf(p, k, d, since=after_enrollment(c, p, d)) for k in ('hospitalizations', 'hospitalization_ncd')),
+              active_disease('scd'), note='The enrollment visit (history of the past 12 months) is not counted.'),
     # ---------------------------------------------------------------- Other diseases (shown only when the disease is active)
     *[Indicator(f'{disease}-{i}', disease, label, lambda c, p, d: False, lambda c, d: set(),
                 note='No data collection form yet: add one in the form builder when this disease is activated.')
@@ -136,8 +153,8 @@ INDICATORS = [
 SOCIODEMOGRAPHIC = [
     Indicator('socio-school-limited', 'socio', 'Proportion of patients for whom NCD has limited school attendance ever',
               lambda c, p, d: c.any_crf(p, 'school_attendance', d),
-              lambda c, d: {p for p in c.active(d) if c.latest_crf(p, 'school_attendance', d) in ('1', '2')},
-              note='Denominator: patients asked (answer Yes or No).'),
+              lambda c, d: {p for p in c.active(d) if age_on(c.patients[p].date_of_birth, d) <= 24},
+              note='Denominator: active patients aged 24 or younger.'),
     Indicator('socio-missed-school', 'socio', 'Average days of missed school in the last month',
               lambda c, p, d: latest_number(c, p, ('missed_school', 'school_days'), d), lambda c, d: c.active(d),
               kind='avg', unit='days'),

@@ -196,8 +196,57 @@ def diagnosis_prompts(patient_ids=None):
     return created
 
 
+HBA1C_CODE = 'hba1c_overdue'
+
+
+def hba1c_overdue(patient_ids=None):
+    """Active diabetes patients without an HbA1c in the last HBA1C_INTERVAL_MONTHS (or since enrolment).
+    One issue per due date, so the next cycle raises a new one; it closes by itself when a result arrives."""
+    from clinical.models import ProgrammeEnrollment
+    from laboratory.monitoring import monitoring_status
+
+    enrollments = ProgrammeEnrollment.objects.filter(status='active', programme__disease__code='diabetes',
+                                                     patient__is_deleted=False).select_related('patient')
+    if patient_ids is not None:
+        enrollments = enrollments.filter(patient_id__in=patient_ids)
+    created, still_needed, seen = 0, set(), set()
+    for enrollment in enrollments.order_by('enrollment_date'):
+        patient = enrollment.patient
+        if patient.pk in seen or patient.is_deceased:
+            continue
+        seen.add(patient.pk)
+        status = monitoring_status(patient, enrollment_date=enrollment.enrollment_date)
+        if not status['overdue']:
+            continue
+        key = f'hba1c-due:{patient.pk}:{status["due"]:%Y-%m-%d}'
+        still_needed.add(key)
+        if status['last']:
+            text = (f'Last HbA1c {status["last"].result_value} {status["last"].result_unit} on '
+                    f'{status["last_date"]:%d %b %Y} ({status["days"]} days ago); due {status["due"]:%d %b %Y}.').replace('  ', ' ')
+        else:
+            text = f'No HbA1c since enrolment ({enrollment.enrollment_date:%d %b %Y}); due {status["due"]:%d %b %Y}.'
+        if status['gap']:
+            gap = status['gap']
+            text += f' Recorded as not done on {gap.recorded_on:%d %b %Y} ({gap.get_reason_display()}); still no result.'
+        if status['pending']:
+            text += f' Ordered {status["pending"].ordered_at:%d %b %Y}, waiting for the result.'
+        else:
+            text += ' Order an HbA1c at the next visit.'
+        issue, new = raise_issue(key, HBA1C_CODE, DataIssue.Category.LAB, 'HbA1c overdue', text, patient=patient,
+                                 related_date=status['due'])
+        if not new and issue.status == DataIssue.Status.OPEN and issue.description != text:
+            issue.description = text
+            issue.save(update_fields=['description', 'updated_at'])
+        created += new
+    stale = DataIssue.objects.open().filter(code=HBA1C_CODE).exclude(key__in=still_needed)
+    if patient_ids is not None:
+        stale = stale.filter(patient_id__in=patient_ids)
+    stale.update(status=DataIssue.Status.RESOLVED, resolution_note='HbA1c resulted or no longer due (closed automatically).')
+    return created
+
+
 DETECTORS = [visits_same_month, duplicate_identifiers, duplicate_people, missing_date_of_birth, consent_to_verify,
-             address_problems, diagnosis_prompts]
+             address_problems, diagnosis_prompts, hba1c_overdue]
 
 
 def run_all():

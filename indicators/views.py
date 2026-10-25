@@ -14,6 +14,7 @@ from clinical.models import Disease, ProgrammeEnrollment
 from facilities.models import Facility
 from facilities.scope import facilities_for_user, scope_description
 from patients.models import Patient
+from reporting.filters import ReportFilters
 
 from . import clinical, core
 from .engine import Cohort, quarter_bounds
@@ -76,15 +77,22 @@ class QuarterlyView(IndicatorPermission, View):
             'active_diseases': Disease.objects.filter(is_active=True)})
 
 
+def indicator_filters(request):
+    """Area, period and disease filters; indicators are measured on the last day of the period."""
+    filters = ReportFilters(request, default_period='this_month')
+    return filters, Cohort(request.user, facilities=filters.facilities, disease=filters.disease)
+
+
 class ClinicalView(IndicatorPermission, View):
     template = 'indicators/clinical.html'
     socio = False
 
     def get(self, request):
-        date = selected_date(request)
-        facility = selected_facility(request)
-        cohort = Cohort(request.user, facility)
-        active = {d.code: d for d in Disease.objects.filter(is_active=True)}
+        filters, cohort = indicator_filters(request)
+        date, facility = filters.end, filters.area_label
+        active = {d.code: d for d in filters.diseases}
+        if filters.disease and not self.socio:
+            active = {filters.disease.code: filters.disease}
         source = clinical.SOCIODEMOGRAPHIC if self.socio else clinical.visible(clinical.INDICATORS, set(active))
         results = [(i, i.evaluate(cohort, date)) for i in source]
         if request.GET.get('format') == 'csv':
@@ -99,7 +107,8 @@ class ClinicalView(IndicatorPermission, View):
                     rows.append([active[i.disease].name if i.disease in active else 'Sociodemographic', i.label,
                                  len(r['numerator']), '', len(r['denominator']), '' if r['pct'] is None else r['pct']])
             return csv_response(f'penplus-{"socio" if self.socio else "clinical"}-indicators-{date}.csv',
-                                ['Area', 'Indicator', 'Numerator / value', 'Unit', 'Denominator / patients', '%'], rows)
+                                ['Disease', 'Indicator', 'Numerator / value', 'Unit', 'Denominator / patients', '%'],
+                                [[f'{filters.description} (measured on {date:%d %b %Y})']] + rows)
         groups = []
         for code, disease in active.items():
             items = [(i, r) for i, r in results if i.disease == code]
@@ -108,22 +117,27 @@ class ClinicalView(IndicatorPermission, View):
         if self.socio:
             groups = [('Sociodemographic', results)]
         return render(request, self.template, {
-            'groups': groups, 'date': date, 'facility': facility, 'facilities': clinic_choices(request.user),
-            'socio': self.socio, 'scope': scope_description(request.user), 'generated': timezone.now(),
-            'inactive': Disease.objects.filter(is_active=False)})
+            'groups': groups, 'date': date, 'filters': filters, 'hidden_filters': {}, 'hide_pdf': True,
+            'csv_available': True, 'socio': self.socio, 'scope': scope_description(request.user),
+            'generated': timezone.now(), 'inactive': Disease.objects.filter(is_active=False)})
 
 
 class SociodemographicView(ClinicalView):
     socio = True
 
 
+PARTS = {'numerator': 'meeting the indicator', 'denominator': 'all eligible patients',
+         'missed': 'not meeting the indicator (to follow up)'}
+
+
 class DrillView(IndicatorPermission, View):
-    """The patients behind a number."""
+    """The patients behind a number. For clinical indicators, 'missed' lists eligible patients not meeting it."""
 
     def get(self, request):
-        facility = selected_facility(request)
-        cohort = Cohort(request.user, facility)
+        last_visit, subtitle = None, ''
         if request.GET.get('source') == 'core':
+            facility = selected_facility(request)
+            cohort = Cohort(request.user, facility)
             year, quarter, code = int(request.GET['year']), int(request.GET['q']), request.GET.get('code', '')
             row, ids = core.drill(cohort, year, quarter, code)
             if row is None:
@@ -134,10 +148,28 @@ class DrillView(IndicatorPermission, View):
             indicator = clinical.find(request.GET.get('key', ''))
             if indicator is None:
                 raise Http404
-            date = selected_date(request)
-            part = 'numerator' if request.GET.get('part') == 'numerator' else 'denominator'
-            ids = indicator.evaluate(cohort, date)[part]
-            title = f'{indicator.label} – {part} (as of {date:%d %b %Y})'
-            back = reverse('indicators:socio' if indicator.disease == 'socio' else 'indicators:clinical') + f'?date={date}'
-        patients = Patient.objects.filter(pk__in=ids).select_related('current_facility').order_by('patient_number')
-        return render(request, 'indicators/drill.html', {'title': title, 'patients': patients, 'back': back})
+            filters, cohort = indicator_filters(request)
+            date = filters.end
+            part = request.GET.get('part') if request.GET.get('part') in PARTS else 'denominator'
+            result = indicator.evaluate(cohort, date)
+            ids = result['denominator'] - result['numerator'] if part == 'missed' else result[part]
+            title = f'{indicator.label} – {PARTS[part]}'
+            subtitle = f'{filters.description} · measured on {date:%d %b %Y}'
+            back = reverse('indicators:socio' if indicator.disease == 'socio' else 'indicators:clinical') + '?' + filters.querystring()
+            last_visit = {pid: cohort.last_visit(pid, date) for pid in ids}
+        patients = list(Patient.objects.filter(pk__in=ids).select_related('current_facility').order_by('patient_number'))
+        today = timezone.localdate()
+        for p in patients:
+            p.last_visit = last_visit.get(p.pk) if last_visit is not None else None
+            p.days_since_visit = (today - p.last_visit).days if p.last_visit else None
+        if last_visit is not None and request.GET.get('format') == 'csv':
+            log_event(request=request, action=AuditEvent.Action.EXPORT, model='indicators.Drill', object_repr=title)
+            return csv_response(f'indicator-{indicator.key}-{part}-{date}.csv',
+                                ['Patient ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last visit', 'Days since last visit'],
+                                [[p.patient_number, p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
+                                  p.last_visit or '', '' if p.days_since_visit is None else p.days_since_visit]
+                                 for p in patients])
+        return render(request, 'indicators/drill.html', {
+            'title': title, 'subtitle': subtitle, 'patients': patients, 'back': back,
+            'with_visits': last_visit is not None, 'csv_url': '?' + request.GET.urlencode() + '&format=csv'
+            if last_visit is not None else ''})

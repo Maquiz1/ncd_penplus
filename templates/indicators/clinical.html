@@ -3,27 +3,31 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
   <div><h1 class="h3 mb-0">{% if socio %}Sociodemographic{% else %}Clinical{% endif %} indicators</h1>
-  <div class="small text-body-secondary">PEN-Plus NOP Tanzania 2024 · as of {{ date|date:"d M Y" }} · {{ facility|default:"All clinics in my scope" }} · active patients · generated {{ generated|date:"d M Y H:i" }}</div></div>
+  <div class="small text-body-secondary">PEN-Plus NOP Tanzania 2024 · {{ filters.description }} · measured on {{ date|date:"d M Y" }} · active patients · generated {{ generated|date:"d M Y H:i" }}</div></div>
   <button class="btn btn-outline-secondary d-print-none" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
 </div>
-{% include "indicators/_filters.html" %}
+{% include "reporting/_filters.html" %}
+{% with qs=filters.querystring %}
 {% for name, items in groups %}
 <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">{{ name }}</div><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-  <thead><tr><th>Indicator</th><th class="text-end">Numerator</th><th class="text-end">Denominator</th><th class="text-end" style="width: 18%;">Result</th></tr></thead>
+  <thead><tr><th>Indicator</th><th class="text-end">Numerator</th><th class="text-end">Denominator</th><th class="text-end" title="Eligible patients not meeting the indicator">Not met</th><th class="text-end" style="width: 18%;">Result</th></tr></thead>
   <tbody>{% for i, r in items %}<tr>
     <td>{{ i.label }}{% if i.note %}<div class="small text-body-secondary">{{ i.note }}</div>{% endif %}</td>
     {% if i.kind == 'avg' %}
       <td class="text-end">—</td>
-      <td class="text-end"><a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=denominator&date={{ date|date:'Y-m-d' }}{% if facility %}&facility={{ facility.pk }}{% endif %}">{{ r.n }}</a> <span class="small text-body-secondary">with data</span></td>
+      <td class="text-end"><a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=denominator&{{ qs }}">{{ r.n }}</a> <span class="small text-body-secondary">with data</span></td>
+      <td class="text-end">—</td>
       <td class="text-end fw-semibold">{% if r.value is not None %}{{ r.value }} {{ i.unit }}{% else %}<span class="text-body-secondary fw-normal">no data</span>{% endif %}</td>
     {% else %}
-      <td class="text-end"><a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=numerator&date={{ date|date:'Y-m-d' }}{% if facility %}&facility={{ facility.pk }}{% endif %}">{{ r.numerator|length }}</a></td>
-      <td class="text-end"><a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=denominator&date={{ date|date:'Y-m-d' }}{% if facility %}&facility={{ facility.pk }}{% endif %}">{{ r.denominator|length }}</a></td>
+      <td class="text-end"><a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=numerator&{{ qs }}">{{ r.numerator|length }}</a></td>
+      <td class="text-end"><a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=denominator&{{ qs }}">{{ r.denominator|length }}</a></td>
+      <td class="text-end">{% if r.missed %}<a class="link-danger" href="{% url 'indicators:drill' %}?key={{ i.key }}&part=missed&{{ qs }}" title="List the patients to follow up">{{ r.missed }}</a>{% else %}<span class="text-body-secondary">0</span>{% endif %}</td>
       <td class="text-end">{% if r.pct is not None %}<div class="d-flex align-items-center justify-content-end gap-2"><div class="progress flex-grow-1" style="height: 6px; max-width: 90px;" role="progressbar" aria-label="{{ i.label }}"><div class="progress-bar" style="width: {{ r.pct }}%"></div></div><span class="fw-semibold">{{ r.pct }}%</span></div>{% else %}<span class="text-body-secondary">no patients</span>{% endif %}</td>
     {% endif %}
   </tr>{% endfor %}</tbody>
 </table></div></div>
 {% empty %}<div class="card card-body text-body-secondary">No active diseases have indicators.</div>{% endfor %}
+{% endwith %}
 {% if not socio and inactive %}<p class="small text-body-secondary">Not shown because the disease is inactive: {{ inactive|join:", " }}. Activate a disease in Diseases to see its indicators.</p>{% endif %}
-<p class="small text-body-secondary">Active = enrolled and not LTFU, transferred out, withdrawn or dead on the date. “At last visit” uses the medicines and forms recorded at the patient's most recent visit before the date. Click a number to see the patients.</p>
+<p class="small text-body-secondary">Each indicator is measured on the last day of the chosen period. Active = enrolled and not LTFU, transferred out, withdrawn or dead on that day. “At last visit” uses the medicines and forms recorded at the patient's most recent visit before that day. Click a number to see the patients; “Not met” lists eligible patients to follow up (for example a missing HbA1c or echo).</p>
 {% endblock %}

@@ -57,9 +57,9 @@ class BaseTestCase(TestCase):
 
 class PatientIdentifierTests(BaseTestCase):
     def test_format_and_sequence(self):
-        self.assertEqual(next_patient_number(2026), 'NCD26-0001')
-        self.assertEqual(next_patient_number(2026), 'NCD26-0002')
-        self.assertEqual(next_patient_number(2027), 'NCD27-0001')
+        self.assertEqual(next_patient_number(2026), 'NP26-0001')
+        self.assertEqual(next_patient_number(2026), 'NP26-0002')
+        self.assertEqual(next_patient_number(2027), 'NP27-0001')
 
     def test_ids_never_reused_after_soft_delete(self):
         first = self.make_patient()
@@ -70,11 +70,11 @@ class PatientIdentifierTests(BaseTestCase):
     def test_suffix_expands_beyond_four_digits(self):
         from patients.models import PatientIdSequence
         PatientIdSequence.objects.create(year=2026, last_value=9999)
-        self.assertEqual(next_patient_number(2026), 'NCD26-10000')
+        self.assertEqual(next_patient_number(2026), 'NP26-10000')
 
     def test_registration_opens_assignment(self):
         p = self.make_patient()
-        self.assertTrue(re.fullmatch(r'NCD\d{2}-\d{4,}', p.patient_number))
+        self.assertTrue(re.fullmatch(r'NP\d{2}-\d{4,}', p.patient_number))
         self.assertEqual(p.current_facility, self.ilala)
         self.assertEqual(p.facility_assignments.get(is_current=True).facility, self.ilala)
 
