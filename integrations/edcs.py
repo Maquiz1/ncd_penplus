@@ -47,7 +47,7 @@ POSITION_ROLES = {1: 'Data Manager', 2: 'Facility Coordinator', 3: 'PI / Co-Inve
                   5: 'Pharmacist / Dispenser', 6: 'Clinician', 7: 'Nurse / Triage Officer', 8: 'Laboratory Staff'}
 ALL_SITE_POSITIONS = {1, 3}
 STAGES = {'RV': 'registration', 'SV': 'screening', 'EV': 'baseline', 'FV': 'follow_up', 'TV': 'outcome',
-          'UV': 'follow_up'}
+          'UV': 'unscheduled'}
 META_COLUMNS = {'id', 'study_id', 'visit_code', 'visit_day', 'vid', 'seq_no', 'patient_id', 'client_id', 'staff_id',
                 'status', 'created_on', 'site_id'}
 # Tables kept as read-only legacy forms (everything not mapped to a structured record is preserved here).

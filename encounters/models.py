@@ -240,6 +240,9 @@ class Encounter(SoftDeleteModel):
         return self.appointment_id is not None
 
     def clean(self):
+        if self.stage == WorkflowStage.UNSCHEDULED and self.appointment_id:
+            raise ValidationError({'appointment': 'An unscheduled visit is not linked to an appointment. Leave it '
+                                                  'empty, or choose Follow-up as the visit type.'})
         if self.location_type in ('home', 'community') and self.status == 'completed' and \
                 self.home_visit_outcome and self.home_visit_outcome != 'completed':
             raise ValidationError({'status': 'A failed home/community visit attempt cannot be marked completed.'})

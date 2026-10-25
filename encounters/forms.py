@@ -13,6 +13,8 @@ class AppointmentForm(PatientChildForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # An appointment is a planned visit, so it is never "Unscheduled".
+        self.fields['stage'].choices = [c for c in self.fields['stage'].choices if c[0] != 'unscheduled']
         if not self.instance.pk:
             self.fields['status'].choices = [('scheduled', 'Scheduled'), ('confirmed', 'Confirmed')]
             del self.fields['reason_for_change']

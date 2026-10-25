@@ -35,22 +35,45 @@ class DataIssueTests(BaseTestCase):
         run_all()
         issue = DataIssue.objects.get(code='visits_same_month')
         self.client.force_login(self.nurse)
-        self.assertContains(self.client.get(reverse('issues:list')), '2 visits in March 2024')
+        self.assertContains(self.client.get(reverse('issues:list')), '2 follow-up visits in March 2024')
         page = self.client.get(issue.get_absolute_url())
         self.assertContains(page, 'Unscheduled')
-        self.client.post(reverse('issues:classify_visit', args=[issue.pk, self.second.pk]), {'as': 'unscheduled'})
-        self.second.refresh_from_db()
-        self.assertIsNone(self.second.appointment)
-        self.assertEqual(Appointment.objects.get(scheduled_date=datetime.date(2024, 3, 20)).status, 'cancelled')
         self.client.post(reverse('issues:resolve', args=[issue.pk]), {'decision': 'resolved', 'note': ''})
         issue.refresh_from_db()
         self.assertEqual(issue.status, 'open')  # a note is required
-        self.client.post(reverse('issues:resolve', args=[issue.pk]),
-                         {'decision': 'resolved', 'note': 'Second visit was for fever'})
-        issue.refresh_from_db()
+        self.client.post(reverse('issues:classify_visit', args=[issue.pk, self.second.pk]), {'as': 'unscheduled'})
+        self.second.refresh_from_db()
+        self.assertEqual((self.second.appointment, self.second.stage), (None, 'unscheduled'))
+        self.assertEqual(Appointment.objects.get(scheduled_date=datetime.date(2024, 3, 20)).status, 'cancelled')
+        issue.refresh_from_db()  # one follow-up visit left: resolved by the person who classified it
         self.assertEqual((issue.status, issue.resolved_by), ('resolved', self.nurse))
         run_all()
         self.assertEqual(DataIssue.objects.get(pk=issue.pk).status, 'resolved')  # not reopened
+
+    def test_unscheduled_and_other_visits_do_not_count(self):
+        Encounter.objects.filter(pk=self.second.pk).update(stage='unscheduled', appointment=None)
+        Encounter.objects.create(patient=self.patient, facility=self.ilala, staff=self.admin, stage='admission',
+                                 encounter_date=self.scheduled.encounter_date + datetime.timedelta(days=2))
+        run_all()
+        self.assertFalse(DataIssue.objects.filter(code='visits_same_month').exists())
+
+    def test_issue_closes_when_visit_type_changed_elsewhere(self):
+        run_all()
+        Encounter.objects.filter(pk=self.second.pk).update(stage='unscheduled', appointment=None)
+        run_all()
+        self.assertEqual(DataIssue.objects.get(code='visits_same_month').status, 'resolved')
+
+    def test_unscheduled_visit_cannot_have_appointment(self):
+        from encounters.forms import AppointmentForm, EncounterForm
+        appt = Appointment.objects.create(patient=self.patient, facility=self.ilala, scheduled_date=datetime.date(2024, 4, 4))
+        form = EncounterForm({'facility': self.ilala.pk, 'appointment': appt.pk, 'encounter_date': '2024-04-04T09:00',
+                              'stage': 'unscheduled', 'location_type': 'facility', 'status': 'completed'},
+                             patient=self.patient, user=self.admin)
+        self.assertIn('appointment', form.errors)
+        self.assertNotIn('unscheduled', dict(AppointmentForm(patient=self.patient, user=self.admin).fields['stage'].choices))
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse('encounters:encounter_add', args=[self.patient.pk]) + '?stage=unscheduled')
+        self.assertEqual(page.context['form'].initial['stage'], 'unscheduled')
 
     def test_scope_and_roles(self):
         run_all()

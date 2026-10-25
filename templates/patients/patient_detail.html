@@ -153,7 +153,7 @@
     <div class="d-flex gap-2 mb-2">
       {% if perms.encounters.add_followupplan %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:plan_add' patient.pk %}"><i class="bi bi-calendar-range"></i> Follow-up schedule</a>{% endif %}
       {% if perms.encounters.add_appointment %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:appointment_add' patient.pk %}"><i class="bi bi-plus"></i> Appointment</a>{% endif %}
-      {% if perms.encounters.add_encounter %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:encounter_add' patient.pk %}"><i class="bi bi-plus"></i> Unscheduled encounter</a>{% endif %}
+      {% if perms.encounters.add_encounter %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:encounter_add' patient.pk %}?stage=unscheduled"><i class="bi bi-plus"></i> Unscheduled visit</a>{% endif %}
     </div>
     {% if plans %}
     <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Follow-up schedules</div><ul class="list-group list-group-flush">

@@ -13,6 +13,7 @@ from audit.models import AuditEvent
 from audit.services import log_event
 from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientChildUpdateMixin,
                          ScopedQuerysetMixin)
+from core.models import WorkflowStage
 from facilities.scope import facilities_for_user, scope_queryset
 
 from .forms import (AdmissionForm, AppointmentForm, AppointmentStatusForm, ClinicSessionForm, DischargeForm,
@@ -111,7 +112,6 @@ class EncounterListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
         return qs
 
     def get_context_data(self, **kwargs):
-        from core.models import WorkflowStage
         return super().get_context_data(view=self.request.GET.get('view', 'worklist'), stages=WorkflowStage.choices,
                                         **kwargs)
 
@@ -129,6 +129,8 @@ class EncounterCreateView(PatientChildCreateMixin, CreateView):
             initial.update(appointment=appointment, stage=appointment.stage, location_type=appointment.location_type,
                            facility=appointment.facility, programme_enrollment=appointment.programme_enrollment,
                            study_enrollment=appointment.study_enrollment)
+        elif self.request.GET.get('stage') in WorkflowStage.values:
+            initial['stage'] = self.request.GET['stage']
         return initial
 
     def form_valid(self, form):

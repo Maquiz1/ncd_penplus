@@ -232,10 +232,11 @@ class MonthlyScheduleAndIssuesTests(TestCase):
         timeline = [(datetime.date(2024, 9, 1), '2', {})]   # recorded default after rule LTFU: stays LTFU
         self.assertEqual(importer.care_segments(start, timeline, [start], 3)[2], 'ltfu')
 
-    def test_two_visits_in_a_month_raise_an_issue(self):
+    def test_edcs_unscheduled_visit_is_not_a_second_monthly_visit(self):
         from issues.models import DataIssue
-        issue = DataIssue.objects.get(code='visits_same_month', patient=self.patient)
-        self.assertEqual(issue.related_date, datetime.date(2023, 7, 1))
+        uv = Encounter.objects.get(patient=self.patient, encounter_date__date=datetime.date(2023, 7, 20))
+        self.assertEqual((uv.stage, uv.appointment), ('unscheduled', None))
+        self.assertFalse(DataIssue.objects.filter(code='visits_same_month', patient=self.patient).exists())
         self.assertTrue(DataIssue.objects.filter(code='placeholder_hospital_id').count() >= 4)
 
     def test_issue_scan_is_idempotent(self):

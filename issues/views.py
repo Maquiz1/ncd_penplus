@@ -15,6 +15,7 @@ from audit.services import log_event
 from encounters.models import Appointment, Encounter
 from facilities.scope import facilities_for_user
 
+from .detectors import MONTHLY_STAGES, visits_same_month
 from .models import DataIssue
 
 
@@ -72,6 +73,7 @@ class IssueDetailView(PermissionRequiredMixin, View):
         context = {'issue': issue, 'patient': issue.patient}
         if issue.code == 'visits_same_month' and issue.patient_id and issue.related_date:
             context['encounters'], context['appointments'] = month_records(issue)
+            context['monthly_stages'] = MONTHLY_STAGES
         if issue.code == 'location_not_in_national_list' and issue.related is not None:
             from facilities.locations import suggestions
             location = issue.related
@@ -116,28 +118,42 @@ class VisitClassifyView(PermissionRequiredMixin, View):
         issue = get_object_or_404(DataIssue.objects.in_scope(request.user), pk=pk, code='visits_same_month')
         encounter = get_object_or_404(Encounter, pk=encounter_pk, patient=issue.patient)
         target = request.POST.get('as')
-        if target == 'unscheduled' and encounter.appointment_id:
+        old_stage = encounter.stage
+        if target == 'unscheduled' and encounter.stage != 'unscheduled':
             appointment = encounter.appointment
-            encounter.appointment = None
-            encounter.save(update_fields=['appointment', 'updated_at'])
-            if not appointment.encounters.exists():
+            encounter.appointment, encounter.stage = None, 'unscheduled'
+            encounter.save(update_fields=['appointment', 'stage', 'updated_at'])
+            if appointment is not None and not appointment.encounters.exists():
                 appointment.status = Appointment.Status.CANCELLED
                 appointment.reason_for_change = 'Visit reclassified as unscheduled during data review'
                 appointment.save(update_fields=['status', 'reason_for_change', 'updated_at'])
             log_event(request=request, action=AuditEvent.Action.UPDATE, obj=encounter,
-                      changes={'scheduled': [True, False]}, reason=f'Data issue {issue.pk}')
+                      changes={'stage': [old_stage, 'unscheduled'], 'scheduled': [appointment is not None, False]},
+                      reason=f'Data issue {issue.pk}')
             messages.success(request, 'Visit marked as unscheduled.')
         elif target == 'scheduled' and not encounter.appointment_id:
             day = timezone.localtime(encounter.encounter_date).date()
+            if encounter.stage == 'unscheduled':
+                encounter.stage = 'follow_up'
             appointment = Appointment.objects.create(
                 patient=encounter.patient, facility=encounter.facility, scheduled_date=day, stage=encounter.stage,
                 location_type=encounter.location_type, status=Appointment.Status.ATTENDED,
                 notes='Scheduled visit confirmed during data review', created_by=request.user)
             encounter.appointment = appointment
-            encounter.save(update_fields=['appointment', 'updated_at'])
+            encounter.save(update_fields=['appointment', 'stage', 'updated_at'])
             log_event(request=request, action=AuditEvent.Action.UPDATE, obj=encounter,
-                      changes={'scheduled': [False, True]}, reason=f'Data issue {issue.pk}')
-            messages.success(request, 'Visit marked as scheduled.')
+                      changes={'stage': [old_stage, encounter.stage], 'scheduled': [False, True]},
+                      reason=f'Data issue {issue.pk}')
+            messages.success(request, 'Visit marked as the scheduled monthly visit.')
+        visits_same_month([issue.patient_id])
+        issue.refresh_from_db()
+        if issue.status == DataIssue.Status.RESOLVED and issue.resolved_by_id is None:
+            issue.resolved_by = request.user
+            issue.resolution_note = 'One follow-up visit kept for the month; the others marked Unscheduled.'
+            issue.save(update_fields=['resolved_by', 'resolution_note', 'updated_at'])
+            log_event(request=request, action=AuditEvent.Action.REVIEW, obj=issue,
+                      changes={'status': ['open', 'resolved']}, reason=issue.resolution_note)
+            messages.info(request, 'Only one follow-up visit is left in this month, so the issue is resolved.')
         return redirect(issue.get_absolute_url())
 
 

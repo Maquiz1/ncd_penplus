@@ -4,7 +4,7 @@ from collections import Counter, OrderedDict
 from django.conf import settings
 
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.db.models import Count
+from django.db.models import Count, DateField
 from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from django.utils import timezone
@@ -209,7 +209,7 @@ class FollowUpReportView(ReportPage):
 
     def get_context_data(self, **kwargs):
         from clinical.models import EnrollmentEvent
-        from encounters.models import Appointment
+        from encounters.models import Appointment, Encounter
 
         f = self.get_filters()
         start = max(f.start.replace(day=1), add_months(f.end.replace(day=1), -35))
@@ -219,8 +219,12 @@ class FollowUpReportView(ReportPage):
                                                 enrollment__programme__disease__is_active=True,
                                                 enrollment__patient__current_facility__in=f.facilities)
         deaths = Patient.objects.filter(current_facility__in=f.facilities, date_of_death__gte=start, date_of_death__lte=f.end)
+        unscheduled = Encounter.objects.filter(stage='unscheduled', encounter_date__date__gte=start,
+                                               encounter_date__date__lte=f.end, patient__current_facility__in=f.facilities,
+                                               patient__is_deleted=False).exclude(status='cancelled')
         if f.disease:
             appointments = appointments.filter(patient__programme_enrollments__programme__disease=f.disease).distinct()
+            unscheduled = unscheduled.filter(patient__programme_enrollments__programme__disease=f.disease).distinct()
             events = events.filter(enrollment__programme__disease=f.disease)
             deaths = deaths.filter(programme_enrollments__programme__disease=f.disease).distinct()
         per_month = OrderedDict((m, Counter()) for m in month_range(start, f.end))
@@ -236,6 +240,10 @@ class FollowUpReportView(ReportPage):
         for month, n in deaths.annotate(m=TruncMonth('date_of_death')).values_list('m').annotate(n=Count('id')):
             if month in per_month:
                 per_month[month]['_death'] += n
+        for month, n in (unscheduled.annotate(m=TruncMonth('encounter_date', output_field=DateField())).values_list('m')
+                         .annotate(n=Count('id', distinct=True))):
+            if month in per_month:
+                per_month[month]['_unscheduled'] += n
         rows = []
         for month, c in per_month.items():
             attended, missed = c['attended'], c['missed']
@@ -243,15 +251,16 @@ class FollowUpReportView(ReportPage):
                          'attended': attended, 'missed': missed, 'cancelled': c['cancelled'],
                          'open': c['scheduled'] + c['confirmed'] + c['rescheduled'] + c['expected'],
                          'rate': round(100 * attended / (attended + missed), 1) if attended + missed else None,
-                         'ltfu': c['_ltfu'], 'returned': c['_return'], 'deaths': c['_death']})
+                         'unscheduled': c['_unscheduled'], 'ltfu': c['_ltfu'], 'returned': c['_return'],
+                         'deaths': c['_death']})
         return super().get_context_data(rows=rows, ltfu_months=settings.LTFU_MONTHS, **kwargs)
 
     def csv_rows(self, context):
-        yield ['Month', 'Visits due', 'Attended', 'Missed', 'Cancelled', 'Still open', 'Attendance %', 'Became LTFU',
-               'Returned to care', 'Deaths']
+        yield ['Month', 'Visits due', 'Attended', 'Missed', 'Cancelled', 'Still open', 'Attendance %',
+               'Unscheduled visits', 'Became LTFU', 'Returned to care', 'Deaths']
         for r in context['rows']:
             yield [f'{r["month"]:%Y-%m}', r['due'], r['attended'], r['missed'], r['cancelled'], r['open'], r['rate'],
-                   r['ltfu'], r['returned'], r['deaths']]
+                   r['unscheduled'], r['ltfu'], r['returned'], r['deaths']]
 
 
 class DataQualityReportView(ReportPage):

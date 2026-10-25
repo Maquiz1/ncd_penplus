@@ -25,24 +25,38 @@ def raise_issue(key, code, category, title, description='', patient=None, facili
     return DataIssue.objects.get_or_create(key=key[:150], defaults=defaults)
 
 
-def visits_same_month():
-    """Two or more visits in one month: decide which is scheduled and which unscheduled."""
+MONTHLY_STAGES = ('baseline', 'follow_up')  # one per month is expected; any other visit that month is Unscheduled
+
+
+def visits_same_month(patient_ids=None):
+    """Two or more baseline/follow-up visits in one month: one is the monthly visit, the others should be Unscheduled.
+    Closes by itself once at most one is left."""
     months = defaultdict(list)
-    for e in Encounter.objects.exclude(status='cancelled').select_related('patient', 'appointment').order_by('encounter_date'):
-        months[(e.patient_id, e.encounter_date.year, e.encounter_date.month)].append(e)
-    created = 0
+    encounters = Encounter.objects.filter(stage__in=MONTHLY_STAGES).exclude(status='cancelled')
+    if patient_ids is not None:
+        encounters = encounters.filter(patient_id__in=patient_ids)
+    for e in encounters.select_related('patient', 'appointment').order_by('encounter_date'):
+        day = timezone.localtime(e.encounter_date)
+        months[(e.patient_id, day.year, day.month)].append(e)
+    created, still_needed = 0, set()
     for (patient_id, year, month), encounters in months.items():
         if len(encounters) < 2:
             continue
         first = datetime.date(year, month, 1)
+        key = f'visits-month:{patient_id}:{year}-{month:02d}'
+        still_needed.add(key)
         scheduled = sum(1 for e in encounters if e.appointment_id)
         _, new = raise_issue(
-            f'visits-month:{patient_id}:{year}-{month:02d}', 'visits_same_month', DataIssue.Category.VISITS,
-            f'{len(encounters)} visits in {first:%B %Y}',
-            f'{scheduled} recorded as scheduled and {len(encounters) - scheduled} as unscheduled. Confirm which visit '
-            f'was the scheduled monthly visit and which were unscheduled.',
+            key, 'visits_same_month', DataIssue.Category.VISITS, f'{len(encounters)} follow-up visits in {first:%B %Y}',
+            f'Only one follow-up visit is expected per month; {scheduled} of these {len(encounters)} are linked to an '
+            f'appointment. Keep the monthly visit and mark the others as Unscheduled.',
             patient=encounters[0].patient, related_date=first)
         created += new
+    stale = DataIssue.objects.open().filter(code='visits_same_month').exclude(key__in=still_needed)
+    if patient_ids is not None:
+        stale = stale.filter(patient_id__in=patient_ids)
+    stale.update(status=DataIssue.Status.RESOLVED, resolved_at=timezone.now(),
+                 resolution_note='Only one follow-up visit left in the month (closed automatically).')
     return created
 
 

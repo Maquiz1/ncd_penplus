@@ -71,6 +71,7 @@ class WorkflowStage(models.TextChoices):
     DIAGNOSIS = 'diagnosis', 'Diagnosis'
     BASELINE = 'baseline', 'Baseline'
     FOLLOW_UP = 'follow_up', 'Follow-up'
+    UNSCHEDULED = 'unscheduled', 'Unscheduled'
     ADMISSION = 'admission', 'Admission'
     DISCHARGE = 'discharge', 'Discharge'
     OUTCOME = 'outcome', 'Outcome'
