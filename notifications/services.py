@@ -7,7 +7,7 @@ from django.utils import timezone
 from encounters.models import SWAHILI_DAYS, Appointment
 
 from .models import SmsMessage
-from .sms import SmsError, get_backend, normalize_tz_phone
+from .sms import SmsError, get_backend, normalize_tz_phone, sms_config
 
 MAX_ATTEMPTS = 3
 
@@ -93,7 +93,7 @@ def queue_reminders(today=None):
                         .select_related('patient', 'facility', 'clinic_session'))
         for appointment in appointments:
             session = appointment.clinic_session
-            contact = (session.contact_phone if session else '') or settings.SMS_DEFAULT_CONTACT or appointment.facility.name
+            contact = (session.contact_phone if session else '') or sms_config().default_contact or appointment.facility.name
             body = settings.SMS_REMINDER_TEMPLATE.format(
                 facility=appointment.facility.name, when=f'{when} ({SWAHILI_DAYS[date.weekday()]})',
                 date=f'{date:%d/%m/%Y}', contact=contact)

@@ -115,3 +115,16 @@ document.addEventListener('DOMContentLoaded', () => {
     try { if (localStorage.getItem(KEY) === event.target.id) localStorage.removeItem(KEY); } catch (e) { /* storage unavailable */ }
   });
 });
+
+// Eye button next to password boxes: show / hide what was typed.
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('.js-show-password');
+  if (!button) return;
+  const input = button.parentElement.querySelector('input');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  button.querySelector('i').className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+  button.title = show ? 'Hide password' : 'Show password';
+  button.setAttribute('aria-label', button.title);
+  input.focus();
+});

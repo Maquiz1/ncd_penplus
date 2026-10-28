@@ -59,6 +59,9 @@ class User(AbstractUser):
     identity_access_reason = models.CharField(max_length=255, blank=True)
     identity_access_until = models.DateField(null=True, blank=True,
                                              help_text='A grant or removal ends on this date (blank = no end).')
+    must_change_password = models.BooleanField(
+        default=False, help_text='Set when an administrator sets the password; the person must choose their own at '
+                                 'the next login.')
 
     class Meta:
         ordering = ['username']
@@ -66,6 +69,12 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.get_full_name() or self.username
+
+    def set_password(self, raw_password):
+        # Choosing a password (change, reset or activation link) ends any "must change" request;
+        # the administrator's set-password view turns it back on after calling this.
+        super().set_password(raw_password)
+        self.must_change_password = False
 
     @property
     def position_label(self):

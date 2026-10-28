@@ -59,10 +59,28 @@ docker compose exec penplus-web python manage.py detect_data_issues
 docker compose restart penplus-web penplus-worker penplus-beat     # after changing .env
 ```
 
+## Importing EDCS data
+
+Two scripts, run in this order:
+
+1. **On your computer**, copy the dump to the server:
+   ```bash
+   ./copy-edcs-to-server.sh                                  # documentations/Database/edc.sql.gz
+   ./copy-edcs-to-server.sh ~/Downloads/edc_new.sql.gz       # or another dump
+   ```
+   It goes to `/root/edc.sql.gz` (root only). If a dump is already there, the script asks before replacing it.
+
+2. **On the server** (inside `tmux`, because it takes about 1–1.5 hours):
+   ```bash
+   cd /opt/ncd-penplus && ./import-edcs-penplus.sh
+   ```
+   It stops if `/root/edc.sql.gz` is missing. Otherwise it backs up the database, loads the dump into a temporary MySQL, shows a dry run and asks before the real import. Then it refreshes locations and data-quality checks. The MySQL container is always removed; the dump is deleted after a successful import.
+
+Re-running with a newer dump is safe: records already imported are recognised, so only new data is added. The script prints the command to undo the import from its backup.
+
 ## Go-live
 
-- Load the EDCS data (fresh dump of the live EDCS, then `import_penplus_edcs`). The importer reads a MySQL copy of EDCS, so it needs a temporary MySQL container with the dump loaded. Do this as a separate, planned step.
-- Email: switch `DJANGO_EMAIL_BACKEND` to SMTP in `.env` (SendGrid block), set `SITE_URL`, restart the containers, send a test email, then send staff activation links.
+- Email: switch `DJANGO_EMAIL_BACKEND` to SMTP in `.env` (SendGrid block), set `SITE_URL`, recreate the containers, send a test email, then send staff activation links.
 - SMS: set `SMS_BACKEND` and the gateway keys.
 
 ## Never in git or on the server's repository folder

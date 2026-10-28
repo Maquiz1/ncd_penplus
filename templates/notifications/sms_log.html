@@ -2,7 +2,7 @@
 {% block title %}SMS log{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-  <div><h1 class="h3 mb-0">SMS log</h1><div class="small text-body-secondary">Gateway: <strong>{{ backend }}</strong>{% if backend == 'console' %} – messages are only logged, nothing is sent to phones yet{% endif %}</div></div>
+  <div><h1 class="h3 mb-0">SMS log</h1><div class="small text-body-secondary">Gateway: <strong>{{ backend }}</strong>{% if backend == 'console' %} – messages are only logged, nothing is sent to phones yet{% endif %}{% if perms.notifications.view_smssettings %} · <a href="{% url 'notifications:settings' %}">SMS settings</a>{% endif %}</div></div>
   {% if perms.notifications.add_smsmessage %}<form method="post" action="{% url 'notifications:send_queued' %}">{% csrf_token %}<button class="btn btn-outline-primary"><i class="bi bi-send"></i> Send queued / retry failed</button></form>{% endif %}
 </div>
 <form class="row g-2 mb-3" method="get">
@@ -14,7 +14,7 @@
   <thead class="table-light"><tr><th>Created</th><th>Patient</th><th>To</th><th>Type</th><th>Message</th><th>Status</th><th>Sent</th></tr></thead>
   <tbody>{% for m in object_list %}<tr>
     <td class="text-nowrap small">{{ m.created_at|date:"d M Y H:i" }}</td>
-    <td><a href="{{ m.patient.get_absolute_url }}">{{ m.patient }}</a></td>
+    <td>{% if m.patient %}<a href="{{ m.patient.get_absolute_url }}">{{ m.patient }}</a>{% else %}<span class="text-body-secondary">— (test)</span>{% endif %}</td>
     <td class="small text-nowrap">{% if can_view_identity %}+{{ m.phone }}{% else %}{{ m.phone|slice:":5" }}•••{% endif %}<div class="text-body-secondary">{{ m.recipient }}</div></td>
     <td class="small">{{ m.get_purpose_display }}{% if m.clinic_session %}<div><a href="{{ m.clinic_session.get_absolute_url }}">{{ m.clinic_session.name|truncatechars:30 }}</a></div>{% endif %}</td>
     <td class="small">{{ m.body }}</td>

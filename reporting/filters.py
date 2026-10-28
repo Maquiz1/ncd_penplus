@@ -78,12 +78,20 @@ class ReportFilters:
         from clinical.models import Disease
         self.diseases = Disease.objects.filter(is_active=True)
         allowed = disease_ids_for_user(request.user)
+        self.allowed_disease_ids = allowed
         if allowed:
             self.diseases = self.diseases.filter(pk__in=allowed)
         self.disease = self.diseases.filter(code=get.get('disease')).first() if with_disease and get.get('disease') else None
         if with_disease and allowed and self.disease is None and len(self.diseases) == 1:
             self.disease = self.diseases[0]
         self.periods = PERIODS
+
+    @property
+    def disease_ids(self):
+        """Diseases a report must keep: the chosen one, else the user's own (None = all diseases)."""
+        if self.disease is not None:
+            return [self.disease.pk]
+        return self.allowed_disease_ids
 
     @property
     def area_label(self):

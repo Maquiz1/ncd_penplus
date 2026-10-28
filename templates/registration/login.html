@@ -4,17 +4,11 @@
 <div class="card shadow-sm">
   <div class="card-body p-4">
     <h2 class="h5 mb-3">Sign in</h2>
-    {% if form.errors %}<div class="alert alert-danger py-2">Invalid username or password, or the account is inactive.</div>{% endif %}
+    {% if form.errors %}<div class="alert alert-danger py-2">Invalid username, email or password, or the account is inactive.</div>{% endif %}
     <form method="post" novalidate>
       {% csrf_token %}
-      <div class="mb-3">
-        <label class="form-label" for="id_username">Username</label>
-        <input class="form-control" type="text" name="username" id="id_username" autofocus autocomplete="username" required value="{{ form.username.value|default:'' }}">
-      </div>
-      <div class="mb-3">
-        <label class="form-label" for="id_password">Password</label>
-        <input class="form-control" type="password" name="password" id="id_password" autocomplete="current-password" required>
-      </div>
+      {% include "registration/_auth_input.html" with label="Username or email" icon="person" type="text" name="username" id="id_username" autocomplete="username" value=form.username.value autofocus=True %}
+      {% include "registration/_auth_input.html" with label="Password" icon="lock" type="password" name="password" id="id_password" autocomplete="current-password" %}
       <input type="hidden" name="next" value="{{ next }}">
       <button class="btn btn-primary w-100" type="submit"><i class="bi bi-box-arrow-in-right"></i> Sign in</button>
     </form>

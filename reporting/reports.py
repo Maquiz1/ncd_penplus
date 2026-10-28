@@ -148,8 +148,8 @@ def trends_report(filters):
     months = months_between(start, end)
     first = months[0]
     patient_filter = Q(current_facility__in=filters.facilities, is_deleted=False)
-    if filters.disease:
-        patient_filter &= Q(programme_enrollments__programme__disease=filters.disease)
+    if filters.disease_ids:
+        patient_filter &= Q(programme_enrollments__programme__disease__in=filters.disease_ids)
     patient_ids = set(Patient.objects.filter(patient_filter).values_list('pk', flat=True))
     bp = defaultdict(dict)       # month -> patient -> (sbp, dbp) last reading in the month
     counts = Counter()

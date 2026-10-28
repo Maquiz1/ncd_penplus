@@ -126,5 +126,9 @@ class SendTestEmailView(PermissionRequiredMixin, View):
         except Exception as exc:  # noqa: BLE001 - shown to the administrator and kept in the log
             messages.error(request, f'Sending failed: {str(exc)[:300]}')
         else:
-            messages.success(request, f'Test email sent to {request.user.email}.')
+            if 'filebased' in settings.EMAIL_BACKEND or 'console' in settings.EMAIL_BACKEND:
+                messages.warning(request, f'Test email to {request.user.email} was only saved on the server, not '
+                                          'delivered: the mail server is not set up yet (see "Mail server" below).')
+            else:
+                messages.success(request, f'Test email sent to {request.user.email}.')
         return redirect('email:settings')

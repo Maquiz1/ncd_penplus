@@ -332,9 +332,9 @@ class ClinicSessionCreateView(PermissionRequiredMixin, AuditedCreateMixin, Creat
         return {**super().get_form_kwargs(), 'user': self.request.user}
 
     def get_initial(self):
-        from django.conf import settings
         from facilities.scope import default_facility
-        return {'facility': default_facility(self.request.user), 'contact_phone': settings.SMS_DEFAULT_CONTACT}
+        from notifications.sms import sms_config
+        return {'facility': default_facility(self.request.user), 'contact_phone': sms_config().default_contact}
 
 
 class ClinicSessionUpdateView(PermissionRequiredMixin, AuditedUpdateMixin, UpdateView):

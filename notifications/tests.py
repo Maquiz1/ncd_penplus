@@ -6,6 +6,7 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from clinical.models import ClinicalProgramme, ProgrammeEnrollment
 from core.tests import BaseTestCase
 from encounters import clinic
@@ -13,7 +14,7 @@ from encounters.models import Appointment, ClinicSession
 
 from .models import SmsMessage
 from .services import process_queue, queue_reminders
-from .sms import AfricasTalkingBackend, BeemBackend, normalize_tz_phone
+from .sms import AfricasTalkingBackend, BeemBackend, normalize_tz_phone, sms_config
 
 
 class PhoneTests(BaseTestCase):
@@ -149,7 +150,7 @@ class GatewayTests(BaseTestCase):
     def test_beem(self):
         with mock.patch('urllib.request.urlopen', return_value=self.fake_response(
                 {'successful': True, 'request_id': 123})) as call:
-            self.assertEqual(BeemBackend().send('255712000001', 'Habari'), '123')
+            self.assertEqual(BeemBackend(sms_config()).send('255712000001', 'Habari'), '123')
         body = json.loads(call.call_args[0][0].data)
         self.assertEqual(body['recipients'][0]['dest_addr'], '255712000001')
 
@@ -159,7 +160,23 @@ class GatewayTests(BaseTestCase):
         with mock.patch('urllib.request.urlopen', return_value=self.fake_response(
                 {'SMSMessageData': {'Recipients': [{'status': 'InvalidPhoneNumber'}]}})):
             with self.assertRaises(SmsError):
-                AfricasTalkingBackend().send('255712000001', 'Habari')
+                AfricasTalkingBackend(sms_config()).send('255712000001', 'Habari')
+
+
+    @override_settings(NEXTSMS_API_TOKEN='tok', SMS_SENDER_ID='NIMR')
+    def test_nextsms_token_and_rejection(self):
+        from .sms import NextSmsBackend, SmsError
+        ok = {'messages': [{'messageId': 'm-1', 'status': {'groupName': 'PENDING'}}]}
+        with mock.patch('urllib.request.urlopen', return_value=self.fake_response(ok)) as call:
+            self.assertEqual(NextSmsBackend(sms_config()).send('255712000001', 'Habari'), 'm-1')
+        request = call.call_args[0][0]
+        self.assertEqual((request.get_header('Authorization'), json.loads(request.data)['to']),
+                         ('Bearer tok', '255712000001'))
+        self.assertIn('/v2/', request.full_url)
+        rejected = {'messages': [{'status': {'groupName': 'REJECTED', 'name': 'REJECTED_SENDER'}}]}
+        with mock.patch('urllib.request.urlopen', return_value=self.fake_response(rejected)):
+            with self.assertRaises(SmsError):
+                NextSmsBackend(sms_config()).send('255712000001', 'Habari')
 
 
 class ConsentTests(BaseTestCase):
@@ -276,3 +293,33 @@ class EmailTests(BaseTestCase):
         self.client.force_login(manager)
         self.assertEqual(self.client.get(reverse('email:log')).status_code, 200)
         self.assertEqual(self.client.get(reverse('email:settings_add')).status_code, 403)
+
+
+class SmsSettingsTests(BaseTestCase):
+    def test_page_settings_encrypted_override_env_and_test_message(self):
+        from .models import SmsSettings
+        self.client.force_login(self.admin)
+        self.assertEqual(sms_config().backend, 'console')  # .env default
+        self.client.post(reverse('notifications:settings'), {
+            'mode': 'live', 'provider': 'beem', 'sender_id': 'NIMR', 'default_contact': '0755000000',
+            'at_username': '', 'beem_api_key': 'key-123', 'beem_secret_key': 'secret-456', 'at_api_key': ''})
+        row = SmsSettings.load()
+        self.assertNotIn('secret-456', row.beem_secret_key_encrypted)
+        config = sms_config()
+        self.assertEqual((config.backend, config.beem_secret_key, config.sender_id, config.source),
+                         ('beem', 'secret-456', 'NIMR', 'SMS settings'))
+        # a blank key box keeps the saved key
+        self.client.post(reverse('notifications:settings'), {
+            'mode': 'console', 'provider': 'beem', 'sender_id': 'NIMR', 'default_contact': '', 'at_username': '',
+            'beem_api_key': '', 'beem_secret_key': '', 'at_api_key': ''})
+        self.assertEqual((sms_config().backend, sms_config().beem_secret_key), ('console', 'secret-456'))
+        self.client.post(reverse('notifications:test'), {'phone': '0712 000 111', 'message': 'Test'})
+        test = SmsMessage.objects.get(purpose='test')
+        self.assertEqual((test.status, test.phone, test.patient), ('sent', '255712000111', None))
+        self.assertContains(self.client.get(reverse('notifications:log')), '(test)')
+        audit = AuditEvent.objects.filter(action='update', object_id=str(row.pk)).last()
+        self.assertNotIn('secret-456', str(audit.changes))
+
+    def test_only_permitted_roles(self):
+        self.client.force_login(self.clinician_ilala)
+        self.assertEqual(self.client.get(reverse('notifications:settings')).status_code, 403)

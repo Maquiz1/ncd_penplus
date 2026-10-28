@@ -12,6 +12,7 @@ class SmsMessage(TimeStampedModel):
         CLINIC_INVITE = 'clinic_invite', 'Clinic day invitation'
         REMINDER_DAY_BEFORE = 'reminder_before', 'Reminder – day before'
         REMINDER_SAME_DAY = 'reminder_today', 'Reminder – same day'
+        TEST = 'test', 'Test message'
         OTHER = 'other', 'Other'
 
     class Status(models.TextChoices):
@@ -21,7 +22,8 @@ class SmsMessage(TimeStampedModel):
         FAILED = 'failed', 'Failed'
         CANCELLED = 'cancelled', 'Cancelled'
 
-    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='sms_messages')
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, null=True, blank=True, related_name='sms_messages',
+                                help_text='Blank for test messages sent from SMS settings.')
     appointment = models.ForeignKey('encounters.Appointment', on_delete=models.PROTECT, null=True, blank=True,
                                     related_name='sms_messages')
     clinic_session = models.ForeignKey('encounters.ClinicSession', on_delete=models.PROTECT, null=True, blank=True,
@@ -69,6 +71,50 @@ class SiteConfiguration(TimeStampedModel):
         super().save(*args, **kwargs)
         if self.is_active:
             SiteConfiguration.objects.exclude(pk=self.pk).filter(is_active=True).update(is_active=False)
+
+
+class SmsSettings(models.Model):
+    """SMS gateway chosen in Administration → SMS settings (one row). Secrets are stored encrypted; anything
+    left blank falls back to .env."""
+
+    class Mode(models.TextChoices):
+        ENV = 'env', 'Use the .env settings'
+        CONSOLE = 'console', 'Off: only log messages, send nothing'
+        LIVE = 'live', 'On: send through the provider below'
+
+    class Provider(models.TextChoices):
+        BEEM = 'beem', 'Beem Africa'
+        AFRICASTALKING = 'africastalking', "Africa's Talking"
+        NEXTSMS = 'nextsms', 'NextSMS'
+
+    mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.ENV)
+    provider = models.CharField(max_length=20, choices=Provider.choices, default=Provider.BEEM)
+    sender_id = models.CharField('Sender ID', max_length=11, blank=True,
+                                 help_text='Approved sender name, max 11 characters. Blank = SMS_SENDER_ID from .env.')
+    default_contact = models.CharField(max_length=30, blank=True,
+                                       help_text='Phone number patients can call, used in reminders when a clinic day '
+                                                 'has none. Blank = SMS_DEFAULT_CONTACT from .env.')
+    beem_api_key_encrypted = models.TextField(blank=True)
+    beem_secret_key_encrypted = models.TextField(blank=True)
+    at_username = models.CharField("Africa's Talking username", max_length=100, blank=True)
+    at_api_key_encrypted = models.TextField(blank=True)
+    nextsms_username = models.CharField('NextSMS username', max_length=150, blank=True,
+                                        help_text='Only for older accounts without an API token.')
+    nextsms_password_encrypted = models.TextField(blank=True)
+    nextsms_token_encrypted = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='+')
+
+    class Meta:
+        verbose_name = verbose_name_plural = 'SMS settings'
+
+    def __str__(self):
+        return f'SMS settings ({self.get_mode_display()})'
+
+    @classmethod
+    def load(cls):
+        return cls.objects.order_by('pk').first() or cls()
 
 
 class EmailLog(models.Model):

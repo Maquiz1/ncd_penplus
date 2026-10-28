@@ -49,7 +49,7 @@ CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 # Public base URL used in emails (activation / password reset links).
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
-SITE_NAME = 'NCD Clinical & Research Management System'
+SITE_NAME = 'NCD - PENPLUS STUDY'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -93,6 +93,7 @@ MIDDLEWARE = [
     # Every page requires login unless explicitly marked with @login_not_required.
     'django.contrib.auth.middleware.LoginRequiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'users.middleware.MustChangePasswordMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -183,14 +184,15 @@ PASSWORD_RESET_TIMEOUT = 60 * 60 * 24 * 3
 # Local default: emails are written as files to sent_emails/ (nothing is delivered).
 # Production: DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend with the SMTP settings below.
 # The site address and sender can be overridden in the app (Administration → Email settings).
-EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.filebased.EmailBackend')
+EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND') or os.environ.get(
+    'EMAIL_BACKEND', 'django.core.mail.backends.filebased.EmailBackend')  # EMAIL_BACKEND: same name as tamris
 EMAIL_FILE_PATH = str(BASE_DIR / os.environ.get('EMAIL_FILE_PATH', 'sent_emails'))  # relative to the project
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', False)
-EMAIL_USE_SSL = env_bool('EMAIL_USE_SSL', False)
+EMAIL_USE_SSL = env_bool('EMAIL_USE_SSL', False)  # port 465 (e.g. smtp.hostinger.com); use TLS for port 587
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '15'))
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'NCD System <no-reply@nimr.or.tz>')
 
@@ -230,7 +232,7 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ALWAYS_EAGER = env_bool('CELERY_TASK_ALWAYS_EAGER', False)
 DJANGO_CELERY_BEAT_TZ_AWARE = True
 
-# SMS gateway: console (log only, default), beem or africastalking. Credentials come from .env.
+# SMS gateway: console (log only, default), beem, africastalking or nextsms. Credentials come from .env.
 SMS_BACKEND = os.environ.get('SMS_BACKEND', 'console')
 SMS_SENDER_ID = os.environ.get('SMS_SENDER_ID', '')
 SMS_DEFAULT_CONTACT = os.environ.get('SMS_DEFAULT_CONTACT', '')
@@ -238,6 +240,10 @@ BEEM_API_KEY = os.environ.get('BEEM_API_KEY', '')
 BEEM_SECRET_KEY = os.environ.get('BEEM_SECRET_KEY', '')
 AFRICASTALKING_USERNAME = os.environ.get('AFRICASTALKING_USERNAME', '')
 AFRICASTALKING_API_KEY = os.environ.get('AFRICASTALKING_API_KEY', '')
+# NextSMS: API token (preferred) or the older username and password
+NEXTSMS_API_TOKEN = os.environ.get('NEXTSMS_API_TOKEN', '')
+NEXTSMS_USERNAME = os.environ.get('NEXTSMS_USERNAME', '')
+NEXTSMS_PASSWORD = os.environ.get('NEXTSMS_PASSWORD', '')
 SMS_REMINDER_TEMPLATE = os.environ.get(
     'SMS_REMINDER_TEMPLATE',
     'Habari. Unakumbushwa kuhudhuria kliniki ya {facility} {when}, tarehe {date}. Kwa msaada piga {contact}.')

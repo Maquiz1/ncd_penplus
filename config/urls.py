@@ -3,15 +3,16 @@ from django.contrib import admin
 from django.urls import include, path
 
 from core.views import dashboard
-from users.views import LoggedPasswordResetView
+from users.views import AccountPasswordResetConfirmView, LoggedPasswordResetView
 
-admin.site.site_header = 'NCD System administration'
-admin.site.site_title = 'NCD System admin'
+admin.site.site_header = 'NCD - PENPLUS STUDY administration'
+admin.site.site_title = 'NCD - PENPLUS STUDY admin'
 
 urlpatterns = [
     path('', dashboard, name='dashboard'),
     path('admin/', admin.site.urls),
     path('accounts/password_reset/', LoggedPasswordResetView.as_view(), name='password_reset'),
+    path('accounts/reset/<uidb64>/<token>/', AccountPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('accounts/', include('django.contrib.auth.urls')),
     path('staff/', include('users.urls')),
     path('facilities/', include('facilities.urls')),

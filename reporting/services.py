@@ -6,7 +6,7 @@ from django.utils import timezone
 from clinical.models import ProgrammeEnrollment, Screening
 from crf.models import FormSubmission
 from encounters.models import Admission, Appointment, Encounter
-from facilities.scope import facilities_for_user, scope_queryset
+from facilities.scope import disease_ids_for_user, facilities_for_user, scope_queryset
 from issues.models import DataIssue
 from investigations.models import InvestigationOrder
 from laboratory.models import LabOrder
@@ -25,10 +25,16 @@ def dashboard_stats(user):
     month_start = today.replace(day=1)
     patients = Patient.objects.in_scope(user)
     appointments = scoped(Appointment, user)
+    programmes = scoped(ProgrammeEnrollment, user).filter(programme__disease__is_active=True)
+    screenings = scoped(Screening, user).filter(disease__is_active=True)
+    disease_ids = disease_ids_for_user(user)  # a patient in two programmes: count only this user's diseases
+    if disease_ids:
+        programmes = programmes.filter(programme__disease__in=disease_ids)
+        screenings = screenings.filter(disease__in=disease_ids)
     return {
         'patients_total': patients.count(),
         'patients_new_month': patients.filter(registration_date__gte=month_start).count(),
-        'programme_active': scoped(ProgrammeEnrollment, user).filter(status='active', programme__disease__is_active=True).count(),
+        'programme_active': programmes.filter(status='active').count(),
         'study_active': scoped(StudyEnrollment, user).filter(status='active').count(),
         'appointments_today': appointments.filter(scheduled_date=today).exclude(status='cancelled').count(),
         'appointments_overdue': appointments.filter(scheduled_date__lt=today,
@@ -49,10 +55,9 @@ def dashboard_stats(user):
         'transfers_incoming': PatientTransfer.objects.filter(
             to_facility__in=facilities_for_user(user), status='sent').count(),
         'programmes_by_disease': list(
-            scoped(ProgrammeEnrollment, user).filter(status='active', programme__disease__is_active=True)
-            .values('programme__disease__name').annotate(n=Count('id')).order_by('-n')),
+            programmes.filter(status='active').values('programme__disease__name').annotate(n=Count('id')).order_by('-n')),
         'screening_by_disease': list(
-            scoped(Screening, user).filter(disease__is_active=True).values('disease__name')
+            screenings.values('disease__name')
             .annotate(total=Count('id'), positive=Count('id', filter=Q(result='positive'))).order_by('disease__name')),
     }
 
@@ -75,10 +80,15 @@ def period_report(user, start, end, facilities=None):
     if narrowed:
         patients = patients.filter(current_facility__in=facilities)
     programme = sc(ProgrammeEnrollment).filter(enrollment_date__range=(start, end), programme__disease__is_active=True)
+    disease_ids = disease_ids_for_user(user)  # a patient in two programmes: count only this user's diseases
+    if disease_ids:
+        programme = programme.filter(programme__disease__in=disease_ids)
     research = sc(StudyEnrollment).filter(enrollment_date__range=(start, end))
     transfers = PatientTransfer.objects.filter(effective_date__range=(start, end), status='received')
     appointments = sc(Appointment).filter(scheduled_date__range=(start, end))
     screenings = sc(Screening).filter(screening_date__range=(start, end), disease__is_active=True)
+    if disease_ids:
+        screenings = screenings.filter(disease__in=disease_ids)
     labs = sc(LabOrder).filter(ordered_at__date__range=(start, end))
     return {
         'start': start,

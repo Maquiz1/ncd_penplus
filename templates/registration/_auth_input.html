@@ -1,0 +1,12 @@
+{# One account-page field: icon, full-width input, and an eye button on password boxes to show what was typed. #}
+<div class="mb-3">
+  <label class="form-label" for="{{ id }}">{{ label }}</label>
+  <div class="input-group has-validation">
+    <span class="input-group-text"><i class="bi bi-{{ icon }}"></i></span>
+    <input class="form-control{% if errors %} is-invalid{% endif %}" type="{{ type }}" name="{{ name }}" id="{{ id }}"
+           autocomplete="{{ autocomplete }}"{% if value %} value="{{ value }}"{% endif %}{% if autofocus %} autofocus{% endif %} required>
+    {% if type == 'password' %}<button class="btn btn-outline-secondary js-show-password" type="button" title="Show password" aria-label="Show password"><i class="bi bi-eye"></i></button>{% endif %}
+    {% for e in errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+  </div>
+  {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+</div>

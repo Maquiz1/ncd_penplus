@@ -222,11 +222,11 @@ class FollowUpReportView(ReportPage):
         unscheduled = Encounter.objects.filter(stage='unscheduled', encounter_date__date__gte=start,
                                                encounter_date__date__lte=f.end, patient__current_facility__in=f.facilities,
                                                patient__is_deleted=False).exclude(status='cancelled')
-        if f.disease:
-            appointments = appointments.filter(patient__programme_enrollments__programme__disease=f.disease).distinct()
-            unscheduled = unscheduled.filter(patient__programme_enrollments__programme__disease=f.disease).distinct()
-            events = events.filter(enrollment__programme__disease=f.disease)
-            deaths = deaths.filter(programme_enrollments__programme__disease=f.disease).distinct()
+        if f.disease_ids:  # the chosen disease, else only the diseases this user works on
+            appointments = appointments.filter(patient__programme_enrollments__programme__disease__in=f.disease_ids).distinct()
+            unscheduled = unscheduled.filter(patient__programme_enrollments__programme__disease__in=f.disease_ids).distinct()
+            events = events.filter(enrollment__programme__disease__in=f.disease_ids)
+            deaths = deaths.filter(programme_enrollments__programme__disease__in=f.disease_ids).distinct()
         per_month = OrderedDict((m, Counter()) for m in month_range(start, f.end))
         for month, status, n in (appointments.annotate(m=TruncMonth('scheduled_date')).values_list('m', 'status')
                                  .annotate(n=Count('id'))):

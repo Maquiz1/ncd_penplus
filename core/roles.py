@@ -41,7 +41,7 @@ NATIONAL_ONLY = _changes(
     'laboratory.labcategory', 'laboratory.monitoringrule', 'investigations.investigationtype', 'investigations.investigationfield',
     'pharmacy.consumableuse', 'crf.formdefinition', 'crf.formversion', 'crf.formsection', 'crf.formfield',
     'pharmacy.medication', 'facilities.facility', 'facilities.zone', 'facilities.region', 'facilities.district',
-    'facilities.ward', 'facilities.street', 'notifications.siteconfiguration', 'users.position',
+    'facilities.ward', 'facilities.street', 'notifications.siteconfiguration', 'notifications.smssettings', 'users.position',
 ) + ['clinical.restore_disease', 'crf.publish_formversion', 'facilities.merge_locations']
 
 ROLES = {
@@ -52,7 +52,7 @@ ROLES = {
                              'laboratory.view_monitoringrule', 'laboratory.change_monitoringrule',
                              'pharmacy.view_medication', 'pharmacy.add_medication', 'pharmacy.change_medication',
                              'audit.view_auditevent', 'reporting.view_reportrun',
-                             'notifications.*siteconfiguration', 'notifications.view_emaillog',
+                             'notifications.*siteconfiguration', 'notifications.*smssettings', 'notifications.view_emaillog',
                              'investigations.*investigationtype', 'investigations.*investigationfield',
                              'pharmacy.*consumableuse'],
     'Facility Administrator': ['users.view_user', 'users.view_position', 'users.add_user', 'users.change_user', 'facilities.view_facility',
@@ -106,7 +106,7 @@ ROLES = {
         'laboratory.view_labtest', 'laboratory.add_labtest', 'laboratory.change_labtest', 'issues.*',
         'laboratory.change_monitoringrule',
         'encounters.add_clinicsession', 'encounters.change_clinicsession', 'notifications.*smsmessage',
-        'notifications.view_emaillog', 'notifications.view_siteconfiguration', 'facilities.merge_locations', 'facilities.view_ward', 'facilities.view_street',
+        'notifications.view_emaillog', 'notifications.view_siteconfiguration', 'notifications.view_smssettings', 'facilities.merge_locations', 'facilities.view_ward', 'facilities.view_street',
         'clinical.add_disease', 'clinical.change_disease', 'clinical.delete_disease', 'diseases.*',
         'investigations.*investigationtype', 'investigations.*investigationfield', 'pharmacy.*consumableuse',
         'clinical.add_familymember', 'clinical.change_familymember'] + RECORD_CORRECTION + MONITORING,

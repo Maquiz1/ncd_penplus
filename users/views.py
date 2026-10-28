@@ -1,9 +1,13 @@
-from django.contrib.auth import views as auth_views
+from django.contrib.auth import logout, views as auth_views
+from django.contrib.auth.decorators import login_not_required
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.db.models import Count, Q
-from django.shortcuts import get_object_or_404, redirect
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.db.models import Count, ProtectedError, Q
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
@@ -14,7 +18,7 @@ from facilities.models import StaffAssignment
 from facilities.scope import facilities_for_user
 
 from .forms import (IdentityAccessForm, LoggedPasswordResetForm, StaffAssignmentForm, StaffCreateForm,
-                    StaffUpdateForm)
+                    StaffSetPasswordForm, StaffUpdateForm)
 from .models import Position, User
 from .services import pending_activation, send_activation_email, send_bulk_activation
 
@@ -68,7 +72,8 @@ class StaffCreateView(PermissionRequiredMixin, CreateView):
     form_class = StaffCreateForm
     template_name = 'generic_form.html'
     extra_context = {'title': 'Create staff account',
-                     'subtitle': 'The staff member receives an email with a secure link to set their own password.'}
+                     'subtitle': 'With an email address, the staff member receives a secure link to set their own '
+                                 'password. Without one, set a first password on the account page after saving.'}
 
     def form_valid(self, form):
         user = form.save(commit=False)
@@ -78,6 +83,10 @@ class StaffCreateView(PermissionRequiredMixin, CreateView):
         self.object = user
         log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=user,
                   changes={'groups': [g.name for g in user.groups.all()]})
+        if not user.email:
+            messages.success(self.request, f'Account "{user.username}" created without an email address. Use Set '
+                                           'password to activate it, then assign a facility or geographic scope.')
+            return redirect('users:detail', pk=user.pk)
         try:
             send_activation_email(user, sent_by=self.request.user)
         except Exception as exc:  # noqa: BLE001 - the account stays; the failure is in the email log
@@ -144,6 +153,70 @@ class StaffToggleActiveView(PermissionRequiredMixin, View):
                   changes={'is_active': [not staff.is_active, staff.is_active]}, reason=request.POST.get('reason', ''))
         messages.success(request, f'Account {"reactivated" if staff.is_active else "deactivated"}.')
         return redirect('users:detail', pk=pk)
+
+
+class StaffSetPasswordView(PermissionRequiredMixin, View):
+    """An administrator sets a first or new password (accounts without email, or a forgotten password).
+    The person must choose their own password at the next login."""
+
+    permission_required = 'users.change_user'
+    template_name = 'confirm_action.html'
+
+    def get_staff(self, request, pk):
+        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        if staff == request.user or (staff.is_superuser and not request.user.is_superuser):
+            raise PermissionDenied
+        return staff
+
+    def render(self, request, staff, form):
+        return render(request, self.template_name, {
+            'title': f'Set password for {staff.display_name} ({staff.username})', 'form': form, 'button': 'Set password',
+            'message': 'Use this when the person has no email address or cannot use the reset link. '
+                       'They log in with this password once and must then choose their own.',
+            'cancel_url': reverse('users:detail', args=[staff.pk])})
+
+    def get(self, request, pk):
+        staff = self.get_staff(request, pk)
+        return self.render(request, staff, StaffSetPasswordForm(staff))
+
+    def post(self, request, pk):
+        staff = self.get_staff(request, pk)
+        form = StaffSetPasswordForm(staff, request.POST)
+        if not form.is_valid():
+            return self.render(request, staff, form)
+        staff = form.save(commit=False)
+        staff.must_change_password = True
+        staff.save()
+        log_event(request=request, action=AuditEvent.Action.ACCOUNT, obj=staff,
+                  reason='Password set by an administrator (must be changed at next login)')
+        messages.success(request, f'Password set. {staff.display_name} must choose a new one at the next login.')
+        return redirect('users:detail', pk=pk)
+
+
+class StaffDeleteView(PermissionRequiredMixin, View):
+    """Delete an account created by mistake. Accounts that recorded anything are kept for attribution and can
+    only be deactivated."""
+
+    permission_required = 'users.delete_user'
+
+    def post(self, request, pk):
+        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        if staff == request.user or staff.is_superuser:
+            messages.error(request, 'You cannot delete your own account or a superuser.')
+            return redirect('users:detail', pk=pk)
+        label = f'{staff.display_name} ({staff.username})'
+        try:
+            with transaction.atomic():
+                log_event(request=request, action=AuditEvent.Action.ACCOUNT, obj=staff,
+                          reason=f'Account deleted: {label}. ' + request.POST.get('reason', ''))
+                staff.delete()
+        except ProtectedError:
+            messages.error(request, f'{label} has records in the system (visits, results, audit entries…), so the '
+                                    'account cannot be deleted. Deactivate it instead: the person can no longer log '
+                                    'in and their records keep their name.')
+            return redirect('users:detail', pk=pk)
+        messages.success(request, f'Account {label} deleted.')
+        return redirect('users:list')
 
 
 class StaffResendActivationView(PermissionRequiredMixin, View):
@@ -241,6 +314,22 @@ class LoggedPasswordResetView(auth_views.PasswordResetView):
         from notifications.email import from_email
         self.from_email = from_email()
         return super().form_valid(form)
+
+
+class AccountPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+    """Activation / reset link. Whoever is logged in on this browser is logged out first: the link is for the
+    account owner, and an administrator testing it must never set someone else's password from their own session."""
+
+    @method_decorator(login_not_required)
+    def dispatch(self, request, *args, **kwargs):
+        # Only on the emailed URL (with the real token); the follow-up set-password URL keeps the token in the
+        # new session, so logging out there would lose it.
+        if request.user.is_authenticated and kwargs.get('token') != self.reset_url_token:
+            name = request.user.get_username()
+            logout(request)
+            messages.info(request, f'You were logged out ({name}) because this link is for setting another '
+                                   'account\'s password.')
+        return super().dispatch(request, *args, **kwargs)
 
 
 class IdentityAccessView(PermissionRequiredMixin, View):

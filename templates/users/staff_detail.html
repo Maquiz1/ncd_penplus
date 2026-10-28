@@ -6,9 +6,11 @@
   <div class="d-flex gap-2">
     {% if perms.users.change_user %}
     <a class="btn btn-outline-secondary" href="{% url 'users:update' staff.pk %}"><i class="bi bi-pencil"></i> Edit</a>
-    {% if not staff.has_usable_password %}<form method="post" action="{% url 'users:resend_activation' staff.pk %}">{% csrf_token %}<button class="btn btn-outline-primary"><i class="bi bi-envelope"></i> Re-send activation</button></form>{% endif %}
+    {% if not staff.has_usable_password and staff.email %}<form method="post" action="{% url 'users:resend_activation' staff.pk %}">{% csrf_token %}<button class="btn btn-outline-primary"><i class="bi bi-envelope"></i> Re-send activation</button></form>{% endif %}
+    {% if staff != user and staff.is_active %}{% if user.is_superuser or not staff.is_superuser %}<a class="btn btn-outline-primary" href="{% url 'users:set_password' staff.pk %}"><i class="bi bi-key"></i> Set password</a>{% endif %}{% endif %}
     {% if staff != user %}<form method="post" action="{% url 'users:toggle_active' staff.pk %}" onsubmit="return confirm('{% if staff.is_active %}Deactivate{% else %}Reactivate{% endif %} this account?');">{% csrf_token %}<button class="btn {% if staff.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}">{% if staff.is_active %}Deactivate{% else %}Reactivate{% endif %}</button></form>{% endif %}
     {% endif %}
+    {% if perms.users.delete_user and staff != user and not staff.is_superuser %}<form method="post" action="{% url 'users:delete' staff.pk %}" onsubmit="return confirm('Delete this account permanently? Only possible if it has never been used.');">{% csrf_token %}<button class="btn btn-outline-danger" title="Only for accounts created by mistake and never used"><i class="bi bi-trash"></i> Delete</button></form>{% endif %}
   </div>
 </div>
 <div class="row g-3">
@@ -19,7 +21,7 @@
     <dt class="col-5">Roles</dt><dd class="col-7">{{ staff.groups.all|join:", "|default:"None" }}</dd>
     <dt class="col-5">Patient identity</dt><dd class="col-7">{% if sees_identity %}<span class="badge text-bg-success">Can see</span>{% else %}<span class="badge text-bg-secondary">Hidden</span>{% endif %}
       <div class="small text-body-secondary">{% if staff.is_superuser %}Superuser{% elif staff.identity_override %}{{ staff.get_identity_access_display }}{% if staff.identity_access_until %} until {{ staff.identity_access_until|date:"d M Y" }}{% endif %} – {{ staff.identity_access_reason }}{% else %}From the role{% endif %}</div></dd>
-    <dt class="col-5">Status</dt><dd class="col-7">{{ staff.is_active|yesno:"Active,Inactive" }}{% if not staff.has_usable_password %} (password not yet set){% endif %}</dd>
+    <dt class="col-5">Status</dt><dd class="col-7">{{ staff.is_active|yesno:"Active,Inactive" }}{% if not staff.has_usable_password %} (password not yet set{% if not staff.email %}: no email, use Set password{% endif %}){% elif staff.must_change_password %} (must change the password set by an administrator){% endif %}</dd>
     <dt class="col-5">Last login</dt><dd class="col-7">{{ staff.last_login|date:"d M Y H:i"|default:"Never" }}</dd>
     <dt class="col-5">Joined</dt><dd class="col-7">{{ staff.date_joined|date:"d M Y" }}</dd>
   </dl></div>
@@ -38,8 +40,51 @@
       </li>{% empty %}<li class="list-group-item text-body-secondary">No scope assigned — this user cannot see any patient data.</li>{% endfor %}
     </ul>
     {% if perms.facilities.add_staffassignment %}
-    <div class="card-body border-top"><form method="post" action="{% url 'users:assignment_add' staff.pk %}" novalidate>{% csrf_token %}{% with form=assignment_form %}{% include "_form_fields.html" %}{% endwith %}<button class="btn btn-primary mt-3">Add assignment</button></form></div>
+    <div class="card-body border-top"><form method="post" action="{% url 'users:assignment_add' staff.pk %}" id="assignment-form" novalidate>{% csrf_token %}{% with form=assignment_form %}{% include "_form_fields.html" %}{% endwith %}<button class="btn btn-primary mt-3">Add assignment</button></form></div>
     {% endif %}
   </div></div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+// Assignment form: show the fields the level needs, and narrow each list by the one above it
+// (zone -> region -> district -> facility), like the location pickers in herbal.
+(function () {
+  const form = document.getElementById('assignment-form');
+  if (!form) return;
+  const chain = ['zone', 'region', 'district', 'facility'].map(name => form.querySelector(`select[name="${name}"]`)).filter(Boolean);
+  const level = form.querySelector('select[name="level"]');
+  const all = new Map(chain.map(select => [select, Array.from(select.options)]));
+  const box = select => select.closest('[class*="col-"]');
+
+  // Each list keeps the options under the nearest choice above it; an empty level passes the narrowing down.
+  function narrow() {
+    let allowed = null;  // null = nothing chosen above, show everything
+    chain.forEach((select, i) => {
+      if (i > 0) {
+        const current = select.value;
+        const keep = all.get(select).filter(o => !o.value || allowed === null || allowed.has(o.dataset.parent));
+        select.replaceChildren(...keep);
+        select.value = keep.some(o => o.value === current) ? current : '';
+      }
+      if (select.value) allowed = new Set([select.value]);
+      else if (allowed !== null) allowed = new Set(Array.from(select.options).map(o => o.value).filter(Boolean));
+    });
+  }
+
+  function showForLevel() {
+    const target = chain.findIndex(select => select.name === level.value);
+    chain.forEach((select, i) => {
+      box(select).hidden = target >= 0 && i > target;
+      const label = box(select).querySelector('label');
+      if (label) label.classList.toggle('fw-semibold', i === target);
+    });
+  }
+
+  chain.forEach(select => select.addEventListener('change', narrow));
+  if (level) level.addEventListener('change', showForLevel);
+  showForLevel();
+  narrow();
+})();
+</script>
 {% endblock %}
