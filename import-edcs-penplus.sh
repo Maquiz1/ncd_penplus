@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Import the old PEN-Plus EDCS data into NCD - PENPLUS STUDY on the server (until go-live).
+# Import the old PEN-Plus EDCS data into NCD - PENPLUS CLINIC on the server (until go-live).
 # Run on the server in /opt/ncd-penplus, after copy-edcs-to-server.sh has put the dump in /root/edc.sql.gz.
 #
 # Default (replace): the EDCS patient data here is replaced by the new dump, so edits and deletions made in the
@@ -74,7 +74,7 @@ web() {
 
 # 1. Check and backup -------------------------------------------------------------
 if [ "$MODE" = replace ]; then
-    echo "This replaces the EDCS patient data in NCD - PENPLUS STUDY with the new dump:"
+    echo "This replaces the EDCS patient data in NCD - PENPLUS CLINIC with the new dump:"
     docker compose exec -T penplus-web python manage.py reset_imported_data --check
     confirm "Replace it now?" || { echo "Stopped. Nothing was changed; the dump is kept at $DUMP."; exit 0; }
 fi

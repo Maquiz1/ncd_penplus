@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Log in{% endblock %}
 {% block auth_content %}
-<div class="card shadow-sm">
+<div class="card">
   <div class="card-body p-4">
-    <h2 class="h5 mb-3">Sign in</h2>
-    {% if form.errors %}<div class="alert alert-danger py-2">Invalid username, email or password, or the account is inactive.</div>{% endif %}
+    <p class="login-box-msg">Sign in to start your session</p>
+    {% if form.errors %}<div class="alert alert-danger py-2 small">Invalid username, email or password, or the account is inactive.</div>{% endif %}
     <form method="post" novalidate>
       {% csrf_token %}
-      {% include "registration/_auth_input.html" with label="Username or email" icon="person" type="text" name="username" id="id_username" autocomplete="username" value=form.username.value autofocus=True %}
-      {% include "registration/_auth_input.html" with label="Password" icon="lock" type="password" name="password" id="id_password" autocomplete="current-password" %}
+      {% include "registration/_auth_input.html" with label="Username or email" icon="envelope" type="text" name="username" id="id_username" autocomplete="username" value=form.username.value autofocus=True compact=True %}
+      {% include "registration/_auth_input.html" with label="Password" icon="lock-fill" type="password" name="password" id="id_password" autocomplete="current-password" compact=True %}
       <input type="hidden" name="next" value="{{ next }}">
-      <button class="btn btn-primary w-100" type="submit"><i class="bi bi-box-arrow-in-right"></i> Sign in</button>
+      <div class="d-flex justify-content-between align-items-center">
+        <a href="{% url 'password_reset' %}" class="small">Forgot password?</a>
+        <button class="btn btn-primary px-4" type="submit">Sign in</button>
+      </div>
     </form>
-    <div class="text-center mt-3"><a href="{% url 'password_reset' %}" class="small">Forgot your password?</a></div>
   </div>
 </div>
 {% endblock %}

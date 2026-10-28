@@ -32,6 +32,15 @@ def patient_name(context, patient):
     return format_html('<span class="text-body-secondary fst-italic">Identity restricted</span>')
 
 
+@register.simple_tag
+def old_patient_id(patient, prefix='Old ID'):
+    """The full old EDCS study ID (or the old EDCS number) under a patient number; empty for new patients."""
+    old = patient.old_study_id or patient.old_id if patient else ''
+    if not old:
+        return ''
+    return format_html('<div class="small text-body-secondary text-nowrap">{} {}</div>', prefix, old)
+
+
 @register.filter
 def get_item(mapping, key):
     return mapping.get(key) if mapping else None

@@ -10,16 +10,34 @@
     {% if perms.users.add_user %}<a class="btn btn-primary" href="{% url 'users:create' %}"><i class="bi bi-person-plus"></i> New staff account</a>{% endif %}
   </div>
 </div>
+<div class="row g-2 mb-3">
+  {% for key, label, count in tabs %}{% if key == 'all' or key == 'active' %}
+  <div class="col-6 col-md-3"><div class="card shadow-sm h-100"><div class="card-body py-2"><div class="small text-body-secondary">{% if key == 'all' %}Staff accounts{% else %}Active{% endif %}</div><div class="fs-4 fw-semibold">{{ count }}</div></div></div></div>
+  {% endif %}{% endfor %}
+  <div class="col-6 col-md-3"><div class="card shadow-sm h-100"><div class="card-body py-2"><div class="small text-body-secondary">Logged in, last 30 days</div><div class="fs-4 fw-semibold">{{ logged_in_30d }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card shadow-sm h-100"><div class="card-body py-2"><div class="small text-body-secondary">Never logged in</div><div class="fs-4 fw-semibold">{{ never_logged_in }}</div></div></div></div>
+</div>
+<ul class="nav nav-tabs tab-scroll mb-3">
+  {% for key, label, count in tabs %}<li class="nav-item"><a class="nav-link {% if status == key %}active{% endif %}" href="?status={{ key }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}">{{ label }} <span class="badge {% if key == 'deleted' %}text-bg-danger{% elif key == 'inactive' %}text-bg-secondary{% elif key == 'not_activated' %}text-bg-warning{% else %}text-bg-primary{% endif %}">{{ count }}</span></a></li>{% endfor %}
+</ul>
 <form class="row g-2 mb-3" method="get">
-  <div class="col-md-5"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Name, username or email"></div>
-  <div class="col-md-3"><select class="form-select" name="status"><option value="">Any status</option><option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option><option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option></select></div>
+  <input type="hidden" name="status" value="{{ status }}">
+  <div class="col-md-6"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Name, username or email"></div>
   <div class="col-md-2 d-grid"><button class="btn btn-primary">Search</button></div>
+  {% if request.GET.q %}<div class="col-md-2 d-grid"><a class="btn btn-outline-secondary" href="?status={{ status }}">Clear</a></div>{% endif %}
 </form>
-<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Username</th><th>Name</th><th>Position</th><th>Roles</th><th>Access level</th><th>Email</th><th>Status</th></tr></thead>
-  <tbody>{% for u in object_list %}<tr><td><a href="{% url 'users:detail' u.pk %}">{{ u.username }}</a></td><td>{{ u.display_name }}</td><td>{{ u.position_label|default:"—" }}</td><td class="small">{{ u.groups.all|join:", " }}{% if u.identity_override == 'grant' %} <span class="badge text-bg-info" title="Identity access granted for this person">+ identity</span>{% elif u.identity_override == 'revoke' %} <span class="badge text-bg-secondary" title="Identity access removed for this person">− identity</span>{% endif %}</td><td class="small">{{ u.access_summary }}</td><td>{{ u.email }}</td>
-    <td>{% if u.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-danger">Inactive</span>{% endif %}{% if not u.has_usable_password %} <span class="badge text-bg-warning">Not activated</span>{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No staff found.</td></tr>{% endfor %}</tbody>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>#</th><th>Username</th><th>Name</th><th>Position</th><th>Roles</th><th>Access level</th><th>Email</th><th>Last login</th><th>Status</th></tr></thead>
+  <tbody>{% for u in object_list %}<tr{% if u.is_deleted %} class="table-danger"{% endif %}>
+    <td class="text-body-secondary small">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+    <td><a href="{% url 'users:detail' u.pk %}">{{ u.username }}</a></td><td>{{ u.display_name }}</td><td>{{ u.position_label|default:"—" }}</td>
+    <td class="small">{{ u.groups.all|join:", " }}{% if u.identity_override == 'grant' %} <span class="badge text-bg-info" title="Identity access granted for this person">+ identity</span>{% elif u.identity_override == 'revoke' %} <span class="badge text-bg-secondary" title="Identity access removed for this person">− identity</span>{% endif %}</td>
+    <td class="small">{{ u.access_summary }}</td><td class="small">{{ u.email|default:"—" }}</td>
+    <td class="small text-nowrap">{% if u.last_login %}{{ u.last_login|date:"d M Y H:i" }}<div class="text-body-secondary">{{ u.last_login|timesince }} ago</div>{% else %}<span class="text-body-secondary">Never</span>{% endif %}</td>
+    <td class="small">{% if u.is_deleted %}<span class="badge text-bg-danger">Deleted</span><div class="text-body-secondary text-nowrap">{{ u.deleted_at|date:"d M Y" }}{% if u.deleted_by %} by {{ u.deleted_by.username }}{% endif %}</div>{% if u.deletion_reason %}<div class="text-body-secondary">{{ u.deletion_reason }}</div>{% endif %}
+      {% elif u.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Deactivated</span>{% endif %}
+      {% if not u.is_deleted and not u.has_usable_password %} <span class="badge text-bg-warning">Not activated</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="9" class="text-center text-body-secondary py-4">No staff found.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% include "_pagination.html" %}
 {% endblock %}

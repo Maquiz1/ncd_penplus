@@ -22,7 +22,7 @@
   <thead class="table-light"><tr><th>Issue</th><th>Patient</th><th>Category</th><th>Date</th><th>Status</th><th></th></tr></thead>
   <tbody>{% for i in object_list %}<tr>
     <td><a href="{{ i.get_absolute_url }}" class="fw-semibold">{{ i.title }}</a><div class="small text-body-secondary">{{ i.description|truncatechars:140 }}</div></td>
-    <td class="text-nowrap">{% if i.patient %}<a href="{{ i.patient.get_absolute_url }}">{{ i.patient }}</a>{% if i.patient.old_id %}<div class="small text-body-secondary">old {{ i.patient.old_id }}</div>{% endif %}{% else %}<span class="text-body-secondary">{{ i.facility|default:"—" }}</span>{% endif %}</td>
+    <td class="text-nowrap">{% if i.patient %}<a href="{{ i.patient.get_absolute_url }}">{{ i.patient }}</a>{% old_patient_id i.patient %}{% else %}<span class="text-body-secondary">{{ i.facility|default:"—" }}</span>{% endif %}</td>
     <td class="small">{{ i.get_category_display }}</td><td class="small text-nowrap">{{ i.related_date|date:"M Y"|default:"" }}</td>
     <td>{% status_badge i.status i.get_status_display %}</td>
     <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ i.get_absolute_url }}">Review</a></td></tr>

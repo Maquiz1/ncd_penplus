@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Restore NCD - PENPLUS STUDY from a backup made by backup-penplus.sh. Run on the server in /opt/ncd-penplus.
+# Restore NCD - PENPLUS CLINIC from a backup made by backup-penplus.sh. Run on the server in /opt/ncd-penplus.
 #
 # Usage:
 #   ./restore-penplus.sh                  list the backups (newest first) and choose one; Enter = the latest

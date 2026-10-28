@@ -255,14 +255,15 @@ class MonitoringListView(PermissionRequiredMixin, View):
 
     def get(self, request):
         from indicators.views import csv_response
-        from patients.models import Patient
+        from patients.models import Patient, with_old_study_id
         from reporting.filters import ReportFilters
 
         from .monitoring import STATES, get_rule, monitoring_list
 
         rule = get_rule(self.code)
         filters = ReportFilters(request, with_disease=False)
-        patients = Patient.objects.in_scope(request.user).filter(current_facility__in=filters.facilities)
+        patients = with_old_study_id(Patient.objects.in_scope(request.user)
+                                     .filter(current_facility__in=filters.facilities))
         rows = monitoring_list(patients, self.code)
         counts = {key: 0 for key, _ in STATES}
         explained = 0
@@ -285,7 +286,7 @@ class MonitoringListView(PermissionRequiredMixin, View):
                                 ['Patient ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last HbA1c', 'Last HbA1c date',
                                  'Days since', 'Due date', 'Status', 'Ordered (waiting for result)', 'Not done reason',
                                  'Not done recorded'],
-                                [[p.patient_number, p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
+                                [[p.patient_number, p.old_study_id or p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
                                   s['last'].result_value if s['last'] else '', s['last_date'] or '',
                                   '' if s['days'] is None else s['days'], s['due'], labels[s['state']],
                                   timezone.localtime(s['pending'].ordered_at).date() if s['pending'] else '',

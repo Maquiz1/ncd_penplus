@@ -5,8 +5,8 @@ from django.urls import include, path
 from core.views import dashboard
 from users.views import AccountPasswordResetConfirmView, LoggedPasswordResetView
 
-admin.site.site_header = 'NCD - PENPLUS STUDY administration'
-admin.site.site_title = 'NCD - PENPLUS STUDY admin'
+admin.site.site_header = 'NCD - PENPLUS CLINIC administration'
+admin.site.site_title = 'NCD - PENPLUS CLINIC admin'
 
 urlpatterns = [
     path('', dashboard, name='dashboard'),

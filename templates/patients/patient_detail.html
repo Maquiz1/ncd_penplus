@@ -40,7 +40,7 @@
       <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Registration</div><div class="card-body">
         <dl class="row dl-compact mb-0">
           <dt class="col-5">Patient ID</dt><dd class="col-7">{{ patient.patient_number }}</dd>
-          {% if patient.old_id %}<dt class="col-5">Old ID</dt><dd class="col-7">{{ patient.old_id }} <span class="small text-body-secondary">(EDCS client ID)</span></dd>{% endif %}
+          {% if patient.old_id %}<dt class="col-5">Old ID</dt><dd class="col-7">{{ patient.old_study_id|default:patient.old_id }} <span class="small text-body-secondary">(EDCS study ID{% if patient.old_study_id %}; client no. {{ patient.old_id }}{% endif %})</span></dd>{% endif %}
           {% if can_view_identity %}
           <dt class="col-5">Full name</dt><dd class="col-7">{{ patient.full_name }}</dd>
           <dt class="col-5">Date of birth</dt><dd class="col-7">{{ patient.date_of_birth|date:"d M Y" }}{% if patient.dob_estimated %} (estimated){% endif %}</dd>

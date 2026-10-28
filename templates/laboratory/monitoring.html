@@ -17,7 +17,7 @@
 <div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
   <thead class="table-light"><tr><th>Patient</th><th>Name</th><th>Facility</th><th>Last HbA1c</th><th class="text-end">Days since</th><th>Due</th><th>Status</th><th class="text-end d-print-none">Action</th></tr></thead>
   <tbody>{% for p, s in rows %}<tr>
-    <td><a href="{{ p.get_absolute_url }}#labs">{{ p.patient_number }}</a>{% if p.old_id %}<div class="small text-body-secondary">old {{ p.old_id }}</div>{% endif %}</td>
+    <td><a href="{{ p.get_absolute_url }}#labs">{{ p.patient_number }}</a>{% old_patient_id p %}</td>
     <td>{% patient_name p %}</td>
     <td>{{ p.current_facility }}</td>
     <td>{% if s.last %}<span class="fw-semibold">{{ s.last.result_value }}{% if s.last.result_unit %} {{ s.last.result_unit }}{% endif %}</span> <span class="small text-body-secondary">{{ s.last_date|date:"d M Y" }}</span>{% else %}<span class="text-body-secondary">none since enrolment</span>{% endif %}</td>

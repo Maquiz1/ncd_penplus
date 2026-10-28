@@ -14,6 +14,7 @@ from django.views import View
 from audit.models import AuditEvent
 from audit.services import diff, log_event, snapshot
 from core.forms import BootstrapModelForm, ReasonForm
+from patients.models import with_old_study_id
 from facilities.scope import facilities_for_user, scope_queryset
 
 from .registry import get_type, record_types
@@ -64,7 +65,9 @@ class RecordListView(LoginRequiredMixin, View):
         if params.get('q'):
             q = params['q'].strip()
             qs = qs.filter(Q(**{f'{patient_field}__patient_number__icontains': q})
-                           | Q(**{f'{patient_field}__old_id__iexact': q}))
+                           | Q(**{f'{patient_field}__old_id__iexact': q})
+                           | Q(**{f'{patient_field}__identifiers__id_type': 'edcs_study',
+                                  f'{patient_field}__identifiers__value__iexact': q})).distinct()
         if params.get('facility'):
             qs = qs.filter(**{f'{patient_field}__current_facility': params['facility']})
         date_lookup = rtype.date_field
@@ -73,7 +76,7 @@ class RecordListView(LoginRequiredMixin, View):
             qs = qs.filter(**{f'{date_lookup}__date__gte' if is_datetime else f'{date_lookup}__gte': params['start']})
         if params.get('end'):
             qs = qs.filter(**{f'{date_lookup}__date__lte' if is_datetime else f'{date_lookup}__lte': params['end']})
-        qs = qs.select_related(patient_field).order_by(f'-{date_lookup}', '-pk')
+        qs = with_old_study_id(qs.select_related(patient_field), patient_field).order_by(f'-{date_lookup}', '-pk')
         if deleted:
             qs = qs.select_related('deleted_by')
         page = Paginator(qs, 50).get_page(params.get('page'))

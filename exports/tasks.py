@@ -15,11 +15,17 @@ PROGRESS_EVERY = 500
 
 def file_name(job):
     tag = '_deidentified' if job.deidentified else ''
-    return f'NCD_{job.dataset}_{job.mode}{tag}_{timezone.localdate():%Y%m%d}_u{job.user_id}_j{job.pk}.{job.fmt}'
+    name = job.dataset.replace('form:*', 'all_forms').replace('form:', 'form_')
+    return f'NCD_{name}_{job.mode}{tag}_{timezone.localdate():%Y%m%d}_u{job.user_id}_j{job.pk}.{job.fmt}'
 
 
 def selected(job):
-    return ds.all_datasets() if job.dataset == 'all' else [ds.get_dataset(job.dataset)]
+    if job.dataset == 'all':
+        return ds.all_datasets()
+    if job.dataset.startswith('form:'):
+        from .study_forms import form_datasets
+        return form_datasets(job.dataset[5:])
+    return [ds.get_dataset(job.dataset)]
 
 
 def job_facilities(job):
@@ -50,9 +56,11 @@ def build(job):
     from openpyxl.cell import WriteOnlyCell
     from openpyxl.styles import Font
 
+    from facilities.scope import disease_ids_for_user
     facilities = job_facilities(job)
     start, end = job.filters.get('start'), job.filters.get('end')
-    parts = [(d, ds.dataset_queryset(d, facilities, start, end)) for d in selected(job) if d is not None]
+    diseases = disease_ids_for_user(job.user)
+    parts = [(d, ds.dataset_queryset(d, facilities, start, end, diseases)) for d in selected(job) if d is not None]
     job.total = sum(qs.count() for _d, qs in parts)
     job.status, job.done = ExportJob.Status.RUNNING, 0
     job.save(update_fields=['total', 'status', 'done'])

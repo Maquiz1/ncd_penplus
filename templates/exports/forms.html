@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Forms{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Forms</h1>
+    <div class="small text-body-secondary">The study forms in the order of the visit, with their data and data dictionary. Scope: {{ scope }}{% if diseases %} · only patients of your programmes{% endif %}.</div></div>
+  <div class="d-flex flex-wrap gap-2">
+    <form method="post" action="{% url 'exports:form_download' %}">{% csrf_token %}<input type="hidden" name="form" value="*">
+      <button class="btn btn-primary"><i class="bi bi-file-earmark-excel"></i> All forms (Excel)</button></form>
+    <div class="btn-group">
+      <a class="btn btn-outline-secondary" href="{% url 'exports:codebook' %}?dataset=form:*&format=xlsx"><i class="bi bi-journal-code"></i> Dictionary of all forms</a>
+      <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More formats"></button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="{% url 'exports:codebook' %}?dataset=form:*&format=xlsx"><i class="bi bi-file-earmark-excel"></i> Excel</a></li>
+        <li><a class="dropdown-item" href="{% url 'exports:codebook' %}?dataset=form:*&format=pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+<div class="alert alert-info py-2 small"><i class="bi bi-shield-lock"></i> Downloads here are <strong>de-identified</strong> (no names, phone numbers, identifiers or free-text notes); each row has the patient ID and the old EDCS ID.{% if can_identify %} For identifiable data, dates or one site use <a href="{% url 'exports:list' %}">Data exports</a>.{% endif %} Files are built in the background and appear under Data exports.</div>
+
+<div class="card shadow-sm"><div class="table-responsive"><table class="table mb-0 align-middle">
+  <thead class="table-light"><tr><th style="width:2.5rem">#</th><th style="min-width:18rem">Form</th><th>Tables</th><th class="text-end">Records</th><th class="text-end" style="width:15rem">Download</th></tr></thead>
+  <tbody>{% for f in forms %}<tr>
+    <td class="text-body-secondary">{{ forloop.counter }}</td>
+    <td><div class="fw-semibold">{{ f.title }}</div>
+      {% if f.old_tables %}<div class="small text-body-secondary">Old EDCS: <code>{{ f.old_tables }}</code></div>{% endif %}
+      {% if f.description %}<div class="small">{{ f.description }}</div>{% endif %}</td>
+    <td class="small">{% for t in f.tables %}<div class="text-nowrap">{{ t.dataset.label }} <span class="text-body-secondary">· {{ t.records }} · {{ t.variables }} variables</span></div>{% endfor %}</td>
+    <td class="text-end fw-semibold">{{ f.records }}</td>
+    <td class="text-end text-nowrap">
+      <form class="d-inline" method="post" action="{% url 'exports:form_download' %}">{% csrf_token %}<input type="hidden" name="form" value="{{ f.key }}">
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-success" title="{% if f.tables|length > 1 %}One Excel workbook, a sheet per table{% else %}Excel{% endif %}"><i class="bi bi-download"></i> Data</button>
+          <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More download options"></button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><h6 class="dropdown-header">Excel{% if f.tables|length > 1 %} (a sheet per table){% endif %}</h6></li>
+            <li><button class="dropdown-item" name="mode" value="labels"><i class="bi bi-file-earmark-excel"></i> Readable answers</button></li>
+            <li><button class="dropdown-item" name="mode" value="codes"><i class="bi bi-file-earmark-excel"></i> Codes (for analysis)</button></li>
+            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">CSV, one table</h6></li>
+            {% for t in f.tables %}<li><button class="dropdown-item" name="dataset" value="{{ t.dataset.key }}"><i class="bi bi-filetype-csv"></i> {{ t.dataset.label }}</button></li>{% endfor %}
+          </ul>
+        </div>
+        <input type="hidden" name="fmt" value="xlsx">
+      </form>
+      <div class="btn-group btn-group-sm">
+        <a class="btn btn-outline-secondary" href="{% url 'exports:codebook' %}?dataset=form:{{ f.key }}" title="Data dictionary"><i class="bi bi-journal-code"></i> Dictionary</a>
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Dictionary formats"></button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="{% url 'exports:codebook' %}?dataset=form:{{ f.key }}"><i class="bi bi-eye"></i> View</a></li>
+          <li><a class="dropdown-item" href="{% url 'exports:codebook' %}?dataset=form:{{ f.key }}&format=xlsx"><i class="bi bi-file-earmark-excel"></i> Excel</a></li>
+          <li><a class="dropdown-item" href="{% url 'exports:codebook' %}?dataset=form:{{ f.key }}&format=pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</a></li>
+        </ul>
+      </div>
+    </td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

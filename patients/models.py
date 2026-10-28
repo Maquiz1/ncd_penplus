@@ -107,6 +107,22 @@ class Patient(SoftDeleteModel):
     def is_deceased(self):
         return self.vital_status == self.VitalStatus.DECEASED
 
+    @property
+    def old_study_id(self):
+        """Full old EDCS study ID (e.g. 1-001). Lists load it with with_old_study_id() to avoid a query per row."""
+        if not self.old_id:
+            return ''
+        if not hasattr(self, 'edcs_identifiers'):
+            self.edcs_identifiers = list(self.identifiers.filter(id_type=PatientIdentifier.IdType.EDCS_STUDY))
+        return self.edcs_identifiers[0].value if self.edcs_identifiers else ''
+
+
+def with_old_study_id(queryset, path=''):
+    """Prefetch the old EDCS study IDs of the patients (or of the rows' patients through `path`, e.g. 'patient')."""
+    return queryset.prefetch_related(models.Prefetch(
+        f'{path}__identifiers' if path else 'identifiers', to_attr='edcs_identifiers',
+        queryset=PatientIdentifier.objects.filter(id_type=PatientIdentifier.IdType.EDCS_STUDY)))
+
 
 class PatientIdSequence(models.Model):
     """Per-year counter for NPYY-NNNN identifiers; issued numbers are never reused."""

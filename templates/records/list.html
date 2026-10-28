@@ -19,7 +19,7 @@
   <thead class="table-light"><tr><th>Date</th><th>Patient</th>{% for heading, attr in rtype.columns %}<th>{{ heading }}</th>{% endfor %}{% if deleted_tab %}<th>Deleted</th>{% endif %}<th class="text-end"></th></tr></thead>
   <tbody>{% for obj, patient, when, cells, view_url, edit_url in rows %}<tr>
     <td class="small text-nowrap">{{ when|date:"d M Y" }}</td>
-    <td class="small"><a href="{{ patient.get_absolute_url }}">{{ patient.patient_number }}</a><div>{% patient_name patient %}</div></td>
+    <td class="small"><a href="{{ patient.get_absolute_url }}">{{ patient.patient_number }}</a>{% old_patient_id patient %}<div>{% patient_name patient %}</div></td>
     {% for value in cells %}<td class="small">{{ value|default_if_none:"" }}</td>{% endfor %}
     {% if deleted_tab %}<td class="small text-danger">{{ obj.deleted_at|date:"d M Y" }} by {{ obj.deleted_by|default:"—" }}<div class="text-body-secondary">{{ obj.deletion_reason }}</div></td>{% endif %}
     <td class="text-end text-nowrap">

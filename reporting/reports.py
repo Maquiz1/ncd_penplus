@@ -9,7 +9,7 @@ from clinical.models import Diagnosis, EnrollmentEvent, ProgrammeEnrollment, Scr
 from core.utils import add_months
 from encounters.models import Vitals
 from laboratory.models import LabOrder
-from patients.models import Patient
+from patients.models import Patient, with_old_study_id
 from research.models import StudyEligibilityAssessment
 
 AGE_GROUPS = [('<5', 0, 4), ('5–17', 5, 17), ('18–29', 18, 29), ('30–44', 30, 44), ('45–59', 45, 59), ('60+', 60, 200)]
@@ -80,7 +80,8 @@ def condition_report(filters, disease, condition_code=None):
     status = {}
     for patient_id, st in enrollments.order_by('enrollment_date').values_list('patient_id', 'status'):
         status[patient_id] = 'active' if st == 'active' or status.get(patient_id) == 'active' else st
-    patients = {p.pk: p for p in Patient.objects.filter(pk__in=status).select_related('current_facility')}
+    patients = {p.pk: p for p in with_old_study_id(Patient.objects.filter(pk__in=status)
+                                                   .select_related('current_facility'))}
     diagnoses = (Diagnosis.objects.filter(patient_id__in=patients, disease=disease, diagnosis_date__lte=end)
                  .exclude(status='ruled_out').select_related('condition__parent__parent'))
     conditions_of = defaultdict(dict)

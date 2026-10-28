@@ -1,11 +1,13 @@
-{# One account-page field: icon, full-width input, and an eye button on password boxes to show what was typed. #}
+{# One account-page field with an icon, and an eye button on password boxes to show what was typed. #}
+{# compact=True (sign-in box): label only for screen readers, placeholder in the box and the icon on the right. #}
 <div class="mb-3">
-  <label class="form-label" for="{{ id }}">{{ label }}</label>
+  <label class="{% if compact %}visually-hidden{% else %}form-label{% endif %}" for="{{ id }}">{{ label }}</label>
   <div class="input-group has-validation">
-    <span class="input-group-text"><i class="bi bi-{{ icon }}"></i></span>
+    {% if not compact %}<span class="input-group-text"><i class="bi bi-{{ icon }}"></i></span>{% endif %}
     <input class="form-control{% if errors %} is-invalid{% endif %}" type="{{ type }}" name="{{ name }}" id="{{ id }}"
-           autocomplete="{{ autocomplete }}"{% if value %} value="{{ value }}"{% endif %}{% if autofocus %} autofocus{% endif %} required>
+           autocomplete="{{ autocomplete }}"{% if compact %} placeholder="{{ label }}"{% endif %}{% if value %} value="{{ value }}"{% endif %}{% if autofocus %} autofocus{% endif %} required>
     {% if type == 'password' %}<button class="btn btn-outline-secondary js-show-password" type="button" title="Show password" aria-label="Show password"><i class="bi bi-eye"></i></button>{% endif %}
+    {% if compact %}<span class="input-group-text"><i class="bi bi-{{ icon }}"></i></span>{% endif %}
     {% for e in errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
   </div>
   {% if help %}<div class="form-text">{{ help }}</div>{% endif %}

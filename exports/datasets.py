@@ -6,6 +6,7 @@ De-identified exports drop names, phone numbers, identifiers, addresses, dates o
 """
 import datetime
 import decimal
+import re
 from dataclasses import dataclass, field
 
 from django.db import models
@@ -46,6 +47,7 @@ class Dataset:
     queryset_filter: dict = field(default_factory=dict)
     select_related: tuple = ()
     description: str = ''
+    wrap: object = None             # turns the queryset into the rows (e.g. lab orders grouped per lab date)
 
 
 def _resolve(obj, path):
@@ -75,7 +77,23 @@ def natural_key(obj):
     return obj.pk
 
 
+def study_id_lookup():
+    """{patient pk: full old EDCS study ID}, loaded once on first use (one query instead of one per row)."""
+    cache = {}
+
+    def lookup():
+        if not cache:
+            from patients.models import PatientIdentifier
+            cache.update(PatientIdentifier.objects.filter(id_type=PatientIdentifier.IdType.EDCS_STUDY)
+                         .values_list('patient_id', 'value'))
+            cache.setdefault(None, None)  # marks the cache as loaded when there are no old IDs
+        return cache
+    return lookup
+
+
 def patient_columns(patient_path, date_field):
+    old_study_ids = study_id_lookup()
+
     def patient(obj):
         return _resolve(obj, patient_path)
 
@@ -90,7 +108,8 @@ def patient_columns(patient_path, date_field):
 
     return [
         Column('patient_id', 'Patient ID (NCD number)', 'text', lambda o, m: patient(o).patient_number),
-        Column('old_id', 'Old EDCS ID', 'text', lambda o, m: patient(o).old_id),
+        Column('old_study_id', 'Old EDCS study ID (full)', 'text', lambda o, m: old_study_ids().get(patient(o).pk)),
+        Column('old_id', 'Old EDCS client number', 'text', lambda o, m: patient(o).old_id),
         Column('site', 'Site (current facility code)', 'code', lambda o, m: patient(o).current_facility.code),
         Column('sex', 'Sex', 'choice', lambda o, m: patient(o).sex if m == 'codes' else patient(o).get_sex_display(),
                choices=[('male', 'Male'), ('female', 'Female')]),
@@ -149,7 +168,9 @@ def model_dataset(key, label, group, model_label, patient_path='patient', date_f
 def _patient_dataset():
     from patients.models import Patient
     identity = IDENTITY_FIELDS['patients.Patient']
+    old_study_ids = study_id_lookup()
     columns = [Column('patient_id', 'Patient ID (NCD number)', 'text', lambda o, m: o.patient_number),
+               Column('old_study_id', 'Old EDCS study ID (full)', 'text', lambda o, m: old_study_ids().get(o.pk)),
                Column('age_years', 'Age today (years)', 'number', lambda o, m: o.age if o.date_of_birth else None)]
     columns += field_columns(Patient, identity, skip=('patient_number', 'merged_into', 'sms_consent_recorded_at'))
     return Dataset('patients', 'Patients (registration)', 'Registration & screening', Patient, '', 'registration_date',
@@ -221,6 +242,102 @@ def investigation_datasets():
     return result
 
 
+class LabVisit:
+    """One patient's lab results on one day (a row of the Laboratory form)."""
+
+    def __init__(self, orders):
+        first = orders[0]
+        self.pk = first.pk
+        self.patient, self.facility, self.lab_date = first.patient, first.facility, timezone_date(first.ordered_at)
+        self.encounter_id = next((o.encounter_id for o in orders if o.encounter_id), None)
+        self.results = {o.test_id: o for o in orders}
+
+
+def timezone_date(value):
+    from django.utils import timezone
+    return timezone.localtime(value).date() if timezone.is_aware(value) else value.date()
+
+
+class LabVisits:
+    """Lab orders grouped by patient and lab date; offers count() and iterator() like a queryset."""
+
+    def __init__(self, queryset):
+        self.queryset = queryset
+
+    def count(self):
+        from django.db.models.functions import TruncDate
+        return self.queryset.annotate(day=TruncDate('ordered_at')).values('patient_id', 'day').distinct().count()
+
+    def iterator(self, chunk_size=1000):
+        group, key = [], None
+        for order in self.queryset.order_by('patient_id', 'ordered_at', 'pk').iterator(chunk_size=chunk_size):
+            this = (order.patient_id, timezone_date(order.ordered_at))
+            if group and this != key:
+                yield LabVisit(group)
+                group = []
+            group.append(order)
+            key = this
+        if group:
+            yield LabVisit(group)
+
+
+def laboratory_dataset():
+    """The Laboratory form: one row per patient per lab date, one column per test (replaces EDCS lab_details)."""
+    from laboratory.models import LabOrder, LabTest
+    tested = LabOrder.objects.exclude(result_value='').values('test')
+    tests = LabTest.objects.filter(pk__in=tested).select_related('category').order_by('category__order', 'order', 'name')
+    columns = patient_columns('patient', 'lab_date') + [
+        Column('lab_date', 'Lab date', 'date', lambda o, m: o.lab_date),
+        Column('encounter_id', 'Encounter ID', 'code', lambda o, m: o.encounter_id),
+        Column('facility', 'Facility', 'code', lambda o, m: natural_key(o.facility)),
+    ]
+    for test in tests:
+        def value(o, m, pk=test.pk, numeric=test.result_type == LabTest.ResultType.NUMERIC):
+            order = o.results.get(pk)
+            if order is None:
+                return None
+            return plain(order.result_numeric) if numeric and order.result_numeric is not None else order.result_value
+        columns.append(Column(re.sub(r'[^a-z0-9]+', '_', test.code.lower()).strip('_'), test.name,
+                              'number' if test.result_type == LabTest.ResultType.NUMERIC else 'text', value,
+                              unit=test.unit))
+    return Dataset('laboratory', 'Laboratory (one row per lab date)', 'Study forms', LabOrder, 'patient', 'ordered_at',
+                   columns, queryset_filter={'status': LabOrder.Status.RESULTED},
+                   select_related=('patient__current_facility', 'facility'), wrap=LabVisits,
+                   description='Results of every test done on the same day, side by side. Replaces the EDCS '
+                               'lab_details form (and the lab values on other EDCS forms).')
+
+
+def imaging_dataset():
+    """Radiology / imaging: one row per examination (ECG, echo, X-ray, ultrasound …) with each type's report fields."""
+    from investigations.models import InvestigationOrder, InvestigationType
+    columns = patient_columns('patient', 'performed_at') + [
+        Column('record_id', 'Record ID', 'number', lambda o, m: o.pk),
+        Column('encounter_id', 'Encounter ID', 'code', lambda o, m: o.encounter_id),
+        Column('examination', 'Examination', 'code', lambda o, m: (o.investigation_type.code if m == 'codes' else
+                                                                    o.investigation_type.name) if o.investigation_type_id
+               else o.modality),
+        Column('requested_at', 'Requested', 'datetime', lambda o, m: plain(o.requested_at)),
+        Column('performed_at', 'Performed', 'datetime', lambda o, m: plain(o.performed_at)),
+        Column('status', 'Status', 'choice', lambda o, m: o.status if m == 'codes' else o.get_status_display(),
+               choices=[(str(v), str(lbl)) for v, lbl in InvestigationOrder.Status.choices]),
+        Column('is_abnormal', 'Abnormal', 'yes/no', lambda o, m: yes_no(o.is_abnormal, m), choices=[('1', 'Yes'), ('0', 'No')]),
+    ]
+    for itype in InvestigationType.objects.prefetch_related('fields').order_by('pk'):
+        prefix = re.sub(r'[^a-z0-9]+', '_', itype.code.lower()).strip('_')
+        for f in itype.fields.all():
+            columns.append(Column(f'{prefix}_{f.key}', f'{itype.name}: {f.label}',
+                                  {'number': 'number', 'choice': 'choice'}.get(f.field_type, 'text'),
+                                  (lambda type_id, key: lambda o, m: o.results.get(key)
+                                   if o.investigation_type_id == type_id else None)(itype.pk, f.key),
+                                  choices=[(c, c) for c in f.choice_list()], unit=f.unit))
+    columns += [Column('conclusion', 'Conclusion', 'text', lambda o, m: o.conclusion),
+                Column('findings', 'Findings (free text)', 'text', lambda o, m: o.findings, identifying=True)]
+    return Dataset('imaging', 'Radiology / imaging (ECG, echo, X-ray …)', 'Study forms', InvestigationOrder, 'patient',
+                   'requested_at', columns, select_related=('patient__current_facility', 'investigation_type'),
+                   description='ECG, echocardiography, X-ray, ultrasound and other examinations, one row each. '
+                               'Replaces the ECG and echo questions of the EDCS results form.')
+
+
 def form_datasets():
     """One dataset per CRF form (including the migrated EDCS forms), columns from every version's fields."""
     from crf.models import FormDefinition, FormField, FormSubmission
@@ -262,7 +379,7 @@ def form_datasets():
 
 
 def all_datasets():
-    return static_datasets() + investigation_datasets() + form_datasets()
+    return static_datasets() + [laboratory_dataset(), imaging_dataset()] + investigation_datasets() + form_datasets()
 
 
 def get_dataset(key):
@@ -273,11 +390,16 @@ def visible_columns(dataset, deidentified):
     return [c for c in dataset.columns if not (deidentified and c.identifying)]
 
 
-def dataset_queryset(dataset, facilities, start=None, end=None):
+def dataset_queryset(dataset, facilities, start=None, end=None, disease_ids=None):
+    """Records of the facilities; with disease_ids (staff limited to some programmes) only those patients."""
     manager = getattr(dataset.model, 'objects')
     qs = manager.filter(**dataset.queryset_filter)
     site = f'{dataset.patient_path}__current_facility' if dataset.patient_path else 'current_facility'
     qs = qs.filter(**{f'{site}__in': facilities})
+    if disease_ids:
+        from facilities.scope import patients_for_diseases
+        qs = qs.filter(**{f'{dataset.patient_path}__in' if dataset.patient_path else 'pk__in':
+                          patients_for_diseases(disease_ids)})
     if dataset.patient_path:
         qs = qs.filter(**{f'{dataset.patient_path}__is_deleted': False})
     if dataset.date_field and (start or end):
@@ -287,7 +409,8 @@ def dataset_queryset(dataset, facilities, start=None, end=None):
             qs = qs.filter(**{f'{lookup}__gte': start})
         if end:
             qs = qs.filter(**{f'{lookup}__lte': end})
-    return qs.select_related(*dataset.select_related).order_by('pk')
+    qs = qs.select_related(*dataset.select_related).order_by('pk')
+    return dataset.wrap(qs) if dataset.wrap else qs
 
 
 def codebook_rows(datasets, deidentified):

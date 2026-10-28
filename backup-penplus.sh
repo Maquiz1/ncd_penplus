@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Back up NCD - PENPLUS STUDY on the server: database, uploaded files and the code version.
+# Back up NCD - PENPLUS CLINIC on the server: database, uploaded files and the code version.
 # Run in /opt/ncd-penplus. Also used by deploy-penplus.sh and import-edcs-penplus.sh before they change anything.
 #
 # Usage:  ./backup-penplus.sh [label]        e.g. ./backup-penplus.sh before_import

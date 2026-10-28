@@ -72,6 +72,18 @@ class PatientIdentifierTests(BaseTestCase):
         PatientIdSequence.objects.create(year=2026, last_value=9999)
         self.assertEqual(next_patient_number(2026), 'NP26-10000')
 
+    def test_full_old_edcs_id_shown_in_list_and_searchable(self):
+        from patients.models import Patient, PatientIdentifier
+        p = self.make_patient()
+        Patient.all_objects.filter(pk=p.pk).update(old_id=7)
+        PatientIdentifier.objects.create(patient=p, id_type='edcs_study', value='1-007')
+        nurse = self.make_user('nurse_old', 'Nurse / Triage Officer', facility=self.ilala)
+        self.client.force_login(nurse)
+        response = self.client.get(reverse('patients:list'))
+        self.assertContains(response, 'Old ID 1-007')
+        response = self.client.get(reverse('patients:list') + '?q=1-007')
+        self.assertContains(response, p.patient_number)
+
     def test_registration_opens_assignment(self):
         p = self.make_patient()
         self.assertTrue(re.fullmatch(r'NP\d{2}-\d{4,}', p.patient_number))

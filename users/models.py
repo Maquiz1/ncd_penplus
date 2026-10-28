@@ -62,6 +62,11 @@ class User(AbstractUser):
     must_change_password = models.BooleanField(
         default=False, help_text='Set when an administrator sets the password; the person must choose their own at '
                                  'the next login.')
+    # Deleted accounts are kept (deactivated) so the records they entered keep their name; a superuser can restore.
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    deletion_reason = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ['username']

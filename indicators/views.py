@@ -13,7 +13,7 @@ from audit.services import log_event
 from clinical.models import Disease, ProgrammeEnrollment
 from facilities.models import Facility
 from facilities.scope import facilities_for_user, scope_description
-from patients.models import Patient
+from patients.models import Patient, with_old_study_id
 from reporting.filters import ReportFilters
 
 from . import clinical, core
@@ -157,7 +157,8 @@ class DrillView(IndicatorPermission, View):
             subtitle = f'{filters.description} · measured on {date:%d %b %Y}'
             back = reverse('indicators:socio' if indicator.disease == 'socio' else 'indicators:clinical') + '?' + filters.querystring()
             last_visit = {pid: cohort.last_visit(pid, date) for pid in ids}
-        patients = list(Patient.objects.filter(pk__in=ids).select_related('current_facility').order_by('patient_number'))
+        patients = list(with_old_study_id(Patient.objects.filter(pk__in=ids).select_related('current_facility')
+                                          .order_by('patient_number')))
         today = timezone.localdate()
         for p in patients:
             p.last_visit = last_visit.get(p.pk) if last_visit is not None else None
@@ -166,7 +167,7 @@ class DrillView(IndicatorPermission, View):
             log_event(request=request, action=AuditEvent.Action.EXPORT, model='indicators.Drill', object_repr=title)
             return csv_response(f'indicator-{indicator.key}-{part}-{date}.csv',
                                 ['Patient ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last visit', 'Days since last visit'],
-                                [[p.patient_number, p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
+                                [[p.patient_number, p.old_study_id or p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
                                   p.last_visit or '', '' if p.days_since_visit is None else p.days_since_visit]
                                  for p in patients])
         return render(request, 'indicators/drill.html', {

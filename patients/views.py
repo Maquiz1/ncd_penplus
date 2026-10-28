@@ -14,7 +14,7 @@ from core.mixins import AuditedUpdateMixin, PatientChildCreateMixin
 from facilities.scope import default_facility, facilities_for_user
 
 from .forms import PatientForm, PatientIdentifierForm, PatientTransferForm, RecordDeathForm, TransferActionForm
-from .models import Patient, PatientIdentifier, PatientTransfer
+from .models import Patient, PatientIdentifier, PatientTransfer, with_old_study_id
 from .services import apply_transfer_action, record_death, register_patient
 
 
@@ -23,6 +23,8 @@ def search_patients(queryset, query, can_view_identity):
     condition = Q(patient_number__icontains=query)
     if query.isdigit():
         condition |= Q(old_id=int(query))
+    # The full old EDCS study ID (e.g. 1-001) is a study code like the patient number, not an identity field.
+    condition |= Q(identifiers__id_type=PatientIdentifier.IdType.EDCS_STUDY, identifiers__value__iexact=query)
     if can_view_identity:
         condition |= Q(identifiers__value__iexact=query)
         for term in query.split():
@@ -37,7 +39,7 @@ class PatientListView(PermissionRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = Patient.objects.in_scope(self.request.user).select_related('current_facility')
+        qs = with_old_study_id(Patient.objects.in_scope(self.request.user).select_related('current_facility'))
         params = self.request.GET
         if params.get('q'):
             qs = search_patients(qs, params['q'].strip(), self.request.user.has_perm('patients.view_patient_identity'))
@@ -159,8 +161,8 @@ class DeletedPatientListView(PermissionRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        return Patient.all_objects.in_scope(self.request.user).filter(is_deleted=True).select_related(
-            'current_facility', 'deleted_by')
+        return with_old_study_id(Patient.all_objects.in_scope(self.request.user).filter(is_deleted=True).select_related(
+            'current_facility', 'deleted_by'))
 
 
 class PatientRestoreView(PermissionRequiredMixin, View):

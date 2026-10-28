@@ -24,7 +24,7 @@
       <tbody>
       {% for p in object_list %}
         <tr>
-          <td><a href="{{ p.get_absolute_url }}" class="fw-semibold">{{ p.patient_number }}</a>{% if p.old_id %}<div class="small text-body-secondary">old {{ p.old_id }}</div>{% endif %}</td>
+          <td><a href="{{ p.get_absolute_url }}" class="fw-semibold">{{ p.patient_number }}</a>{% old_patient_id p %}</td>
           <td>{% patient_name p %}</td>
           <td>{{ p.get_sex_display }}</td><td>{{ p.age }}</td>
           <td>{{ p.current_facility }}</td><td>{{ p.registration_date|date:"d M Y" }}</td>

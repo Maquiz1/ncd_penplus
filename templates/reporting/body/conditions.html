@@ -16,7 +16,7 @@
 <h2 class="h5" id="patients">{{ g.label }} – {{ g.total }} patient{{ g.total|pluralize }}</h2>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
   <thead class="table-light"><tr><th>Patient</th><th>Name</th><th>Sex</th><th class="text-end">Age</th><th>Site</th><th>Sub-type(s)</th><th>First diagnosed</th><th>Care status</th></tr></thead>
-  <tbody>{% for r in g.patients %}<tr><td><a href="{{ r.patient.get_absolute_url }}">{{ r.patient.patient_number }}</a></td><td>{% patient_name r.patient %}</td><td>{{ r.patient.get_sex_display }}</td><td class="text-end">{{ r.age|default_if_none:"—" }}</td><td>{{ r.patient.current_facility.name }}</td>
+  <tbody>{% for r in g.patients %}<tr><td><a href="{{ r.patient.get_absolute_url }}">{{ r.patient.patient_number }}</a>{% old_patient_id r.patient %}</td><td>{% patient_name r.patient %}</td><td>{{ r.patient.get_sex_display }}</td><td class="text-end">{{ r.age|default_if_none:"—" }}</td><td>{{ r.patient.current_facility.name }}</td>
     <td class="small">{{ r.subtypes|join:", "|default:"—" }}</td><td>{{ r.first|date:"d M Y"|default:"—" }}</td><td>{% status_badge r.status %}</td></tr>{% endfor %}</tbody>
 </table></div></div>{% endwith %}
 {% else %}<p class="small text-body-secondary d-print-none">Click a condition to list its patients.</p>{% endif %}

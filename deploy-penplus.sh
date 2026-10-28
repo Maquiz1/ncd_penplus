@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Deploy NCD - PENPLUS STUDY on the Hostinger server (/opt/ncd-penplus), same steps as tamris deploy_live.sh:
+# Deploy NCD - PENPLUS CLINIC on the Hostinger server (/opt/ncd-penplus), same steps as tamris deploy_live.sh:
 #   1. back up the database and uploaded files
 #   2. build the new image while the old site keeps serving
 #   3. migrate the database

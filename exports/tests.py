@@ -94,3 +94,76 @@ class ExportTests(BaseTestCase):
         nurse = self.make_user('nurse_x', 'Nurse / Triage Officer', facility=self.ilala)
         self.client.force_login(nurse)
         self.assertEqual(self.client.get(reverse('exports:list')).status_code, 403)
+
+
+@override_settings(EXPORT_RUNNER='inline', EXPORT_ROOT=TMP)
+class FormsPageTests(BaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        super().setUpTestData()
+        call_command('setup_penplus', stdout=open('/dev/null', 'w'))
+
+    def setUp(self):
+        from django.utils import timezone
+
+        from laboratory.models import LabOrder, LabTest
+        self.patient = self.make_patient(first_name='Zuhura')
+        self.pi = self.make_user('pi_f', 'PI / Co-Investigator', level='national')
+        when = timezone.now().replace(hour=9)
+        for code, raw in (('hb', '9.1'), ('creat', '80'), ('hiv', 'Negative')):
+            order = LabOrder(patient=self.patient, facility=self.ilala, test=LabTest.objects.get(code=code),
+                             ordered_by=self.admin, ordered_at=when)
+            order.record_result(raw, self.admin, when=when)
+            order.save()
+
+    def download(self, user, **data):
+        self.client.force_login(user)
+        self.client.post(reverse('exports:form_download'), data)
+        return ExportJob.objects.filter(user=user).latest('pk')
+
+    def test_forms_page_lists_forms_with_records(self):
+        self.client.force_login(self.pi)
+        response = self.client.get(reverse('exports:forms'))
+        self.assertContains(response, 'Laboratory')
+        self.assertContains(response, 'Radiology / imaging')
+        self.assertContains(response, 'Treatment plan &amp; medicines')
+        self.assertContains(response, 'lab_details')
+
+    def test_laboratory_form_has_one_row_per_lab_date(self):
+        from openpyxl import load_workbook
+        job = self.download(self.pi, form='laboratory')
+        self.assertEqual((job.status, job.fmt, job.deidentified), ('done', 'xlsx', True), job.error)
+        sheets = load_workbook(job.path, read_only=True)
+        rows = list(sheets[sheets.sheetnames[0]].values)
+        self.assertEqual(len(rows), 2)                       # header + one lab date with three tests
+        row = dict(zip(rows[0], rows[1]))
+        self.assertEqual((row['hb'], row['creat'], row['hiv']), (9.1, 80, 'Negative'))
+        self.assertEqual(row['patient_id'], self.patient.patient_number)
+        self.assertEqual(len(rows[0]), len(set(rows[0])))    # no duplicate column names
+
+    def test_one_table_as_csv_and_whole_study(self):
+        job = self.download(self.pi, form='laboratory', dataset='labs')
+        self.assertEqual((job.status, job.fmt, job.dataset), ('done', 'csv', 'labs'), job.error)
+        job = self.download(self.pi, form='*')
+        self.assertEqual((job.status, job.fmt), ('done', 'xlsx'), job.error)
+        self.assertNotIn(':', job.file_name)
+
+    def test_form_dictionary(self):
+        self.client.force_login(self.pi)
+        self.assertContains(self.client.get(reverse('exports:codebook') + '?dataset=form:laboratory'), 'hb')
+        for fmt in ('xlsx', 'pdf'):
+            response = self.client.get(reverse('exports:codebook') + f'?dataset=form:treatment&format={fmt}')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('attachment', response['Content-Disposition'])
+
+    def test_disease_limited_staff_export_only_their_programme(self):
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        ProgrammeEnrollment.objects.create(patient=self.patient, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        cardiologist = self.make_user('cardio_f', 'PI / Co-Investigator', level='national')
+        cardiologist.diseases.add(self.cardiac)
+        job = self.download(cardiologist, form='laboratory', dataset='labs')
+        self.assertEqual((job.status, job.rows), ('done', 0), job.error)
+        job = self.download(self.pi, form='laboratory', dataset='labs')
+        self.assertEqual(job.rows, 3)

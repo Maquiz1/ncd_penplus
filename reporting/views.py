@@ -15,7 +15,7 @@ from audit.models import AuditEvent
 from audit.services import log_event
 from core.utils import add_months
 from facilities.scope import scope_description
-from patients.models import Patient
+from patients.models import Patient, PatientIdentifier
 
 from .models import ReportRun
 from .pdf import FilteredReportMixin
@@ -35,17 +35,19 @@ class PatientExportView(PermissionRequiredMixin, View):
         stamp = timezone.localtime().strftime('%Y%m%d-%H%M')
         response['Content-Disposition'] = f'attachment; filename="patient-register-{stamp}.csv"'
         writer = csv.writer(response)
-        header = ['patient_id', 'sex', 'age', 'registration_date', 'registration_facility', 'current_facility',
-                  'status', 'vital_status']
+        old_ids = dict(PatientIdentifier.objects.filter(id_type=PatientIdentifier.IdType.EDCS_STUDY)
+                       .values_list('patient_id', 'value'))
+        header = ['patient_id', 'old_edcs_id', 'sex', 'age', 'registration_date', 'registration_facility',
+                  'current_facility', 'status', 'vital_status']
         if with_identity:
-            header[1:1] = ['first_name', 'middle_name', 'last_name', 'date_of_birth', 'phone']
+            header[2:2] = ['first_name', 'middle_name', 'last_name', 'date_of_birth', 'phone']
         writer.writerow(header)
         count = 0
         for p in patients.iterator():
-            row = [p.patient_number, p.sex, p.age, p.registration_date, p.registration_facility.name,
-                   p.current_facility.name, p.status, p.vital_status]
+            row = [p.patient_number, old_ids.get(p.pk) or p.old_id or '', p.sex, p.age, p.registration_date,
+                   p.registration_facility.name, p.current_facility.name, p.status, p.vital_status]
             if with_identity:
-                row[1:1] = [p.first_name, p.middle_name, p.last_name, p.date_of_birth, p.phone]
+                row[2:2] = [p.first_name, p.middle_name, p.last_name, p.date_of_birth, p.phone]
             writer.writerow(row)
             count += 1
         log_event(request=request, action=AuditEvent.Action.EXPORT, model='patients.Patient',

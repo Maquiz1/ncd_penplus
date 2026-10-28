@@ -14,6 +14,7 @@ from audit.models import AuditEvent
 from audit.services import log_event
 from encounters.models import Appointment, Encounter
 from facilities.scope import facilities_for_user
+from patients.models import with_old_study_id
 
 from .detectors import MONTHLY_STAGES, visits_same_month
 from .models import DataIssue
@@ -28,7 +29,7 @@ class IssueListView(PermissionRequiredMixin, ListView):
         return DataIssue.objects.in_scope(self.request.user)
 
     def get_queryset(self):
-        qs = self.base().select_related('patient', 'facility', 'resolved_by')
+        qs = with_old_study_id(self.base().select_related('patient', 'facility', 'resolved_by'), 'patient')
         params = self.request.GET
         status = params.get('status', 'open')
         if status:

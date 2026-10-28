@@ -54,7 +54,7 @@ class SmsSettingsForm(BootstrapModelForm):
 
 class TestSmsForm(BootstrapForm):
     phone = forms.CharField(max_length=20, help_text='Your own mobile number, e.g. 0712 345 678.')
-    message = forms.CharField(max_length=160, initial='Test message from NCD - PENPLUS STUDY.',
+    message = forms.CharField(max_length=160, initial='Test message from NCD - PENPLUS CLINIC.',
                               widget=forms.Textarea(attrs={'rows': 2}))
 
     def clean_phone(self):

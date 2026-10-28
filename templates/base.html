@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ title|default:"NCD - PENPLUS STUDY" }}{% endblock %} · NCD - PENPLUS STUDY</title>
+  <title>{% block title %}{{ title|default:"NCD - PENPLUS CLINIC" }}{% endblock %} · NCD - PENPLUS CLINIC</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%230d6efd' d='M8 1.3 1 4.5v3.2c0 3.7 3 6.6 7 7 4-.4 7-3.3 7-7V4.5z'/></svg>">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
@@ -16,7 +16,7 @@
   <button class="btn btn-link text-white d-lg-none p-0 me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Menu">
     <i class="bi bi-list fs-3"></i>
   </button>
-  <a class="navbar-brand fw-semibold me-auto" href="{% url 'dashboard' %}"><i class="bi bi-heart-pulse-fill me-1"></i> NCD - PENPLUS STUDY</a>
+  <a class="navbar-brand fw-semibold me-auto" href="{% url 'dashboard' %}"><i class="bi bi-heart-pulse-fill me-1"></i> NCD - PENPLUS CLINIC</a>
   {% if perms.patients.view_patient %}
   <form class="d-none d-md-flex me-3" role="search" action="{% url 'patients:list' %}">
     <input class="form-control form-control-sm" type="search" name="q" placeholder="Find patient (ID{% if can_view_identity %}, name, phone{% endif %})" aria-label="Find patient">
@@ -147,8 +147,9 @@
             {% endif %}
             {% if perms.reporting.export_data %}
             <div class="sidebar-section">
-              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-exports" aria-expanded="false" aria-controls="nav-exports"><i class="bi bi-cloud-arrow-down"></i><span>Exports</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-exports" aria-expanded="false" aria-controls="nav-exports"><i class="bi bi-cloud-arrow-down"></i><span>Forms &amp; exports</span><i class="bi bi-chevron-down ms-auto"></i></button>
               <div class="collapse" id="nav-exports" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if '/exports/forms' in path %}active{% endif %}" href="{% url 'exports:forms' %}"><i class="bi bi-ui-checks"></i> Forms</a>
               <a class="nav-link {% if path == '/exports/' %}active{% endif %}" href="{% url 'exports:list' %}"><i class="bi bi-cloud-arrow-down"></i> Data exports</a>
               <a class="nav-link {% if '/exports/codebook' in path %}active{% endif %}" href="{% url 'exports:codebook' %}"><i class="bi bi-journal-code"></i> Codebook</a>
               </div>
@@ -194,12 +195,11 @@
   </div>
 </div>
 {% else %}
-<main class="auth-wrapper d-flex align-items-center justify-content-center py-5 px-3">
-  <div class="w-100" style="max-width: 420px;">
-    <div class="text-center mb-4">
-      <i class="bi bi-heart-pulse-fill text-primary display-5"></i>
-      <h1 class="h4 mt-2 mb-0">NCD - PENPLUS STUDY</h1>
-      <p class="text-body-secondary small">National Institute for Medical Research</p>
+<main class="login-page d-flex align-items-center justify-content-center py-5 px-3">
+  <div class="login-box">
+    <div class="login-logo">
+      <a href="{% url 'login' %}"><b>NCD - PENPLUS</b> CLINIC</a>
+      <div class="login-subtitle">National Institute for Medical Research</div>
     </div>
     {% if request.resolver_match.url_name != 'login' %}
     <a href="{% url 'login' %}" class="btn btn-sm btn-outline-secondary mb-3 js-back" data-fallback="{% url 'login' %}"><i class="bi bi-arrow-left"></i> Back</a>

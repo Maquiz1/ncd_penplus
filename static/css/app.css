@@ -1,5 +1,16 @@
 body { background-color: var(--bs-body-bg); }
-.auth-wrapper { min-height: 100vh; background: linear-gradient(160deg, var(--bs-primary-bg-subtle), var(--bs-body-bg)); }
+/* Logged-out pages (sign in, password reset): AdminLTE-style login box. */
+.login-page { min-height: 100vh; background: #e9ecef; }
+[data-bs-theme="dark"] .login-page { background: var(--bs-tertiary-bg); }
+.login-box { width: 100%; max-width: 360px; }
+.login-logo { text-align: center; margin-bottom: 1.1rem; }
+.login-logo a { font-size: clamp(1.35rem, 6vw, 1.8rem); white-space: nowrap; font-weight: 300; color: #495057; text-decoration: none; line-height: 1.2; }
+[data-bs-theme="dark"] .login-logo a { color: var(--bs-body-color); }
+.login-logo b { font-weight: 700; }
+.login-subtitle { font-size: .85rem; color: var(--bs-secondary-color); }
+.login-box .card { border: 0; border-top: 3px solid var(--bs-primary); box-shadow: 0 0 1px rgba(0,0,0,.125), 0 1px 3px rgba(0,0,0,.2); }
+.login-box-msg { text-align: center; color: var(--bs-secondary-color); margin-bottom: 1.1rem; }
+.login-box .input-group-text { background: transparent; color: var(--bs-secondary-color); }
 @media (min-width: 992px) {
   aside .offcanvas-lg { position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
 }
@@ -11,7 +22,7 @@ body { background-color: var(--bs-body-bg); }
 .stat-card a { text-decoration: none; color: inherit; }
 .table td, .table th { vertical-align: middle; }
 .nav-tabs .nav-link { white-space: nowrap; }
-.tab-scroll { overflow-x: auto; flex-wrap: nowrap; }
+.tab-scroll { overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap; }
 .dl-compact dt { font-weight: 500; color: var(--bs-secondary-color); }
 .dl-compact dd { margin-bottom: .4rem; }
 [data-show-if].is-hidden { display: none; }

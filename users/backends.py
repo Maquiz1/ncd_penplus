@@ -18,7 +18,8 @@ class AccessBackend(ModelBackend):
         """Log in with the username or, when it belongs to exactly one account, the email address."""
         if username and '@' in username:
             from django.contrib.auth import get_user_model
-            matches = list(get_user_model()._default_manager.filter(email__iexact=username.strip())[:2])
+            matches = list(get_user_model()._default_manager.filter(email__iexact=username.strip(),
+                                                                    is_deleted=False)[:2])
             if len(matches) == 1:
                 username = matches[0].get_username()
         return super().authenticate(request, username=username, password=password, **kwargs)

@@ -1,4 +1,4 @@
-# NCD - PENPLUS STUDY on the Hostinger server (/opt/ncd-penplus), https://penplus.tamris.org
+# NCD - PENPLUS CLINIC on the Hostinger server (/opt/ncd-penplus), https://penplus.tamris.org
 #
 # Like the other apps on the server, the web container listens only on 127.0.0.1:WEB_PORT (default 8090) and the
 # host nginx forwards penplus.tamris.org to it (docker/nginx-penplus.conf); certbot adds HTTPS.

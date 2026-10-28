@@ -1,4 +1,4 @@
-# Deploying NCD - PENPLUS STUDY (Hostinger, Docker + PostgreSQL)
+# Deploying NCD - PENPLUS CLINIC (Hostinger, Docker + PostgreSQL)
 
 Server: `31.97.187.66`, project folder `/opt/ncd-penplus`. Same approach as tamris and todolist.
 

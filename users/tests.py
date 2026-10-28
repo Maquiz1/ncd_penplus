@@ -1,3 +1,4 @@
+from django.contrib.auth.models import Permission
 from django.core import mail
 from django.core.management import call_command
 from django.urls import reverse
@@ -221,23 +222,50 @@ class AccountLoginAndActivationTests(BaseTestCase):
         self.client.post(reverse('password_reset'), {'email': 'NEEMA.JUMA@example.org'})
         self.assertEqual([m.to for m in mail.outbox], [['neema.juma@example.org']])
 
-    def test_delete_unused_account_only(self):
-        self.create(username='mistake')
-        unused = User.objects.get(username='mistake')
-        self.client.post(reverse('users:delete', args=[unused.pk]))
-        self.assertFalse(User.objects.filter(pk=unused.pk).exists())
+    def test_delete_keeps_account_and_superuser_restores(self):
+        self.client.force_login(self.admin)
         used = self.clinician_ilala
         AuditEvent.objects.create(actor=used, action='login')
-        self.client.post(reverse('users:delete', args=[used.pk]))
-        self.assertTrue(User.objects.filter(pk=used.pk).exists())  # has records: deactivate instead
-        self.client.post(reverse('users:toggle_active', args=[used.pk]))
+        self.client.post(reverse('users:delete', args=[used.pk]), {'reason': 'Left the project'})
+        used.refresh_from_db()
+        self.assertEqual((used.is_deleted, used.is_active, used.deleted_by, used.deletion_reason),
+                         (True, False, self.admin, 'Left the project'))
+        self.assertFalse(self.client.login(username=used.username, password='Str0ng-pass-123'))
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('users:list') + '?status=deleted')
+        self.assertContains(response, used.username)
+        self.assertContains(response, 'Left the project')
+        self.assertNotContains(self.client.get(reverse('users:list')), f'>{used.username}<')
+        self.client.post(reverse('users:toggle_active', args=[used.pk]))   # deleted: cannot be reactivated directly
         used.refresh_from_db()
         self.assertFalse(used.is_active)
+        self.client.post(reverse('users:restore', args=[used.pk]))
+        used.refresh_from_db()
+        self.assertFalse(used.is_deleted)
         self.client.post(reverse('users:toggle_active', args=[used.pk]))
         used.refresh_from_db()
         self.assertTrue(used.is_active)
-        self.client.force_login(self.clinician_ilala)
+        self.client.post(reverse('users:toggle_active', args=[used.pk]))
+        used.refresh_from_db()
+        self.assertFalse(used.is_active)
+        self.assertContains(self.client.get(reverse('users:list') + '?status=inactive'), used.username)
+        self.client.force_login(self.clinician_mwanza)
         self.assertEqual(self.client.post(reverse('users:delete', args=[self.admin.pk])).status_code, 403)
+
+    def test_only_superuser_restores(self):
+        manager = self.make_user('dm_del', 'Data Manager', level='national')
+        manager.user_permissions.add(*Permission.objects.filter(codename='delete_user'))
+        self.client.force_login(self.admin)
+        self.client.post(reverse('users:delete', args=[self.clinician_ilala.pk]))
+        self.client.force_login(manager)
+        self.assertEqual(self.client.post(reverse('users:restore', args=[self.clinician_ilala.pk])).status_code, 403)
+
+    def test_staff_list_tabs_and_last_login(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('users:list'))
+        self.assertContains(response, 'Not activated yet')
+        self.assertContains(response, 'Never logged in')
+        self.assertContains(response, 'Last login')
 
     def test_activation_link_opened_by_logged_in_admin(self):
         import re
@@ -263,6 +291,6 @@ class AccountLoginAndActivationTests(BaseTestCase):
         self.client.logout()
         self.client.post(reverse('password_reset'), {'email': 'neema.juma@example.org'})
         reset = mail.outbox[-1]
-        self.assertIn('NCD - PENPLUS STUDY', reset.subject)
+        self.assertIn('NCD - PENPLUS CLINIC', reset.subject)
         reset_link = re.search(r'https?://\S+/accounts/reset/\S+/', reset.body).group(0)
         self.assertIn(f'href="{reset_link}"', reset.alternatives[0][0])

@@ -3,10 +3,10 @@ from django.contrib.auth.decorators import login_not_required
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
-from django.db.models import Count, ProtectedError, Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
@@ -32,20 +32,43 @@ def staff_in_scope(user):
     return qs.filter(Q(assignments__facility__in=facilities) | Q(pk=user.pk)).filter(is_superuser=False).distinct()
 
 
+STAFF_TABS = [
+    ('all', 'All', Q(is_deleted=False)),
+    ('active', 'Active', Q(is_deleted=False, is_active=True)),
+    ('inactive', 'Deactivated', Q(is_deleted=False, is_active=False)),
+    ('not_activated', 'Not activated yet', Q(is_deleted=False, password__startswith='!')),
+    ('deleted', 'Deleted', Q(is_deleted=True)),
+]
+
+
 class StaffListView(PermissionRequiredMixin, ListView):
     permission_required = 'users.view_user'
     template_name = 'users/staff_list.html'
     paginate_by = 25
 
-    def get_queryset(self):
-        qs = staff_in_scope(self.request.user).select_related('position').prefetch_related('groups', 'assignments')
+    def scoped(self):
+        qs = staff_in_scope(self.request.user)
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(email__icontains=q))
-        status = self.request.GET.get('status')
-        if status in ('active', 'inactive'):
-            qs = qs.filter(is_active=status == 'active')
-        return qs.order_by('username')
+        return qs
+
+    def tab(self):
+        status = self.request.GET.get('status', 'all')
+        return next((t for t in STAFF_TABS if t[0] == status), STAFF_TABS[0])
+
+    def get_queryset(self):
+        return (self.scoped().filter(self.tab()[2]).select_related('position', 'deleted_by')
+                .prefetch_related('groups', 'assignments').order_by('username'))
+
+    def get_context_data(self, **kwargs):
+        scoped = self.scoped()
+        counts = scoped.aggregate(**{key: Count('pk', filter=condition, distinct=True) for key, _l, condition in STAFF_TABS})
+        recent = timezone.now() - timezone.timedelta(days=30)
+        return super().get_context_data(
+            tabs=[(key, label, counts[key]) for key, label, _c in STAFF_TABS], status=self.tab()[0],
+            logged_in_30d=scoped.filter(is_deleted=False, last_login__gte=recent).count(),
+            never_logged_in=scoped.filter(is_deleted=False, last_login__isnull=True).count(), **kwargs)
 
 
 class StaffDetailView(PermissionRequiredMixin, DetailView):
@@ -147,6 +170,9 @@ class StaffToggleActiveView(PermissionRequiredMixin, View):
         if staff == request.user:
             messages.error(request, 'You cannot deactivate your own account.')
             return redirect('users:detail', pk=pk)
+        if staff.is_deleted:
+            messages.error(request, 'This account is deleted. A superuser can restore it first.')
+            return redirect('users:detail', pk=pk)
         staff.is_active = not staff.is_active
         staff.save(update_fields=['is_active'])
         log_event(request=request, action=AuditEvent.Action.ACCOUNT, obj=staff,
@@ -194,29 +220,41 @@ class StaffSetPasswordView(PermissionRequiredMixin, View):
 
 
 class StaffDeleteView(PermissionRequiredMixin, View):
-    """Delete an account created by mistake. Accounts that recorded anything are kept for attribution and can
-    only be deactivated."""
+    """Delete an account: it can no longer log in and moves to the Deleted tab. The account is kept so the records
+    the person entered keep their name; a superuser can restore it."""
 
     permission_required = 'users.delete_user'
 
     def post(self, request, pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        staff = get_object_or_404(staff_in_scope(request.user), pk=pk, is_deleted=False)
         if staff == request.user or staff.is_superuser:
             messages.error(request, 'You cannot delete your own account or a superuser.')
             return redirect('users:detail', pk=pk)
-        label = f'{staff.display_name} ({staff.username})'
-        try:
-            with transaction.atomic():
-                log_event(request=request, action=AuditEvent.Action.ACCOUNT, obj=staff,
-                          reason=f'Account deleted: {label}. ' + request.POST.get('reason', ''))
-                staff.delete()
-        except ProtectedError:
-            messages.error(request, f'{label} has records in the system (visits, results, audit entries…), so the '
-                                    'account cannot be deleted. Deactivate it instead: the person can no longer log '
-                                    'in and their records keep their name.')
-            return redirect('users:detail', pk=pk)
-        messages.success(request, f'Account {label} deleted.')
+        reason = request.POST.get('reason', '').strip()[:255]
+        staff.is_deleted, staff.is_active = True, False
+        staff.deleted_at, staff.deleted_by, staff.deletion_reason = timezone.now(), request.user, reason
+        staff.save(update_fields=['is_deleted', 'is_active', 'deleted_at', 'deleted_by', 'deletion_reason'])
+        log_event(request=request, action=AuditEvent.Action.DELETE, obj=staff,
+                  reason=f'Account deleted: {staff.display_name} ({staff.username}). {reason}'.strip())
+        messages.success(request, f'Account {staff.display_name} ({staff.username}) deleted. It is listed under Deleted.')
         return redirect('users:list')
+
+
+class StaffRestoreView(PermissionRequiredMixin, View):
+    """Superusers only: bring back a deleted account. It stays deactivated until someone reactivates it."""
+
+    permission_required = 'users.delete_user'
+
+    def post(self, request, pk):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        staff = get_object_or_404(User, pk=pk, is_deleted=True)
+        staff.is_deleted, staff.deleted_at, staff.deleted_by, staff.deletion_reason = False, None, None, ''
+        staff.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'deletion_reason'])
+        log_event(request=request, action=AuditEvent.Action.RESTORE, obj=staff, reason='Account restored')
+        messages.success(request, f'Account {staff.username} restored. It is deactivated: reactivate it when the '
+                                  'person should log in again.')
+        return redirect('users:detail', pk=pk)
 
 
 class StaffResendActivationView(PermissionRequiredMixin, View):
