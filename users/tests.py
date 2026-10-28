@@ -251,3 +251,18 @@ class AccountLoginAndActivationTests(BaseTestCase):
                                                           'new_password2': 'Neema-pass-7731'})
         self.assertTrue(User.objects.get(email='neema.juma@example.org').check_password('Neema-pass-7731'))
         self.assertNotIn('_auth_user_id', self.client.session)  # nobody is logged in as the admin any more
+
+    def test_activation_and_reset_emails_have_html_with_the_link(self):
+        import re
+        self.create(email='neema.juma@example.org')
+        message = mail.outbox[-1]
+        html = message.alternatives[0][0]
+        link = re.search(r'https?://\S+/accounts/reset/\S+/', message.body).group(0)
+        self.assertIn(f'href="{link}"', html)
+        self.assertIn('Set your password', html)
+        self.client.logout()
+        self.client.post(reverse('password_reset'), {'email': 'neema.juma@example.org'})
+        reset = mail.outbox[-1]
+        self.assertIn('NCD - PENPLUS STUDY', reset.subject)
+        reset_link = re.search(r'https?://\S+/accounts/reset/\S+/', reset.body).group(0)
+        self.assertIn(f'href="{reset_link}"', reset.alternatives[0][0])

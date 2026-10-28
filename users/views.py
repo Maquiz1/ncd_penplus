@@ -304,6 +304,7 @@ class StaffBulkActivationView(PermissionRequiredMixin, View):
 
 class LoggedPasswordResetView(auth_views.PasswordResetView):
     form_class = LoggedPasswordResetForm
+    html_email_template_name = 'registration/password_reset_email_html.html'
 
     @property
     def extra_email_context(self):

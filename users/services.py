@@ -27,7 +27,9 @@ def send_activation_email(user, sent_by=None):
     }
     send_logged_email(user.email, f'Your {settings.SITE_NAME} account',
                       render_to_string('users/activation_email.txt', context),
-                      purpose='activation', user=user, sent_by=sent_by)
+                      purpose='activation', user=user, sent_by=sent_by,
+                      html_body=render_to_string('users/activation_email.html',
+                                                 {**context, 'action_url': context['activation_url']}))
 
 
 def pending_activation(users, migrated_only=False):

@@ -1,0 +1,13 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}Your account is ready{% endblock %}{% block heading2 %}Your account is ready{% endblock %}
+{% block body %}
+<p style="margin:0 0 12px;">Hello {{ user.get_full_name|default:user.username }},</p>
+<p style="margin:0 0 12px;">An account has been created for you on <strong>{{ site_name }}</strong>.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px;margin:0 0 4px;">
+  <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Address</td><td><a href="{{ site_url }}" style="color:#0d6efd;">{{ site_url }}</a></td></tr>
+  <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Username</td><td><strong>{{ user.username }}</strong>{% if user.email %} (or your email){% endif %}</td></tr>
+</table>
+<p style="margin:12px 0 0;">Choose your own password with the button below. The link works once and expires in {{ valid_days }} days.</p>
+{% endblock %}
+{% block action_label %}Set your password{% endblock %}
+{% block footer %}No password is included in this email. If you were not expecting this account, contact your facility administrator.{% endblock %}

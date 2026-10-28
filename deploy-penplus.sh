@@ -18,25 +18,12 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/penplus}"
-STAMP="$(date +%F_%H%M)"
-mkdir -p "$BACKUP_DIR"
-chmod 700 "$BACKUP_DIR"
-
 # 1. Backups -------------------------------------------------------------------
 if docker compose ps --status running --services 2>/dev/null | grep -qx penplus-db; then
-    echo "Backing up the database to $BACKUP_DIR/db_$STAMP.dump ..."
-    docker compose exec -T penplus-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP_DIR/db_$STAMP.dump"
-    if [ ! -s "$BACKUP_DIR/db_$STAMP.dump" ]; then
-        echo "Database backup is empty. Stopping before any change is made." >&2
-        exit 1
-    fi
-    echo "Backing up uploaded files to $BACKUP_DIR/media_$STAMP.tar.gz ..."
-    docker compose run --rm --no-deps -T --entrypoint tar penplus-web czf - -C /app/private_media . \
-        > "$BACKUP_DIR/media_$STAMP.tar.gz"
-    git rev-parse HEAD > "$BACKUP_DIR/commit_$STAMP.txt" 2>/dev/null || true
+    DB_BACKUP="$(./backup-penplus.sh before_deploy | tail -n1)"
 else
     echo "Database container is not running yet (first deployment?): skipping backup."
+    DB_BACKUP=""
 fi
 
 # 2. Build ---------------------------------------------------------------------
@@ -76,7 +63,8 @@ echo
 docker compose ps
 echo
 echo "Deployment completed. Check from the server:  curl -sI http://127.0.0.1:\${WEB_PORT:-8090}/accounts/login/"
-echo "Backups: $BACKUP_DIR"
-echo
-echo "To roll back the code:    git checkout \$(cat $BACKUP_DIR/commit_$STAMP.txt) && docker compose build penplus-web && docker compose up -d"
-echo "To restore the database:  docker compose exec -T penplus-db sh -c 'pg_restore --clean --if-exists -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"' < $BACKUP_DIR/db_$STAMP.dump"
+if [ -n "$DB_BACKUP" ]; then
+    echo "Backup from before this deployment: $DB_BACKUP"
+    echo "To roll back the code:    git checkout \$(cat ${DB_BACKUP%_db.dump}_commit.txt) && docker compose build penplus-web && docker compose up -d"
+    echo "To restore the database:  docker compose exec -T penplus-db sh -c 'pg_restore --clean --if-exists -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"' < $DB_BACKUP"
+fi

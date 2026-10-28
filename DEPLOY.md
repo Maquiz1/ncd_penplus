@@ -59,9 +59,23 @@ docker compose exec penplus-web python manage.py detect_data_issues
 docker compose restart penplus-web penplus-worker penplus-beat     # after changing .env
 ```
 
-## Importing EDCS data
+## Backups
 
-Two scripts, run in this order:
+```bash
+cd /opt/ncd-penplus && ./backup-penplus.sh            # database, uploaded files and code version
+```
+Backups go to `~/backups/penplus` and are kept for 30 days (`KEEP_DAYS`). `deploy-penplus.sh` and the import script make one automatically before changing anything. For a daily backup, add with `crontab -e`:
+```
+30 1 * * * cd /opt/ncd-penplus && ./backup-penplus.sh daily >> ~/backups/penplus/backup.log 2>&1
+```
+Copy backups off the server regularly. To restore one:
+```bash
+docker compose exec -T penplus-db sh -c 'pg_restore --clean --if-exists -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ~/backups/penplus/<file>_db.dump
+```
+
+## Importing EDCS data (until go-live)
+
+While staff still work in the old EDCS, import a fresh dump whenever you need up-to-date reports and indicators:
 
 1. **On your computer**, copy the dump to the server:
    ```bash
@@ -70,13 +84,18 @@ Two scripts, run in this order:
    ```
    It goes to `/root/edc.sql.gz` (root only). If a dump is already there, the script asks before replacing it.
 
-2. **On the server** (inside `tmux`, because it takes about 1–1.5 hours):
+2. **On the server** (inside `tmux`, it takes about an hour):
    ```bash
    cd /opt/ncd-penplus && ./import-edcs-penplus.sh
    ```
-   It stops if `/root/edc.sql.gz` is missing. Otherwise it backs up the database, loads the dump into a temporary MySQL, shows a dry run and asks before the real import. Then it refreshes locations and data-quality checks. The MySQL container is always removed; the dump is deleted after a successful import.
+   It **replaces** the EDCS patient data with the new dump, so edits and deletions made in the old system are included. Staff accounts, roles, facilities, catalogues and settings are kept, and patients get the same numbers again. It backs up first and restores that backup by itself if the import fails. The temporary MySQL is always removed; the dump is deleted after a successful import.
 
-Re-running with a newer dump is safe: records already imported are recognised, so only new data is added. The script prints the command to undo the import from its backup.
+   The replace step **refuses** when anything was entered directly in this system since the last import, so real data can't be wiped by mistake. Test entries made while trying the system out block it too: check what it lists, and if it really is only testing, run
+   `docker compose exec penplus-web python manage.py reset_imported_data --force` once, then the script again.
+
+   `--add-only` keeps the existing data and only adds records not imported before (with a dry run first).
+
+**After go-live** staff enter data directly here: stop importing. Updates are just `git pull && ./deploy-penplus.sh`.
 
 ## Go-live
 

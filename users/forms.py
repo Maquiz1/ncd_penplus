@@ -163,8 +163,13 @@ class LoggedPasswordResetForm(PasswordResetForm):
 
     def send_mail(self, subject_template_name, email_template_name, context, from_email, to_email,
                   html_email_template_name=None):
+        from django.conf import settings
+        from django.urls import reverse
+
         from notifications.email import send_logged_email
 
+        context = {**context, 'site_name': settings.SITE_NAME, 'action_url': context.get('site_url', '') + reverse(
+            'password_reset_confirm', kwargs={'uidb64': context['uid'], 'token': context['token']})}
         subject = ''.join(render_to_string(subject_template_name, context).splitlines())
         body = render_to_string(email_template_name, context)
         html_body = render_to_string(html_email_template_name, context) if html_email_template_name else None

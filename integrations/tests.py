@@ -257,3 +257,36 @@ class LegacyHelperTests(TestCase):
         self.assertEqual(legacy_test_values({'units': 'Positive or Negative'})['choices'], 'Negative\n!Positive')
         self.assertEqual(legacy_test_values({'units': 'ng/ml', 'minimum': '0.5', 'maximum': '2.0'})['result_type'], 'numeric')
         self.assertEqual(legacy_test_values({'units': '-', 'minimum': '0', 'maximum': '0'}), {'result_type': 'text'})
+
+
+class ResetImportedDataTests(TestCase):
+    def test_removes_patient_rows_only_and_refuses_after_direct_entry(self):
+        from django.core.management.base import CommandError
+
+        from audit.models import AuditEvent
+        from notifications.models import SmsMessage
+        from patients.models import PatientIdSequence
+        from users.models import User
+        call_command('setup_penplus', stdout=open('/dev/null', 'w'))
+        Importer(FakeReader(edcs_data()), log=lambda *a: None).run()
+        test_sms = SmsMessage.objects.create(purpose='test', phone='255712000111', body='Test')
+        staff = User.objects.count()
+        numbers = sorted(Patient.all_objects.values_list('patient_number', flat=True))
+        self.assertTrue(numbers and Encounter.objects.exists())
+
+        call_command('reset_imported_data', stdout=open('/dev/null', 'w'))
+        self.assertFalse(Patient.all_objects.exists() or Encounter.all_objects.exists() or Vitals.all_objects.exists())
+        self.assertFalse(ExternalRecord.objects.filter(content_type__model='patient').exists())
+        self.assertEqual((User.objects.count(), SmsMessage.objects.filter(pk=test_sms.pk).exists()), (staff, True))
+        self.assertFalse(PatientIdSequence.objects.exists())
+
+        Importer(FakeReader(edcs_data()), log=lambda *a: None).run()  # fresh import: same patient numbers
+        self.assertEqual(sorted(Patient.all_objects.values_list('patient_number', flat=True)), numbers)
+
+        clerk = User.objects.create(username='clerk')
+        AuditEvent.objects.create(actor=clerk, action='create', model='patients.Patient', object_id='1')  # entered here
+        with self.assertRaises(CommandError):
+            call_command('reset_imported_data', stdout=open('/dev/null', 'w'))
+        self.assertTrue(Patient.all_objects.exists())
+        call_command('reset_imported_data', '--force', stdout=open('/dev/null', 'w'))  # it was only testing
+        call_command('reset_imported_data', stdout=open('/dev/null', 'w'))  # the forced test entries no longer block
