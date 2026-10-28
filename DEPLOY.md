@@ -68,10 +68,18 @@ Backups go to `~/backups/penplus` and are kept for 30 days (`KEEP_DAYS`). `deplo
 ```
 30 1 * * * cd /opt/ncd-penplus && ./backup-penplus.sh daily >> ~/backups/penplus/backup.log 2>&1
 ```
-Copy backups off the server regularly. To restore one:
+Copy backups off the server regularly.
+
+## Restoring a backup
+
 ```bash
-docker compose exec -T penplus-db sh -c 'pg_restore --clean --if-exists -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ~/backups/penplus/<file>_db.dump
+cd /opt/ncd-penplus
+./restore-penplus.sh                 # lists the backups, newest first; pick a number (Enter = latest)
+./restore-penplus.sh latest          # or straight to the latest
+./restore-penplus.sh 2026-10-28      # or the latest of a given day
+./restore-penplus.sh latest --with-media   # also put back uploaded files (reports, attachments)
 ```
+It asks for confirmation, backs up the current state first (`before_restore`), stops the app, restores the database in one transaction (on an error nothing changes), runs migrations for the current code and starts the app again. It prints the command to undo the restore. "Latest" skips those `before_restore` safety backups, so running it twice does not undo the first restore.
 
 ## Importing EDCS data (until go-live)
 
