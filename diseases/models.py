@@ -24,7 +24,7 @@ class Condition(TimeStampedModel):
     is_default = models.BooleanField('Default for the disease', default=False,
                                      help_text='Used when no keyword matches (e.g. "Other cardiac condition").')
     excludes = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='+',
-                                      help_text='Do not count a patient here if they also have one of these '
+                                      help_text='Do not count a subject here if they also have one of these '
                                                 '(e.g. Heart failure excludes RHD and congenital heart disease).')
     order = models.PositiveSmallIntegerField(default=10)
     is_active = models.BooleanField(default=True)

@@ -2,11 +2,12 @@
 {% block title %}{{ patient.patient_number }}{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap gap-2 mb-3">
-  {% if perms.encounters.add_encounter %}<a class="btn btn-primary btn-sm" href="{% url 'encounters:encounter_add' patient.pk %}"><i class="bi bi-plus-circle"></i> New encounter</a>{% endif %}
-  {% if perms.encounters.add_appointment %}<a class="btn btn-outline-primary btn-sm" href="{% url 'encounters:appointment_add' patient.pk %}"><i class="bi bi-calendar-plus"></i> Appointment</a>{% endif %}
   {% if perms.clinical.add_screening %}<a class="btn btn-outline-primary btn-sm" href="{% url 'clinical:screening_add' patient.pk %}"><i class="bi bi-search-heart"></i> Screening</a>{% endif %}
-  {% if perms.laboratory.add_laborder %}<a class="btn btn-outline-primary btn-sm" href="{% url 'laboratory:lab_add' patient.pk %}"><i class="bi bi-droplet-half"></i> Lab order</a>{% endif %}
+  {% if perms.encounters.add_encounter %}<a class="btn btn-outline-primary btn-sm" href="{% url 'encounters:encounter_add' patient.pk %}"><i class="bi bi-plus-circle"></i> New visit</a>{% endif %}
+  {% if perms.encounters.add_appointment %}<a class="btn btn-outline-primary btn-sm" href="{% url 'encounters:appointment_add' patient.pk %}"><i class="bi bi-calendar-plus"></i> Appointment</a>{% endif %}
+  {% if perms.laboratory.add_laborder or perms.investigations.add_investigationorder %}<a class="btn btn-outline-primary btn-sm" href="{% url 'investigations:request' patient.pk %}"><i class="bi bi-droplet-half"></i> Investigations</a>{% endif %}
   {% if perms.pharmacy.add_prescription and not patient.is_deceased %}<a class="btn btn-outline-primary btn-sm" href="{% url 'pharmacy:prescription_add' patient.pk %}"><i class="bi bi-capsule"></i> Prescribe</a>{% endif %}
+  {% if perms.patients.view_subject_summary %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'patients:summary' patient.pk %}"><i class="bi bi-file-earmark-medical"></i> Summary</a>{% endif %}
   <div class="dropdown">
     <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">More actions</button>
     <ul class="dropdown-menu">
@@ -21,15 +22,17 @@
 </div>
 {% if open_transfer %}<div class="alert alert-info py-2"><i class="bi bi-arrow-left-right"></i> Transfer {{ open_transfer.get_status_display|lower }}: {{ open_transfer.from_facility }} → {{ open_transfer.to_facility }}. <a href="{% url 'patients:transfers' %}">Open transfers</a></div>{% endif %}
 
+{% include "patients/_flow.html" %}
+
 <ul class="nav nav-tabs tab-scroll mb-3" role="tablist">
   <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#screening" type="button">Screening <span class="badge text-bg-light">{{ screenings|length }}</span></button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#clinical" type="button">Diagnoses &amp; programmes</button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#research" type="button">Research <span class="badge text-bg-light">{{ study_enrollments|length }}</span></button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#visits" type="button">Visits &amp; encounters</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#visits" type="button">Visits &amp; appointments</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#labs" type="button">Labs &amp; investigations</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#medications" type="button">Medications</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#forms" type="button">Forms <span class="badge text-bg-light">{{ submissions|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#research" type="button">Research <span class="badge text-bg-light">{{ study_enrollments|length }}</span></button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#transfers" type="button">Facility history</button></li>
 </ul>
 
@@ -39,7 +42,7 @@
     <div class="row g-3">
       <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Registration</div><div class="card-body">
         <dl class="row dl-compact mb-0">
-          <dt class="col-5">Patient ID</dt><dd class="col-7">{{ patient.patient_number }}</dd>
+          <dt class="col-5">Subject ID</dt><dd class="col-7">{{ patient.patient_number }}</dd>
           {% if patient.old_id %}<dt class="col-5">Old ID</dt><dd class="col-7">{{ patient.old_study_id|default:patient.old_id }} <span class="small text-body-secondary">(EDCS study ID{% if patient.old_study_id %}; client no. {{ patient.old_id }}{% endif %})</span></dd>{% endif %}
           {% if can_view_identity %}
           <dt class="col-5">Full name</dt><dd class="col-7">{{ patient.full_name }}</dd>
@@ -89,9 +92,10 @@
       {% empty %}<tr><td colspan="8" class="text-body-secondary">No screenings.</td></tr>{% endfor %}</tbody>
     </table></div></div>
     <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Pre-screening</div><div class="table-responsive"><table class="table table-sm mb-0">
-      <thead><tr><th>Date</th><th>Facility</th><th>In area</th><th>Expected stay</th><th>Disposition</th></tr></thead>
-      <tbody>{% for s in prescreenings %}<tr><td>{{ s.date|date:"d M Y" }}</td><td>{{ s.facility }}</td><td>{{ s.resides_in_area|yesno:"Yes,No" }}</td><td>{{ s.expected_stay_months|default:"—" }}</td><td>{{ s.get_disposition_display }}</td></tr>
-      {% empty %}<tr><td colspan="5" class="text-body-secondary">No pre-screening recorded.</td></tr>{% endfor %}</tbody>
+      <thead><tr><th>Date</th><th>Facility</th><th>In area</th><th>Expected stay</th><th>Disposition</th><th></th></tr></thead>
+      <tbody>{% for s in prescreenings %}<tr><td>{{ s.date|date:"d M Y" }}</td><td>{{ s.facility }}</td><td>{{ s.resides_in_area|yesno:"Yes,No" }}</td><td>{{ s.expected_stay_months|default:"—" }}</td><td>{{ s.get_disposition_display }}</td>
+        <td class="text-end text-nowrap">{% if perms.clinical.change_prescreening %}<a href="{% url 'clinical:prescreening_update' s.pk %}">Edit</a>{% endif %}{% if perms.clinical.delete_prescreening %} · <a class="text-danger" href="{% url 'clinical:prescreening_delete' s.pk %}">Delete</a>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="6" class="text-body-secondary">No pre-screening recorded.</td></tr>{% endfor %}</tbody>
     </table></div></div>
   </div>
 
@@ -192,8 +196,7 @@
   {# ---------------- labs ---------------- #}
   <div class="tab-pane fade" id="labs" role="tabpanel">
     <div class="d-flex gap-2 mb-2">
-      {% if perms.laboratory.add_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:lab_add' patient.pk %}"><i class="bi bi-plus"></i> Lab order</a>{% endif %}
-      {% if perms.investigations.add_investigationorder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'investigations:add' patient.pk %}"><i class="bi bi-plus"></i> ECG / echo / imaging</a>{% endif %}
+      {% if perms.laboratory.add_laborder or perms.investigations.add_investigationorder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'investigations:request' patient.pk %}"><i class="bi bi-plus"></i> Request investigations</a>{% endif %}
     </div>
     <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Laboratory</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>Ordered</th><th>Test</th><th>Status</th><th>Result</th><th>Reference</th></tr></thead>
@@ -239,7 +242,7 @@
   {# ---------------- forms ---------------- #}
   <div class="tab-pane fade" id="forms" role="tabpanel">
     {% if perms.crf.add_formsubmission %}
-    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Forms that apply to this patient</div><div class="card-body d-flex flex-wrap gap-2">
+    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Forms that apply to this subject</div><div class="card-body d-flex flex-wrap gap-2">
       {% for v in available_forms %}<a class="btn btn-sm btn-outline-primary" href="{% url 'crf:submission_add' patient.pk v.pk %}"><i class="bi bi-ui-checks"></i> {{ v.definition.name }} <span class="badge text-bg-light">v{{ v.number }}</span></a>
       {% empty %}<span class="text-body-secondary">No published forms apply yet. Disease-specific forms appear after screening, diagnosis or programme enrollment for that disease.</span>{% endfor %}
     </div><div class="card-footer bg-body small text-body-secondary">To link a form to a visit, open it from the encounter page instead.</div></div>

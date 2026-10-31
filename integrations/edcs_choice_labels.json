@@ -1,0 +1,1316 @@
+{
+ "abnorminal_pain": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "accompany": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "accompany_occupation": {
+  "1": "Employed",
+  "2": "Self employed",
+  "3": "Unemployed",
+  "4": "Farmer",
+  "5": "Fisher",
+  "6": "Student",
+  "7": "Housewife",
+  "96": "Other"
+ },
+ "active_smoker": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "acute_chest": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "acute_symptoms": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "affect_social": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "affect_social_how": {
+  "1": "Divorce",
+  "2": "Loss of Job",
+  "3": "Dropped out of school",
+  "4": "Separated from spouse/partner",
+  "5": "Disruption of sexual life",
+  "6": "Sick child",
+  "96": "Other (specify)"
+ },
+ "alcohol": {
+  "1": "Yes, currently",
+  "2": "Yes, in the past",
+  "3": "never"
+ },
+ "alcohol_type": {
+  "1": "Regular beer",
+  "2": "Spirits",
+  "3": "wine",
+  "96": "other"
+ },
+ "arrhythmia": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "art": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "awaiting_surgery": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "bank_account": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "basal_changed": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "basal_insulin": {
+  "1": "NPH",
+  "2": "Analog"
+ },
+ "blood_group": {
+  "1": "A+",
+  "2": "A-",
+  "3": "B+",
+  "4": "B-",
+  "5": "0+",
+  "6": "0-",
+  "7": "AB+",
+  "8": "AB-"
+ },
+ "blood_transfusion": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "breathing": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "cardiac": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cardiac_disease": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unknown"
+ },
+ "cardiac_surgery": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cardiac_surgery_type": {
+  "1": "Valve Surgery",
+  "2": "Defect repair",
+  "96": "Other"
+ },
+ "cardiology": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cardiomyopathy": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cardiovascular": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cataracts": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cause_death": {
+  "1": "NCD",
+  "2": "Unknown",
+  "96": "Other"
+ },
+ "chemistry_test": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "chemistry_test2": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "chest_pain": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "ckd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "clock": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_avn": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_cardiovascular": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_ckd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_depression": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_dysfunction": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_hypersplenism": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_neuropathy": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_other": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_pain_event": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_pneumonia": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_priapism": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_pvd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_renal": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_retinopathy": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_stroke": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_syndrome": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_transfusion": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_ulcer": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cmplctn_visual_loss": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "completed": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "confirmatory_test": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "confirmatory_test_type": {
+  "1": "HPLC",
+  "2": "HBE",
+  "3": "IEF",
+  "4": "Basique",
+  "5": "Acide",
+  "6": "HEMOTYPE SC",
+  "7": "SICKLE SCAN"
+ },
+ "congenital": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "congenital_defect": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unseen"
+ },
+ "contributer_occupation": {
+  "1": "Employed",
+  "2": "Self employed",
+  "3": "Unemployed",
+  "4": "Farmer",
+  "5": "Fisher",
+  "6": "Student",
+  "7": "Housewife",
+  "96": "Other"
+ },
+ "cooking_fuel": {
+  "1": "Electricity",
+  "2": "LPG/ natural gas/ biogas",
+  "3": "Kerosene",
+  "4": "coal/lignite/ charcoal",
+  "5": "wood/ straw/shrub/grass/agricultural crop animal dung",
+  "6": "no food cooked",
+  "96": "Other"
+ },
+ "coronary_artery": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "cough": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unsure"
+ },
+ "day_hungry": {
+  "1": "Never, rarely(once or twice)",
+  "2": "Sometimes ( 3 \u2013 10 times )",
+  "3": "Often ( > 10 times )"
+ },
+ "depression": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "diabetes": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "diabetic_disease": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unknown"
+ },
+ "diagnosis": {
+  "1": "Type 1 DM",
+  "2": "Type 2 DM",
+  "3": "Gestational DM",
+  "4": "DM not yet specified",
+  "96": "Other"
+ },
+ "diagnosis_other": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "diagns_cardiac": {
+  "1": "Cardiomyopathy",
+  "10": "Thromboembolic",
+  "11": "Stroke",
+  "2": "Rheumatic Heart Disease",
+  "3": "Severe / Uncontrolled Hypertension",
+  "4": "Hypertensive Heart Disease",
+  "5": "Congenital heart Disease",
+  "6": "Right Heart Failure",
+  "7": "Pericardial disease",
+  "8": "Coronary Artery Disease",
+  "9": "Arrhythmia",
+  "96": "Other"
+ },
+ "diagns_changed": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "diagns_complication": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "diagns_diabetes": {
+  "1": "Rheumatic heart diseases",
+  "2": "Sickle cell diseases",
+  "3": "Gestational DM",
+  "4": "Diabetes type 1",
+  "5": "Diabetes type 2"
+ },
+ "diagns_sickle": {
+  "1": "Sickle Cell Disease",
+  "2": "Other hemoglobinopathy"
+ },
+ "diet": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "dignosis_type": {
+  "1": "Cardiac",
+  "2": "Diabetes",
+  "3": "Sickle Cell",
+  "96": "Other Diesease"
+ },
+ "district": {
+  "16": "Kondoa",
+  "3": "Karatu"
+ },
+ "dm": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "doctor_confirm": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "dyspnea": {
+  "1": "I",
+  "2": "II",
+  "3": "III",
+  "4": "IV",
+  "5": "Cannot determine"
+ },
+ "ecg_date": {
+  "1": "Single lead or",
+  "2": "12 lead",
+  "3": "Normal sinus rhythm",
+  "4": "Atrial fibrillation",
+  "96": "Other"
+ },
+ "ecg_performed": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "echo": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "echo_other": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "echo_performed": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "edema": {
+  "1": "None",
+  "2": "Trace",
+  "3": "1+",
+  "4": "2+",
+  "5": "3+"
+ },
+ "education_gurdian": {
+  "1": "Not attended school",
+  "2": "Primary",
+  "3": "Secondary",
+  "4": "Certificate",
+  "5": "Diploma",
+  "6": "Undergraduate degree",
+  "7": "Postgraduate degree",
+  "8": "N / A"
+ },
+ "education_level": {
+  "1": "Not attended school",
+  "2": "Primary",
+  "3": "Secondary",
+  "4": "Certificate",
+  "5": "Diploma",
+  "6": "Undergraduate degree",
+  "7": "Postgraduate degree",
+  "8": "N / A"
+ },
+ "eligibility": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "employment_status": {
+  "1": "Employed",
+  "23": "Self-employed",
+  "4": "Employed but on leave of absence",
+  "5": "Unemployed"
+ },
+ "eyes_examined": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "family_planning": {
+  "1": "Not eligible",
+  "2": "Not interested",
+  "3": "Currently using",
+  "4": "referred"
+ },
+ "fan": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "fever": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "financial_burden": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "fluid": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unsure"
+ },
+ "folic_acid": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "foot_exam": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "foot_exam_diabetes": {
+  "1": "Normal",
+  "2": "Abnormal"
+ },
+ "foot_exam_finding": {
+  "1": "Normal",
+  "2": "Abnormal"
+ },
+ "formally_employed": {
+  "1": "Yes, formal work",
+  "2": "No, informal work",
+  "3": "Housework",
+  "4": "Retired",
+  "5": "On sick leave",
+  "6": "School, university",
+  "7": "Not working",
+  "8": "Combination (specify)",
+  "96": "Other (specify)"
+ },
+ "gender": {
+  "1": "MALE",
+  "2": "FEMALE"
+ },
+ "gender_gurdian": {
+  "1": "MALE",
+  "2": "FEMALE"
+ },
+ "grade_age": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "headache": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "heart_failure": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "height": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hematology_test": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hepatitis_test": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "heumatic": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "history_other": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "history_scd": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unknown"
+ },
+ "hiv": {
+  "1": "R",
+  "2": "NR",
+  "3": "Unknown"
+ },
+ "home_insulin_dose": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hospitalization_ncd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hospitalizations": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "household_education": {
+  "1": "Not attended/illiterate",
+  "2": "Primary",
+  "3": "Secondary",
+  "4": "Graduate/certificate",
+  "96": "Other"
+ },
+ "household_head": {
+  "1": "Youself",
+  "2": "Your spouse / partner",
+  "3": "Your father / mother",
+  "96": "Other"
+ },
+ "hydration": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hydroxyurea": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "hypertension": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hypertension_disease": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hypertensive_heart": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "hypoglycemia_severe": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unsure"
+ },
+ "hypoglycemia_symptoms": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unsure"
+ },
+ "insecticide": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "issue_injection": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "issue_injection_yes": {
+  "1": "Infection",
+  "2": "Lipo-hypertrphy"
+ },
+ "ivc": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unseen"
+ },
+ "jaundice": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "joints": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "jvp": {
+  "1": "Elevated",
+  "2": "Normal",
+  "3": "Unable to determine"
+ },
+ "lab_ecg": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "lab_ecg_other": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "leave_children": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "life_style": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "looking_children": {
+  "1": "Adult relatives/Household members",
+  "2": "Other older children",
+  "3": "Neighbouro",
+  "4": "Maid",
+  "96": "Other"
+ },
+ "lower_arms": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "lungs": {
+  "1": "Clear",
+  "2": "Bibasilar",
+  "3": "Crackles",
+  "4": "Wheeze",
+  "96": "Other"
+ },
+ "lv": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unseen"
+ },
+ "main_icome_based": {
+  "1": "Monthly salary",
+  "2": "Daily wage",
+  "3": "Business/firm earnings",
+  "4": "Sale of farm produce",
+  "5": "Inkind payment",
+  "6": "Have no income",
+  "96": "Other"
+ },
+ "main_income_based": {
+  "1": "Monthly salary",
+  "2": "Daily wage",
+  "3": "Business/firm earnings",
+  "4": "Sale of farm produce",
+  "5": "Inkind payment",
+  "6": "Have no income",
+  "96": "Other"
+ },
+ "main_occupation": {
+  "1": "Employed",
+  "2": "Self employed",
+  "3": "Unemployed",
+  "4": "Farmer",
+  "5": "Fisher",
+  "6": "Student",
+  "7": "Housewife",
+  "96": "Other"
+ },
+ "malnutrition": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "material_floor": {
+  "1": "Earth/ sand/dung",
+  "2": "Concrete cement",
+  "96": "Other"
+ },
+ "material_roof": {
+  "1": "Thatch/ palm",
+  "2": "Other"
+ },
+ "medication_action": {
+  "1": "Continue",
+  "2": "Start",
+  "3": "Stop",
+  "4": "Not eligible"
+ },
+ "misconception": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "mitral": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unseen"
+ },
+ "murmur": {
+  "1": "Present",
+  "2": "Absent",
+  "3": "Unknown"
+ },
+ "ncd_coping": {
+  "1": "Well",
+  "2": "Some problems",
+  "3": "Poor"
+ },
+ "ncd_hospitalizations": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "ncd_limiting": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N /A"
+ },
+ "neuropathy": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "new_diagns": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "new_diagns_specify": {
+  "1": "Rheumatic heart diseases",
+  "2": "Sickle cell diseases",
+  "3": "Gestational DM",
+  "4": "Diabetes type 1",
+  "5": "Diabetes type 2"
+ },
+ "new_referrals": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "next_visit": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "no_food": {
+  "1": "Never, rarely(once or twice)",
+  "2": "Sometimes ( 3 \u2013 10 times )",
+  "3": "Often ( > 10 times )"
+ },
+ "number": {
+  "1": "Walk",
+  "2": "Tax",
+  "3": "Bodaboda ( bicycle )",
+  "4": "Bodaboda ( motorcycle)",
+  "5": "My own car",
+  "6": "my own bicycle",
+  "7": "Commuter (Daladala)",
+  "96": "Other"
+ },
+ "occupation": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "occupation_gurdian": {
+  "1": "Employed",
+  "23": "Self-employed",
+  "4": "Employed but on leave of absence",
+  "5": "Unemployed"
+ },
+ "occupation_looking_child": {
+  "1": "Employed",
+  "2": "Self employed",
+  "3": "Unemployed",
+  "4": "Farmer",
+  "5": "Fisher",
+  "6": "Student",
+  "7": "Housewife",
+  "96": "Other"
+ },
+ "opioid": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "orthopnea": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unsure"
+ },
+ "other": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "other_complication": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "other_lab_diabetes": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "other_pain": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "other_sickle": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "other_support": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "outcome": {
+  "1": "On treatment",
+  "2": "Default",
+  "3": "Stop treatment",
+  "4": "Transfer out",
+  "5": "Death"
+ },
+ "pain_event": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "pallor": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "paroxysmal": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unsure"
+ },
+ "patient_education": {
+  "1": "Not attended/illiterate",
+  "2": "Primary",
+  "3": "Secondary",
+  "4": "Graduate/certificate",
+  "96": "Other"
+ },
+ "penicillin": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "pericardial": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "pneumococcal": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A",
+  "4": "Unsure"
+ },
+ "pneumonia": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "prandial_changed": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "prandial_insulin": {
+  "1": "Analog",
+  "2": "Regular"
+ },
+ "primary_earner_edctn": {
+  "1": "Not attended/illiterate",
+  "2": "Primary",
+  "3": "Secondary",
+  "4": "Graduate/certificate",
+  "96": "Other"
+ },
+ "primary_income_earner": {
+  "1": "Patient",
+  "2": "Wife / Mother",
+  "3": "Husband / father",
+  "4": "Extended family",
+  "5": "Son / Daughter",
+  "96": "Other"
+ },
+ "prophylaxis": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "pvd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "quit_job": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "reason_not_working": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "refrigerator": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "region": {
+  "1": "Arusha",
+  "3": "Dodoma"
+ },
+ "relation": {
+  "1": "Mzazi",
+  "2": "Kaka / Dada",
+  "3": "Mwenza ( Mume / Mke)",
+  "4": "Ndugu wengine",
+  "5": "Rafiki",
+  "96": "Wengine"
+ },
+ "renal": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "residence": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "restriction_other": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "retinopathy": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "retinopathy_screening": {
+  "1": "Unknown",
+  "2": "None",
+  "3": "Background",
+  "4": "Profilerative"
+ },
+ "rhd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "risk_alcohol": {
+  "1": "Yes, currently",
+  "2": "Yes, in past",
+  "3": "never",
+  "4": "Unknown"
+ },
+ "risk_art": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "risk_employment": {
+  "1": "Employed",
+  "2": "Self-employed",
+  "3": "Unemployed",
+  "4": "Leave of absence",
+  "5": "Student"
+ },
+ "risk_hiv": {
+  "1": "R",
+  "2": "NR",
+  "3": "Unknown"
+ },
+ "risk_tobacco": {
+  "1": "Yes, currently",
+  "2": "Yes, in past",
+  "3": "never",
+  "4": "Unknown"
+ },
+ "rv": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unseen"
+ },
+ "salt": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "scd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "scd_disease": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unknown"
+ },
+ "scd_done": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "scd_test": {
+  "1": "Presumptive Diagnosis",
+  "2": "Sickling test",
+  "3": "SS",
+  "4": "SA",
+  "5": "SBTHal",
+  "6": "SC",
+  "96": "Other"
+ },
+ "school_attendance": {
+  "1": "Yes",
+  "2": "No",
+  "3": "N / A"
+ },
+ "score_joints": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "severe_hypertension": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "sex": {
+  "1": "Male",
+  "2": "Female"
+ },
+ "sexual_dysfunction": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "sickle_cell": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "sickle_status": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "site_id": {
+  "1": "KONDOA",
+  "2": "KARATU"
+ },
+ "sleep_hungry": {
+  "1": "Never, rarely(once or twice)",
+  "2": "Sometimes ( 3 \u2013 10 times )",
+  "3": "Often ( > 10 times )"
+ },
+ "smoking": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unknown"
+ },
+ "social_support": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "sofa": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "someone_take_care": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "splenomegaly": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "spouse_edctn": {
+  "1": "Not attended/illiterate",
+  "2": "Primary",
+  "3": "Secondary",
+  "4": "Graduate/certificate",
+  "96": "Other"
+ },
+ "status": {
+  "0": "DELETED",
+  "1": "ACTIVE"
+ },
+ "stopped_duration": {
+  "1": "Less than 1 month",
+  "2": "One month",
+  "3": "2-3 months",
+  "4": "4-5 months",
+  "5": "More than 6 months"
+ },
+ "stopped_working": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "stroke": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "stroke_tia": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "sub_arrhythmia": {
+  "1": "Atrial fibrillation",
+  "2": "Other"
+ },
+ "sub_cardiomyopathy": {
+  "1": "Ischemic",
+  "2": "Alcohol-related",
+  "3": "Peripartum",
+  "4": "Arrhythmia-related",
+  "5": "HIV-related",
+  "6": "Chemotherapy-related",
+  "7": "Viral/idiopathic",
+  "96": "Other"
+ },
+ "sub_congenital": {
+  "1": "ASD",
+  "2": "VSD",
+  "3": "PDA",
+  "4": "Coarctation of aorta",
+  "5": "Tetralogy of Fallot",
+  "96": "Other"
+ },
+ "sub_heart_failure": {
+  "1": "Chronic Lung Diseases"
+ },
+ "sub_heumatic": {
+  "1": "Pure mitral stenosis",
+  "2": "Pure mitral regurgitation",
+  "3": "Mixed mitral valve disease (MS + MR)",
+  "4": "Isolated aortic valve disease (AVD)",
+  "5": "Mixed mitral and aortic valve disease (MMAVD)",
+  "96": "Other"
+ },
+ "sub_stroke": {
+  "1": "Ischemic",
+  "2": "hemorrhagic",
+  "3": "unknown"
+ },
+ "symptoms": {
+  "1": "DKA with coma",
+  "2": "DKA without coma",
+  "3": "Ketosis",
+  "4": "Hyperglycemia",
+  "5": "By Screening",
+  "6": "None"
+ },
+ "tb": {
+  "1": "Smear pos",
+  "2": "Smear neg",
+  "3": "EPTB",
+  "4": "never had TB",
+  "5": "Unknown"
+ },
+ "television": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "thirst": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "thromboembolic": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "thrombus": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unseen"
+ },
+ "toilet_access": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "toilet_facility": {
+  "1": "Flush to pit latrine",
+  "10": "No facilities",
+  "2": "Flush to somewhere else",
+  "3": "Flush, don\u2019t know where",
+  "4": "Ventilated improved pit latrine",
+  "5": "Pit latrine with slab",
+  "6": "Pit latrine without slab/open pit",
+  "7": "Composting toilet",
+  "8": "Hanging toilet",
+  "9": "Bucket toilet",
+  "96": "Other"
+ },
+ "transfer_out": {
+  "1": "Other NCD CLINIC",
+  "2": "REFERRAL",
+  "96": "Other"
+ },
+ "transfusion_needed": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "upper_arms": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "urination": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "vaccination": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "vaccine_history": {
+  "1": "Pneumococcal",
+  "2": "Meningococcal",
+  "3": "Haemophilus Influenza type B (Hib)",
+  "4": "PPCV 23",
+  "99": "Unknown"
+ },
+ "vcr_dvd": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "vision": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "volume": {
+  "1": "Hyper",
+  "2": "Hypo",
+  "3": "Euvolemic"
+ },
+ "vomiting": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "waist": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ },
+ "ward": {
+  "134": "Bereke",
+  "135": "Bolisa",
+  "136": "Bumbuta",
+  "22": "BARAY",
+  "23": "BUGER",
+  "24": "DAA",
+  "26": "ENDABASH",
+  "27": "ENDAMAGHANG",
+  "28": "ENDAMARARIEK",
+  "29": "GANAKO",
+  "30": "KANSAY",
+  "31": "KARATU",
+  "32": "MANG'OLA",
+  "33": "MBULUMBULU",
+  "34": "OLDEANI",
+  "35": "QURUS",
+  "36": "RHOTIA"
+ },
+ "water_access": {
+  "1": "Yes",
+  "2": "No"
+ },
+ "water_source": {
+  "1": "Piped into dwelling",
+  "10": "Protected spring",
+  "11": "Rainwater",
+  "2": "Piped to neighbor",
+  "3": "Tube well or borehole",
+  "4": "Unprotected well",
+  "5": "Unprotected spring",
+  "6": "Surface water",
+  "7": "Piped to yard/plot",
+  "8": "Public tap or standpipe",
+  "9": "Protected well",
+  "96": "Other"
+ },
+ "wealth_rate": {
+  "1": "Among most wealthy",
+  "2": "Above average",
+  "3": "Average wealth",
+  "4": "Below average",
+  "5": "Among least wealthy"
+ },
+ "weight_loss": {
+  "1": "Yes",
+  "2": "No",
+  "3": "Unk"
+ }
+}

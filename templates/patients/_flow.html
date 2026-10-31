@@ -1,0 +1,21 @@
+{# Where the patient is in the care pathway, one row per disease, with the next step. #}
+<div class="card shadow-sm mb-3 flow-card">
+  {% for t in flow %}
+  <div class="card-body py-2 {% if not forloop.last %}border-bottom{% endif %}">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      <div class="fw-semibold flow-disease">{{ t.disease|default:"Care pathway" }}</div>
+      <ol class="flow-steps">
+        {% for s in t.steps %}<li class="flow-step is-{{ s.state }}" title="{{ s.label }}{% if s.note %}: {{ s.note }}{% endif %}{% if s.date %} ({{ s.date|date:'d M Y' }}){% endif %}">
+          <span class="flow-dot">{% if s.state == 'done' %}<i class="bi bi-check-lg"></i>{% elif s.state == 'skipped' %}<i class="bi bi-dash"></i>{% elif s.state == 'waiting' %}<i class="bi bi-hourglass-split"></i>{% elif s.state == 'stopped' %}<i class="bi bi-x-lg"></i>{% else %}{{ forloop.counter }}{% endif %}</span>
+          <span class="flow-label">{{ s.label }}<small>{% if s.note %}{{ s.note }}{% elif s.date %}{{ s.date|date:"d M Y" }}{% else %}&nbsp;{% endif %}</small></span>
+        </li>{% endfor %}
+      </ol>
+    </div>
+    {% if t.next or t.message %}<div class="d-flex flex-wrap align-items-center gap-2 mt-2 flow-next">
+      {% if t.next %}{% if t.next.perm in perms %}<a class="btn btn-primary btn-sm" href="{{ t.next.url }}"><i class="bi bi-arrow-right-circle"></i> Next step: {{ t.next.label }}</a>{% else %}<span class="badge text-bg-warning">Next step: {{ t.next.label }}</span>{% endif %}
+      {% if t.next.hint %}<span class="small text-body-secondary">{{ t.next.hint }}</span>{% endif %}{% endif %}
+      {% if t.message %}<span class="small {% if t.in_care %}text-success{% else %}text-body-secondary{% endif %}">{% if t.in_care %}<i class="bi bi-check-circle"></i> {% endif %}{{ t.message }}</span>{% endif %}
+    </div>{% endif %}
+  </div>
+  {% endfor %}
+</div>

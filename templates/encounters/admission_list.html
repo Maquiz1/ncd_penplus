@@ -7,7 +7,7 @@
   <li class="nav-item"><a class="nav-link {% if view == 'all' %}active{% endif %}" href="?view=all">All episodes</a></li>
 </ul>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Patient</th><th>Facility</th><th>Ward</th><th>Admitted</th><th>Reason</th><th>Discharged</th><th>Outcome</th><th></th></tr></thead>
+  <thead class="table-light"><tr><th>Subject</th><th>Facility</th><th>Ward</th><th>Admitted</th><th>Reason</th><th>Discharged</th><th>Outcome</th><th></th></tr></thead>
   <tbody>{% for a in object_list %}<tr><td><a href="{{ a.patient.get_absolute_url }}#visits">{{ a.patient }}</a></td><td>{{ a.facility }}</td><td>{{ a.ward }}</td><td>{{ a.admitted_at|date:"d M Y H:i" }}</td><td>{{ a.reason }}</td><td>{{ a.discharged_at|date:"d M Y H:i"|default:"—" }}</td><td>{{ a.get_discharge_outcome_display }}</td>
     <td>{% if not a.discharged_at and perms.encounters.change_admission %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:admission_discharge' a.pk %}">Discharge</a>{% endif %}</td></tr>
   {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No admissions.</td></tr>{% endfor %}</tbody>

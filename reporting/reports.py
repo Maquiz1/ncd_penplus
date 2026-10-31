@@ -186,3 +186,53 @@ def trends_report(filters):
             'glucose_tests': len(glucose[month]), 'glucose_mean': _mean(glucose[month]),
         })
     return {'rows': rows, 'patients': len(patient_ids)}
+
+
+# ------------------------------------------------------------------ one disease in detail
+
+def disease_report(filters, disease, user):
+    """Everything about one disease programme: status, sites × conditions, sub-types, sex/age and indicators."""
+    from indicators import clinical
+    from indicators.engine import Cohort
+
+    start, end = filters.start, filters.end
+    conditions = condition_report(filters, disease)
+    sites = conditions['sites']
+    enrollments = ProgrammeEnrollment.objects.filter(programme__disease=disease, facility__in=filters.facilities,
+                                                     enrollment_date__lte=end, patient__is_deleted=False)
+    status = Counter(dict(enrollments.values_list('status').annotate(n=Count('patient', distinct=True))))
+    tiles = [('Ever enrolled', enrollments.values('patient').distinct().count(), 'secondary'),
+             ('Active', status.get('active', 0), 'success'),
+             ('New in period', enrollments.filter(enrollment_date__range=(start, end)).values('patient').distinct().count(),
+              'primary'),
+             ('Lost to follow-up', status.get('ltfu', 0), 'warning'),
+             ('Transferred out', status.get('transferred_out', 0), 'info'),
+             ('Died', status.get('deceased', 0), 'danger')]
+
+    # sites as rows, main conditions as columns (like the EDCS report)
+    by_site = []
+    for i, site in enumerate(sites):
+        site_enrollments = enrollments.filter(facility=site)
+        by_site.append({'site': site, 'enrolled': site_enrollments.values('patient').distinct().count(),
+                        'active': site_enrollments.filter(status='active').values('patient').distinct().count(),
+                        'cells': [g['site_counts'][i] for g in conditions['rows']]})
+    site_total = {'enrolled': sum(r['enrolled'] for r in by_site), 'active': sum(r['active'] for r in by_site),
+                  'cells': [g['total'] for g in conditions['rows']]}
+
+    # sub-types of each main condition (e.g. cardiomyopathy: ischaemic, alcohol-related…) by site
+    subtypes = []
+    for g in conditions['rows']:
+        counts = defaultdict(Counter)
+        for row in g['patients']:
+            for name in row['subtypes'] or ['Type not specified']:
+                counts[name][row['patient'].current_facility_id] += 1
+        if len(counts) > 1 or (counts and 'Type not specified' not in counts):
+            names = sorted(counts, key=lambda n: (n == 'Type not specified', n))
+            subtypes.append({'label': g['label'], 'names': names,
+                             'rows': [(site, [counts[n][site.pk] for n in names]) for site in sites],
+                             'total': [sum(counts[n].values()) for n in names]})
+
+    cohort = Cohort(user, facilities=filters.facilities, disease=disease)
+    indicators = [(i, i.evaluate(cohort, end)) for i in clinical.visible(clinical.INDICATORS, {disease.code})]
+    return {'tiles': tiles, 'conditions': conditions, 'by_site': by_site, 'site_total': site_total,
+            'subtypes': subtypes, 'indicators': indicators}

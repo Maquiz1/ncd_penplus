@@ -159,9 +159,21 @@ class EDCSImportTests(TestCase):
         self.assertEqual((record.medication_name, record.action, record.dose), ('Benzathine PCN', 'start', '1.2 MU monthly'))
         history = FormSubmission.objects.get(patient=p, version__definition__code='edcs-history')
         self.assertEqual(history.data['hiv'], '2')
-        self.assertFalse(history.version.definition.is_active)
+        # the EDCS form continues as a live form, with typed fields and the dictionary's answer labels
+        definition = history.version.definition
+        self.assertTrue(definition.is_active)
+        self.assertEqual((definition.name, definition.stages), ('Subject & family history', ['baseline']))
+        hiv = history.version.fields().get(key='hiv')
+        self.assertEqual((hiv.field_type, hiv.choices()[:2]), ('select', [('1', 'R'), ('2', 'NR')]))
+        self.assertEqual(definition.versions.filter(status='published').get(), history.version)
         registration = FormSubmission.objects.get(patient=p, version__definition__code='edcs-clients')
         self.assertNotIn('guardian_name', registration.data)
+
+    def test_screening_becomes_prescreening(self):
+        from clinical.models import PreScreening
+        pre = PreScreening.objects.get(patient__old_id=1)
+        self.assertEqual((pre.date, pre.consent_obtained, pre.consent_date, pre.resides_in_area, pre.disposition),
+                         (datetime.date(2023, 5, 2), True, datetime.date(2023, 5, 2), True, 'proceed'))
 
     def test_staff_recreated_without_passwords(self):
         from django.contrib.auth import get_user_model
@@ -173,9 +185,12 @@ class EDCSImportTests(TestCase):
         self.assertFalse(pi.has_perm('patients.view_patient_identity'))
 
     def test_rerun_is_idempotent(self):
-        before = ExternalRecord.objects.count(), Patient.all_objects.count(), LabOrder.objects.count()
+        from clinical.models import PreScreening
+        before = (ExternalRecord.objects.count(), Patient.all_objects.count(), LabOrder.objects.count(),
+                  PreScreening.objects.count())
         counts, _ = Importer(FakeReader(edcs_data()), log=lambda *a: None).run()
-        after = ExternalRecord.objects.count(), Patient.all_objects.count(), LabOrder.objects.count()
+        after = (ExternalRecord.objects.count(), Patient.all_objects.count(), LabOrder.objects.count(),
+                 PreScreening.objects.count())
         self.assertEqual(before, after)
         self.assertFalse({k: v for k, v in counts.items() if 'created' in k})
 

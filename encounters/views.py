@@ -141,7 +141,7 @@ class EncounterCreateView(PatientChildCreateMixin, CreateView):
                                         self.request.user, self.request)
         if returned:
             messages.info(self.request, 'Returned to care: ' + ', '.join(str(e.programme) for e in returned)
-                          + ' (the patient was lost to follow-up).')
+                          + ' (the subject was lost to follow-up).')
         appointment = self.object.appointment
         if appointment and appointment.status != 'attended':
             old = appointment.status
@@ -280,12 +280,12 @@ class AdmissionCreateView(PatientChildCreateMixin, CreateView):
     permission_required = 'encounters.add_admission'
     model = Admission
     form_class = AdmissionForm
-    title = 'Admit patient'
+    title = 'Admit subject'
     success_tab = '#visits'
 
     def form_valid(self, form):
         if self.patient.admissions.filter(discharged_at__isnull=True).exists():
-            form.add_error(None, 'The patient is already admitted. Discharge the current admission first.')
+            form.add_error(None, 'The subject is already admitted. Discharge the current admission first.')
             return self.form_invalid(form)
         return super().form_valid(form)
 
@@ -294,7 +294,7 @@ class AdmissionDischargeView(PatientChildUpdateMixin, UpdateView):
     permission_required = 'encounters.change_admission'
     model = Admission
     form_class = DischargeForm
-    title = 'Discharge patient'
+    title = 'Discharge subject'
     success_tab = '#visits'
 
     def get_initial(self):
@@ -325,7 +325,7 @@ class ClinicSessionCreateView(PermissionRequiredMixin, AuditedCreateMixin, Creat
     form_class = ClinicSessionForm
     template_name = 'generic_form.html'
     extra_context = {'title': 'New clinic day',
-                     'subtitle': 'Schedule a group of patients for a PEN-Plus / specialist clinic and invite them by SMS.'}
+                     'subtitle': 'Schedule a group of subjects for a PEN-Plus / specialist clinic and invite them by SMS.'}
     success_message = 'Clinic day saved. Check the preview, then schedule the appointments.'
 
     def get_form_kwargs(self):
@@ -384,7 +384,7 @@ class ClinicSessionActionView(PermissionRequiredMixin, View):
         elif action == 'schedule':
             counts = clinic.schedule(session, request.user, request)
             messages.success(request, 'Appointments: ' + ', '.join(f'{v} {k}' for k, v in counts.items()) if counts
-                             else 'No eligible patients found.')
+                             else 'No eligible subjects found.')
         elif action == 'sms':
             if not request.user.has_perm('notifications.add_smsmessage'):
                 raise PermissionDenied
@@ -396,7 +396,7 @@ class ClinicSessionActionView(PermissionRequiredMixin, View):
                 messages.warning(request, 'Not sent: ' + ', '.join(f'{v} {k}' for k, v in skipped.items()))
         elif action == 'close':
             count = clinic.close_attendance(session, request.user, request)
-            messages.success(request, f'{count} patient(s) who did not attend were marked missed.')
+            messages.success(request, f'{count} subject(s) who did not attend were marked missed.')
         elif action == 'cancel':
             reason = request.POST.get('reason', '').strip()
             if not reason:

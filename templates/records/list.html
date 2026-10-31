@@ -9,14 +9,14 @@
   <li class="nav-item"><a class="nav-link {% if deleted_tab %}active{% endif %}" href="?tab=deleted">Deleted <span class="badge text-bg-light">{{ deleted_count }}</span></a></li>
 </ul>{% endif %}
 <form class="row g-2 mb-3" method="get">{% if deleted_tab %}<input type="hidden" name="tab" value="deleted">{% endif %}
-  <div class="col-md-3"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Patient number or old ID"></div>
+  <div class="col-md-3"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Subject number or old ID"></div>
   <div class="col-md-3"><select class="form-select" name="facility"><option value="">All my facilities</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
   <div class="col-md-2"><input class="form-control" type="date" name="start" value="{{ request.GET.start }}" title="From"></div>
   <div class="col-md-2"><input class="form-control" type="date" name="end" value="{{ request.GET.end }}" title="To"></div>
   <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
 </form>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-  <thead class="table-light"><tr><th>Date</th><th>Patient</th>{% for heading, attr in rtype.columns %}<th>{{ heading }}</th>{% endfor %}{% if deleted_tab %}<th>Deleted</th>{% endif %}<th class="text-end"></th></tr></thead>
+  <thead class="table-light"><tr><th>Date</th><th>Subject</th>{% for heading, attr in rtype.columns %}<th>{{ heading }}</th>{% endfor %}{% if deleted_tab %}<th>Deleted</th>{% endif %}<th class="text-end"></th></tr></thead>
   <tbody>{% for obj, patient, when, cells, view_url, edit_url in rows %}<tr>
     <td class="small text-nowrap">{{ when|date:"d M Y" }}</td>
     <td class="small"><a href="{{ patient.get_absolute_url }}">{{ patient.patient_number }}</a>{% old_patient_id patient %}<div>{% patient_name patient %}</div></td>

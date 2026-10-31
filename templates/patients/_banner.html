@@ -21,7 +21,7 @@
   </div>
   {% if patient.sms_consent is None and not patient.is_deceased and perms.patients.record_sms_consent and can_view_identity %}
   <div class="card-footer bg-warning-subtle py-2 d-flex flex-wrap align-items-center gap-2 small">
-    <i class="bi bi-chat-dots"></i> <strong>SMS consent not recorded.</strong> Ask the patient (or guardian): may we send appointment reminders by SMS?
+    <i class="bi bi-chat-dots"></i> <strong>SMS consent not recorded.</strong> Ask the subject (or guardian): may we send appointment reminders by SMS?
     <form method="post" action="{% url 'patients:sms_consent' patient.pk %}" class="d-flex gap-2 ms-auto">{% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <button class="btn btn-sm btn-success" name="answer" value="yes">Yes</button>

@@ -30,12 +30,12 @@ def legacy(table):
 
 FORMS = [
     ('registration', 'Registration', 'clients', ['patients', legacy('clients')],
-     'Patient registration, plus the socio-demographic questions of the EDCS registration form.'),
+     'Subject registration, plus the socio-demographic questions of the EDCS registration form.'),
     ('screening', 'Screening', 'screening', [legacy('screening'), 'screenings'], ''),
     ('demographics', 'Demographics', 'demographic', [legacy('demographic')], ''),
     ('vitals', 'Vital signs', 'vital', ['vitals'], 'Height, weight, MUAC, blood pressure and pulse per visit.'),
-    ('patient-category', 'Patient category', 'main_diagnosis', [legacy('main_diagnosis'), 'programme_enrollments'], ''),
-    ('history', 'Patient & family history', 'history', [legacy('history')], ''),
+    ('patient-category', 'Subject category', 'main_diagnosis', [legacy('main_diagnosis'), 'programme_enrollments'], ''),
+    ('history', 'Subject & family history', 'history', [legacy('history')], ''),
     ('symptoms', 'Symptoms & examination', 'symptoms', [legacy('symptoms')], ''),
     ('diagnosis-cardiac', 'Main diagnosis – cardiac', 'cardiac', [legacy('cardiac')], ''),
     ('diagnosis-diabetes', 'Main diagnosis – diabetes', 'diabetic', [legacy('diabetic')], ''),

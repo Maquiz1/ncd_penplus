@@ -55,7 +55,7 @@ class User(AbstractUser):
     diseases = models.ManyToManyField('clinical.Disease', blank=True, related_name='staff',
                                       help_text='Diseases this person works on. Leave empty for all diseases.')
     identity_access = models.CharField(
-        'Patient names and identifiers', max_length=10, choices=IdentityAccess.choices, default=IdentityAccess.ROLE)
+        'Subject names and identifiers', max_length=10, choices=IdentityAccess.choices, default=IdentityAccess.ROLE)
     identity_access_reason = models.CharField(max_length=255, blank=True)
     identity_access_until = models.DateField(null=True, blank=True,
                                              help_text='A grant or removal ends on this date (blank = no end).')
@@ -70,7 +70,7 @@ class User(AbstractUser):
 
     class Meta:
         ordering = ['username']
-        permissions = [('manage_identity_access', 'Can grant or remove access to patient identity for a person')]
+        permissions = [('manage_identity_access', 'Can grant or remove access to subject identity for a person')]
 
     def __str__(self):
         return self.get_full_name() or self.username

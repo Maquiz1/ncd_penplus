@@ -70,7 +70,7 @@ class PatientCreateView(PermissionRequiredMixin, CreateView):
         self.object = patient
         log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=patient,
                   reason='Registered after duplicate review' if form.duplicates else '')
-        messages.success(self.request, f'Patient registered with ID {patient.patient_number}.')
+        messages.success(self.request, f'Subject registered with ID {patient.patient_number}.')
         return redirect(patient.get_absolute_url())
 
 
@@ -83,6 +83,7 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             'current_facility', 'registration_facility', 'residence_district__region', 'residence_ward', 'residence_street')
 
     def get_context_data(self, **kwargs):
+        from clinical.flow import patient_flow
         from crf.services import applicable_versions
 
         p = self.object
@@ -114,6 +115,7 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             assignments=p.facility_assignments.select_related('facility'),
             available_forms=applicable_versions(p),
             open_transfer=p.transfers.filter(status__in=['requested', 'approved', 'sent']).first(),
+            flow=patient_flow(p),
         )
         return ctx
 
@@ -136,7 +138,7 @@ class PatientSoftDeleteView(PermissionRequiredMixin, View):
     def get(self, request, pk):
         patient = get_object_or_404(Patient.objects.in_scope(request.user), pk=pk)
         return render(request, 'confirm_action.html', {
-            'title': f'Delete patient {patient}', 'patient': patient, 'form': ReasonForm(),
+            'title': f'Delete subject {patient}', 'patient': patient, 'form': ReasonForm(),
             'message': 'The record is hidden from routine lists but kept with its full history. '
                        'Authorized users can restore it.',
             'button': 'Delete record', 'button_class': 'btn-danger', 'cancel_url': patient.get_absolute_url()})
@@ -145,13 +147,13 @@ class PatientSoftDeleteView(PermissionRequiredMixin, View):
         patient = get_object_or_404(Patient.objects.in_scope(request.user), pk=pk)
         form = ReasonForm(request.POST)
         if not form.is_valid():
-            return render(request, 'confirm_action.html', {'title': f'Delete patient {patient}', 'form': form,
+            return render(request, 'confirm_action.html', {'title': f'Delete subject {patient}', 'form': form,
                                                            'patient': patient, 'button': 'Delete record',
                                                            'button_class': 'btn-danger',
                                                            'cancel_url': patient.get_absolute_url()})
         patient.soft_delete(request.user, form.cleaned_data['reason'])
         log_event(request=request, action=AuditEvent.Action.DELETE, obj=patient, reason=form.cleaned_data['reason'])
-        messages.success(request, f'Patient {patient} deleted. It can be restored from Deleted patients.')
+        messages.success(request, f'Subject {patient} deleted. It can be restored from Deleted subjects.')
         return redirect('patients:list')
 
 
@@ -172,7 +174,7 @@ class PatientRestoreView(PermissionRequiredMixin, View):
         patient = get_object_or_404(Patient.all_objects.in_scope(request.user), pk=pk, is_deleted=True)
         patient.restore()
         log_event(request=request, action=AuditEvent.Action.RESTORE, obj=patient)
-        messages.success(request, f'Patient {patient} restored.')
+        messages.success(request, f'Subject {patient} restored.')
         return redirect(patient.get_absolute_url())
 
 
@@ -225,7 +227,7 @@ class TransferCreateView(PatientChildCreateMixin, CreateView):
 
     def form_valid(self, form):
         if self.patient.transfers.filter(status__in=['requested', 'approved', 'sent']).exists():
-            messages.error(self.request, 'This patient already has an open transfer.')
+            messages.error(self.request, 'This subject already has an open transfer.')
             return redirect(self.patient.get_absolute_url())
         form.instance.from_facility = self.patient.current_facility
         return super().form_valid(form)
@@ -336,3 +338,62 @@ class SmsConsentView(PermissionRequiredMixin, View):
                   changes={'sms_consent': [old, answer]}, reason='SMS consent recorded at visit')
         messages.success(request, 'SMS consent recorded: ' + ('Yes.' if answer else 'No – no SMS will be sent.'))
         return redirect(request.POST.get('next') or patient.get_absolute_url())
+
+
+class SummaryListView(PermissionRequiredMixin, ListView):
+    """Find subjects by ID and open their summary. Names are never shown or searched here."""
+
+    permission_required = 'patients.view_subject_summary'
+    template_name = 'patients/summary_list.html'
+    paginate_by = 25
+
+    def get_queryset(self):
+        from django.db.models import OuterRef, Subquery
+        from django.utils import timezone
+
+        from clinical.models import ClinicalProgramme
+        from encounters.models import Appointment, Encounter
+
+        qs = with_old_study_id(Patient.objects.in_scope(self.request.user).select_related('current_facility'))
+        params = self.request.GET
+        if params.get('q'):
+            qs = search_patients(qs, params['q'].strip(), can_view_identity=False)
+        if params.get('facility'):
+            qs = qs.filter(current_facility_id=params['facility'])
+        if params.get('programme'):
+            qs = qs.filter(programme_enrollments__programme_id=params['programme'])
+        if params.get('status'):
+            qs = qs.filter(programme_enrollments__status=params['status'])
+        self.programmes = ClinicalProgramme.objects.select_related('disease')
+        today = timezone.localdate()
+        last_visit = Encounter.objects.filter(patient=OuterRef('pk')).exclude(status='cancelled') \
+            .order_by('-encounter_date').values('encounter_date')[:1]
+        next_visit = Appointment.objects.filter(patient=OuterRef('pk'), scheduled_date__gte=today,
+                                                status__in=['scheduled', 'confirmed', 'rescheduled']) \
+            .order_by('scheduled_date').values('scheduled_date')[:1]
+        return (qs.distinct().prefetch_related('programme_enrollments__programme')
+                .annotate(last_visit=Subquery(last_visit), next_visit=Subquery(next_visit))
+                .order_by('-registration_date', '-pk'))
+
+    def get_context_data(self, **kwargs):
+        from clinical.models import EnrollmentStatus
+        return super().get_context_data(facilities=facilities_for_user(self.request.user), programmes=self.programmes,
+                                        statuses=EnrollmentStatus.choices, **kwargs)
+
+
+class SubjectSummaryView(PermissionRequiredMixin, DetailView):
+    """One subject on one page, by subject ID only: for investigators, coordinators and specialists."""
+
+    permission_required = 'patients.view_subject_summary'
+    template_name = 'patients/summary.html'
+    context_object_name = 'subject'
+
+    def get_queryset(self):
+        return with_old_study_id(Patient.objects.in_scope(self.request.user)
+                                 .select_related('current_facility', 'residence_district__region'))
+
+    def get_context_data(self, **kwargs):
+        from .summary import subject_summary
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(subject_summary(self.object))
+        return ctx

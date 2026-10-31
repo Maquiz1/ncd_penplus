@@ -61,7 +61,7 @@ class StudyEligibilityAssessment(TimeStampedModel):
 
     def clean(self):
         if self.is_eligible is False and not self.reason:
-            raise ValidationError({'reason': 'Give the reason the patient is ineligible.'})
+            raise ValidationError({'reason': 'Give the reason the subject is ineligible.'})
 
 
 class ConsentRecord(TimeStampedModel):
@@ -131,12 +131,12 @@ class StudyEnrollment(TimeStampedModel):
         errors = {}
         if self.eligibility_id:
             if self.eligibility.patient_id != self.patient_id or self.eligibility.study_id != self.study_id:
-                errors['eligibility'] = 'Eligibility assessment must be for this patient and study.'
+                errors['eligibility'] = 'Eligibility assessment must be for this subject and study.'
             elif not self.eligibility.is_eligible:
-                errors['eligibility'] = 'The patient was assessed as ineligible for this study.'
+                errors['eligibility'] = 'The subject was assessed as ineligible for this study.'
         if self.consent_id:
             if self.consent.patient_id != self.patient_id or self.consent.study_id != self.study_id:
-                errors['consent'] = 'Consent must be for this patient and study.'
+                errors['consent'] = 'Consent must be for this subject and study.'
             elif self.consent.decision != ConsentRecord.Decision.CONSENTED and self.status in ('pending', 'active'):
                 errors['consent'] = 'Enrollment requires a consent record with decision "Consented".'
         if self.status not in ('pending', 'active') and not self.outcome_date:
@@ -146,6 +146,6 @@ class StudyEnrollment(TimeStampedModel):
             open_elsewhere = StudyEnrollment.objects.filter(patient_id=self.patient_id, study_id=self.study_id,
                                                             status__in=['pending', 'active']).exclude(pk=self.pk)
             if open_elsewhere.exists():
-                errors['study'] = 'The patient already has an open enrollment in this study.'
+                errors['study'] = 'The subject already has an open enrollment in this study.'
         if errors:
             raise ValidationError(errors)

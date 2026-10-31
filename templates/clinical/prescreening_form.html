@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<form method="post" novalidate class="prescreen-form">
+  {% csrf_token %}
+  <div class="card shadow-sm">
+    <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div><h1 class="h5 mb-0">{{ title }}</h1><div class="small text-body-secondary">Before any disease screening: consent, residence, known NCD and lab request.</div></div>
+      <span class="badge text-bg-light">Step 2 of the pathway</span>
+    </div>
+    <div class="card-body">
+      {% if form.non_field_errors %}<div class="alert alert-danger">{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+      {% for title, icon, fields in form.sections %}
+      <section class="form-section{% if not forloop.last %} border-bottom pb-3 mb-3{% endif %}">
+        <h2 class="form-section-title"><i class="bi {{ icon }}"></i> {{ title }}</h2>
+        <div class="row g-3">{% for field in fields %}{% include "_form_field.html" %}{% endfor %}</div>
+      </section>
+      {% endfor %}
+    </div>
+    <div class="card-footer bg-body d-flex gap-2 justify-content-end">
+      <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Close</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save pre-screening</button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+// Show the consent date only after "Yes", and the lab request date only when a test is requested.
+(function () {
+  function toggle(name, target) {
+    var box = document.getElementById('id_' + target);
+    if (!box) return;
+    var col = box.closest('[class*="col-"]');
+    function update() {
+      var yes = document.querySelector('input[name="' + name + '"][value="True"]');
+      col.hidden = !(yes && yes.checked);
+    }
+    document.querySelectorAll('input[name="' + name + '"]').forEach(function (r) { r.addEventListener('change', update); });
+    update();
+  }
+  toggle('consent_obtained', 'consent_date');
+  toggle('lab_test_requested', 'lab_request_date');
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,24 @@
+{# One form field in its grid column; _form_fields.html loops over this. #}
+  {% with wt=field.widget_type spec=field.field.spec %}
+  <div class="{% if wt == 'textarea' or wt == 'checkboxselectmultiple' or wt == 'clearablefile' %}col-12{% elif wt == 'checkbox' %}col-12{% else %}col-md-6{% endif %}"
+       {% if spec.show_if_key %}data-show-if="{{ spec.show_if_key }}" data-show-value="{{ spec.show_if_value }}"{% endif %}>
+    {% if wt == 'checkbox' %}
+      <div class="form-check">
+        {{ field }}
+        <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      </div>
+    {% elif wt == 'checkboxselectmultiple' or wt == 'radioselect' %}
+      <label class="form-label d-block">{{ field.label }}{% if field.field.required or spec.required %} <span class="text-danger">*</span>{% endif %}</label>
+      <div class="d-flex flex-wrap gap-3">
+      {% for choice in field %}
+        <div class="form-check">{{ choice.tag }}<label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required or spec.required %} <span class="text-danger">*</span>{% endif %}</label>
+      {{ field }}
+    {% endif %}
+    {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  </div>
+  {% endwith %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Summary {{ subject.patient_number }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Subject summary</h1><div class="small text-body-secondary">De-identified: subject ID only. Generated {% now "d M Y H:i" %}.</div></div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'patients:summaries' %}"><i class="bi bi-list-ul"></i> All summaries</a>
+    {% if perms.patients.view_patient %}<a class="btn btn-sm btn-outline-primary" href="{{ subject.get_absolute_url }}"><i class="bi bi-folder2-open"></i> Full record</a>{% endif %}
+    <button class="btn btn-sm btn-outline-secondary d-print-none" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+  </div>
+</div>
+
+<div class="row g-3">
+  {# ---------------- left: who and what ---------------- #}
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-3 summary-profile">
+      <div class="card-body text-center pb-2">
+        <div class="summary-avatar {% if subject.sex == 'female' %}is-female{% elif subject.sex == 'male' %}is-male{% endif %}"><i class="bi bi-person-fill"></i></div>
+        <div class="h4 mb-0 mt-2">{{ subject.patient_number }}</div>
+        {% if subject.old_study_id or subject.old_id %}<div class="small text-body-secondary">Old ID {{ subject.old_study_id|default:subject.old_id }}</div>{% endif %}
+        <div class="d-flex flex-wrap justify-content-center gap-1 mt-2">
+          {% for e in programmes %}<span class="badge rounded-pill {% if e.status == 'active' %}text-bg-primary{% else %}text-bg-light border{% endif %}" title="{{ e.get_status_display }}">{{ e.programme.disease }}{% if e.status != 'active' %} · {{ e.get_status_display }}{% endif %}</span>{% empty %}<span class="badge text-bg-light border">Not enrolled</span>{% endfor %}
+        </div>
+      </div>
+      <ul class="list-group list-group-flush small">
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Age</span><span>{{ subject.age }} years</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Sex</span><span>{{ subject.get_sex_display }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Site</span><span>{{ subject.current_facility }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Registered</span><span>{{ subject.registration_date|date:"d M Y" }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Status</span><span>{% status_badge subject.vital_status %}{% if subject.date_of_death %} {{ subject.date_of_death|date:"d M Y" }}{% endif %}</span></li>
+      </ul>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header summary-head"><i class="bi bi-person-lines-fill"></i> Background</div>
+      <ul class="list-group list-group-flush small summary-about">
+        <li class="list-group-item"><i class="bi bi-mortarboard"></i><div><div class="fw-semibold">Education</div>{{ about.education|default:"Not recorded" }}</div></li>
+        <li class="list-group-item"><i class="bi bi-briefcase"></i><div><div class="fw-semibold">Employment</div>{{ about.employment|default:"Not recorded" }}</div></li>
+        {% if about.exposure %}<li class="list-group-item"><i class="bi bi-exclamation-triangle"></i><div><div class="fw-semibold">Occupational exposures</div>{{ about.exposure }}</div></li>{% endif %}
+        <li class="list-group-item"><i class="bi bi-geo-alt"></i><div><div class="fw-semibold">District of residence</div>{% if about.district %}{{ about.district.name }}, {{ about.district.region.name }}{% else %}Not recorded{% endif %}</div></li>
+      </ul>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header summary-head"><i class="bi bi-clipboard2-pulse"></i> Diagnoses</div>
+      <ul class="list-group list-group-flush small">
+        {% for d in diagnoses %}<li class="list-group-item"><div class="d-flex justify-content-between gap-2"><span class="fw-semibold">{{ d.description }}</span>{% status_badge d.status d.get_status_display %}</div><div class="text-body-secondary">{{ d.disease }} · {{ d.diagnosis_date|date:"d M Y" }}{% if d.complications %} · {{ d.complications|truncatechars:80 }}{% endif %}</div></li>
+        {% empty %}<li class="list-group-item text-body-secondary">No diagnosis recorded.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  {# ---------------- right: follow-up and clinical record ---------------- #}
+  <div class="col-lg-8">
+    <div class="row g-2 mb-3 summary-stats">
+      <div class="col-6 col-md"><div class="stat-tile"><div class="stat-label">Expected to date</div><div class="stat-num">{{ stats.expected }}</div></div></div>
+      <div class="col-6 col-md"><div class="stat-tile is-good"><div class="stat-label">Attended</div><div class="stat-num">{{ stats.attended }}{% if stats.attendance is not None %}<small> {{ stats.attendance }}%</small>{% endif %}</div></div></div>
+      <div class="col-6 col-md"><div class="stat-tile is-bad"><div class="stat-label">Missed</div><div class="stat-num">{{ stats.missed }}</div></div></div>
+      <div class="col-6 col-md"><div class="stat-tile is-wait"><div class="stat-label">Upcoming</div><div class="stat-num">{{ stats.upcoming }}</div></div></div>
+      <div class="col-12 col-md"><div class="stat-tile"><div class="stat-label">Next follow-up</div><div class="stat-num fs-6 pt-1">{{ stats.next|date:"d M Y"|default:"None booked" }}</div></div></div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header bg-body pb-0">
+        <ul class="nav nav-tabs card-header-tabs tab-scroll" role="tablist">
+          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#s-history" type="button">History &amp; complications</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-visits" type="button">Visits &amp; symptoms <span class="badge text-bg-light">{{ stats.visits }}</span></button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-vitals" type="button">Vital signs</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-results" type="button">Tests &amp; results</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-meds" type="button">Medications</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-admissions" type="button">Hospitalizations <span class="badge text-bg-light">{{ admissions|length }}</span></button></li>
+        </ul>
+      </div>
+      <div class="card-body tab-content">
+        {# history #}
+        <div class="tab-pane fade show active" id="s-history" role="tabpanel">
+          <ol class="timeline">
+            {% for e in programmes %}<li class="timeline-item"><span class="timeline-dot bg-primary"><i class="bi bi-journal-medical"></i></span>
+              <div class="timeline-date">{{ e.enrollment_date|date:"d M Y" }}</div>
+              <div class="timeline-card"><div class="fw-semibold">Enrolled in {{ e.programme }}</div><div class="small text-body-secondary">{{ e.facility }} · {% status_badge e.status e.get_status_display %}{% if e.outcome_date %} since {{ e.outcome_date|date:"d M Y" }}{% if e.outcome_reason %} ({{ e.outcome_reason }}){% endif %}{% endif %}</div></div></li>{% endfor %}
+            {% for h in history %}<li class="timeline-item"><span class="timeline-dot bg-info"><i class="bi bi-clock-history"></i></span>
+              <div class="timeline-date">{{ h.date|date:"d M Y" }}</div>
+              <div class="timeline-card"><div class="fw-semibold mb-1">{{ h.form }}</div>
+                {% if h.answers %}<dl class="row summary-answers mb-0">{% for label, value in h.answers %}<dt class="col-sm-5">{{ label }}</dt><dd class="col-sm-7">{{ value }}</dd>{% endfor %}</dl>{% else %}<div class="small text-body-secondary">Nothing of note recorded.</div>{% endif %}</div></li>{% endfor %}
+          </ol>
+          {% if not programmes and not history %}<p class="text-body-secondary mb-0">No history recorded.</p>{% endif %}
+        </div>
+
+        {# visits #}
+        <div class="tab-pane fade" id="s-visits" role="tabpanel">
+          <ol class="timeline">
+            {% for v in visits %}<li class="timeline-item"><span class="timeline-dot {% if v.encounter.stage == 'baseline' %}bg-success{% elif v.encounter.stage == 'unscheduled' %}bg-warning{% else %}bg-primary{% endif %}"><i class="bi bi-calendar-check"></i></span>
+              <div class="timeline-date">{{ v.encounter.encounter_date|date:"d M Y" }}</div>
+              <div class="timeline-card"><div class="d-flex flex-wrap justify-content-between gap-2"><span class="fw-semibold">{{ v.encounter.get_stage_display }} visit</span><span class="small text-body-secondary">{{ v.encounter.facility }}</span></div>
+                {% if v.encounter.chief_complaint %}<div class="small">Complaint: {{ v.encounter.chief_complaint }}</div>{% endif %}
+                {% if v.findings %}<div class="d-flex flex-wrap gap-1 mt-1">{% for label, value in v.findings %}<span class="badge text-bg-light border fw-normal">{{ label }}: <strong>{{ value }}</strong></span>{% endfor %}</div>{% else %}<div class="small text-body-secondary">No positive findings recorded.</div>{% endif %}</div></li>
+            {% empty %}<li class="text-body-secondary">No visits recorded.</li>{% endfor %}
+          </ol>
+          {% if stats.visits > 20 %}<div class="small text-body-secondary">Showing the latest 20 of {{ stats.visits }} visits.</div>{% endif %}
+        </div>
+
+        {# vitals #}
+        <div class="tab-pane fade" id="s-vitals" role="tabpanel">
+          <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Date</th><th class="text-end">Weight (kg)</th><th class="text-end">Height (cm)</th><th class="text-end">BP (mmHg)</th><th class="text-end">Pulse</th><th class="text-end">Temp (°C)</th><th class="text-end">SpO₂</th><th class="text-end">Glucose</th></tr></thead>
+            <tbody>{% for v in vitals %}<tr><td>{{ v.taken_at|date:"d M Y" }}</td><td class="text-end">{{ v.weight_kg|default:"—" }}</td><td class="text-end">{{ v.height_cm|default:"—" }}</td>
+              <td class="text-end{% if v.systolic_bp >= 140 or v.diastolic_bp >= 90 %} text-danger fw-semibold{% endif %}">{% if v.systolic_bp %}{{ v.systolic_bp }}/{{ v.diastolic_bp|default:"?" }}{% else %}—{% endif %}</td>
+              <td class="text-end">{{ v.pulse|default:"—" }}</td><td class="text-end">{{ v.temperature_c|default:"—" }}</td><td class="text-end">{{ v.spo2|default:"—" }}</td><td class="text-end">{{ v.blood_glucose|default:"—" }}</td></tr>
+            {% empty %}<tr><td colspan="8" class="text-body-secondary">No vital signs recorded.</td></tr>{% endfor %}</tbody>
+          </table></div>
+        </div>
+
+        {# results #}
+        <div class="tab-pane fade" id="s-results" role="tabpanel">
+          <h2 class="form-section-title"><i class="bi bi-droplet-half"></i> Laboratory</h2>
+          <div class="table-responsive mb-3"><table class="table table-sm mb-0">
+            <thead><tr><th>Date</th><th>Test</th><th>Result</th><th>Reference</th></tr></thead>
+            <tbody>{% for o in labs %}<tr><td>{{ o.resulted_at|default:o.ordered_at|date:"d M Y" }}</td><td>{{ o.test.name }}</td><td class="{% if o.is_abnormal %}text-danger fw-semibold{% endif %}">{{ o.result_value }} {{ o.result_unit }}{% if o.is_abnormal %} <i class="bi bi-exclamation-circle" title="Outside the reference range"></i>{% endif %}</td><td class="small text-body-secondary">{{ o.reference_snapshot|default:o.test.reference_display }}</td></tr>
+            {% empty %}<tr><td colspan="4" class="text-body-secondary">No lab results.</td></tr>{% endfor %}</tbody>
+          </table></div>
+          <h2 class="form-section-title"><i class="bi bi-heart-pulse"></i> ECG, echo and imaging</h2>
+          <div class="table-responsive"><table class="table table-sm mb-0">
+            <thead><tr><th>Date</th><th>Investigation</th><th>Status</th><th>Conclusion</th></tr></thead>
+            <tbody>{% for i in investigations %}<tr><td>{{ i.requested_at|date:"d M Y" }}</td><td>{{ i.name }}</td><td>{% status_badge i.status i.get_status_display %}{% if i.is_abnormal %} <span class="badge text-bg-danger">Abnormal</span>{% endif %}</td><td>{{ i.conclusion|default:"—" }}</td></tr>
+            {% empty %}<tr><td colspan="4" class="text-body-secondary">No investigations.</td></tr>{% endfor %}</tbody>
+          </table></div>
+        </div>
+
+        {# medications #}
+        <div class="tab-pane fade" id="s-meds" role="tabpanel">
+          {% if prescriptions %}<h2 class="form-section-title"><i class="bi bi-capsule"></i> Prescriptions</h2>
+          <div class="table-responsive mb-3"><table class="table table-sm mb-0">
+            <thead><tr><th>Date</th><th>Medicine</th><th>Dose / frequency</th><th>Status</th></tr></thead>
+            <tbody>{% for rx in prescriptions %}<tr><td>{{ rx.prescribed_at|date:"d M Y" }}</td><td>{{ rx.medication }}</td><td>{{ rx.dose }}, {{ rx.frequency }}{% if rx.duration_days %} × {{ rx.duration_days }} d{% endif %}</td><td>{% status_badge rx.status rx.get_status_display %}</td></tr>{% endfor %}</tbody>
+          </table></div>{% endif %}
+          <h2 class="form-section-title"><i class="bi bi-journal-text"></i> Medication history</h2>
+          <div class="table-responsive"><table class="table table-sm mb-0">
+            <thead><tr><th>Date</th><th>Medicine</th><th>Action</th><th>Dose</th><th>Start – end</th></tr></thead>
+            <tbody>{% for m in medication_records %}<tr><td>{{ m.record_date|date:"d M Y" }}</td><td>{{ m.medication_name }}</td><td>{{ m.get_action_display|default:"—" }}</td><td>{{ m.dose|default:"—" }}</td><td class="small">{{ m.start_date|date:"d M Y"|default:"" }}{% if m.end_date %} – {{ m.end_date|date:"d M Y" }}{% endif %}</td></tr>
+            {% empty %}<tr><td colspan="5" class="text-body-secondary">No medication history.</td></tr>{% endfor %}</tbody>
+          </table></div>
+        </div>
+
+        {# admissions #}
+        <div class="tab-pane fade" id="s-admissions" role="tabpanel">
+          <ol class="timeline">
+            {% for a in admissions %}<li class="timeline-item"><span class="timeline-dot bg-danger"><i class="bi bi-hospital"></i></span>
+              <div class="timeline-date">{{ a.admitted_at|date:"d M Y" }}</div>
+              <div class="timeline-card"><div class="fw-semibold">{{ a.reason|default:"Admission" }}{% if a.readmission_of %} <span class="badge text-bg-warning">Readmission</span>{% endif %}</div>
+                <div class="small text-body-secondary">{{ a.facility }}{% if a.ward %} · {{ a.ward }}{% endif %} · {% if a.discharged_at %}discharged {{ a.discharged_at|date:"d M Y" }}{% if a.discharge_outcome %} ({{ a.get_discharge_outcome_display }}){% endif %}{% else %}still admitted{% endif %}</div></div></li>
+            {% empty %}<li class="text-body-secondary">No hospitalizations.</li>{% endfor %}
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

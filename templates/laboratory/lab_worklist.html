@@ -1,28 +1,31 @@
 {% extends "base.html" %}{% load ncd %}
-{% block title %}Laboratory{% endblock %}
+{% block title %}Lab requests{% endblock %}
 {% block content %}
-<h1 class="h3 mb-3">Laboratory worklist</h1>
-<ul class="nav nav-pills mb-3">
-  <li class="nav-item"><a class="nav-link {% if current_status == 'pending' %}active{% endif %}" href="?status=pending">Pending</a></li>
-  <li class="nav-item"><a class="nav-link {% if current_status == 'resulted' %}active{% endif %}" href="?status=resulted">To review</a></li>
-  <li class="nav-item"><a class="nav-link {% if current_status == 'reviewed' %}active{% endif %}" href="?status=reviewed">Reviewed</a></li>
-  <li class="nav-item"><a class="nav-link {% if current_status == '' %}active{% endif %}" href="?status=">All</a></li>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Lab requests</h1>
+    <div class="small text-body-secondary">One row per request. Collect the specimen, enter all results of the request together, then the doctor confirms them.</div></div>
+  {% if perms.laboratory.view_labtest %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratory:catalogue' %}"><i class="bi bi-list-columns"></i> Test catalogue</a>{% endif %}
+</div>
+<ul class="nav nav-tabs tab-scroll mb-3">
+  {% for key, label, count in tabs %}<li class="nav-item"><a class="nav-link {% if key == tab %}active{% endif %}" href="?tab={{ key }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}">{{ label }} <span class="badge {% if count and key in 'collect results review' %}text-bg-warning{% else %}text-bg-light{% endif %}">{{ count|default:0 }}</span></a></li>{% endfor %}
 </ul>
-<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Ordered</th><th>Patient</th><th>Test</th><th>Priority</th><th>Specimen</th><th>Result</th><th>Status</th><th class="text-end">Next step</th></tr></thead>
-  <tbody>{% for o in object_list %}<tr>
-    <td>{{ o.ordered_at|date:"d M H:i" }}</td><td><a href="{{ o.patient.get_absolute_url }}#labs">{{ o.patient }}</a><div class="small">{% patient_name o.patient %}</div></td><td>{{ o.test.name }}</td>
-    <td>{% if o.priority == 'urgent' %}<span class="badge text-bg-danger">Urgent</span>{% else %}Routine{% endif %}</td>
-    <td>{{ o.specimen_id|default:"—" }}</td>
-    <td>{% if o.result_value %}<span class="{% if o.is_abnormal %}text-danger fw-semibold{% endif %}">{{ o.result_value }} {{ o.result_unit }}</span>{% if o.turnaround_hours is not None %} <span class="small text-body-secondary">({{ o.turnaround_hours }} h)</span>{% endif %}{% else %}—{% endif %}</td>
-    <td>{% status_badge o.status o.get_status_display %}</td>
-    <td class="text-end text-nowrap">{% if perms.laboratory.change_laborder %}{% with nxt=request.get_full_path|urlencode %}
-      {% if o.status == 'ordered' %}<a class="btn btn-sm btn-primary" href="{% url 'laboratory:lab_action' o.pk 'collect' %}?next={{ nxt }}">Collect</a>{% endif %}
-      {% if o.status == 'collected' %}<a class="btn btn-sm btn-primary" href="{% url 'laboratory:lab_action' o.pk 'result' %}?next={{ nxt }}">Enter result</a>{% endif %}
-      {% if o.status == 'resulted' and perms.laboratory.review_laborder %}<a class="btn btn-sm btn-success" href="{% url 'laboratory:lab_action' o.pk 'review' %}?next={{ nxt }}">Review</a>{% endif %}
-      {% if o.status == 'ordered' or o.status == 'collected' %}<a class="btn btn-sm btn-outline-danger" href="{% url 'laboratory:lab_action' o.pk 'cancel' %}?next={{ nxt }}">Cancel</a>{% endif %}
-    {% endwith %}{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No orders.</td></tr>{% endfor %}</tbody>
+<form class="row g-2 mb-3" method="get"><input type="hidden" name="tab" value="{{ tab }}">
+  <div class="col-md-4"><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Subject ID, old ID or specimen number" aria-label="Search requests"></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary"><i class="bi bi-search"></i> Search</button></div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>#</th><th>Requested</th><th>Subject</th><th>Tests</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+  <tbody>{% for r in requests %}<tr>
+    <td class="text-body-secondary small">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+    <td class="text-nowrap">{{ r.first.ordered_at|date:"d M Y H:i" }}{% if r.first.priority == 'urgent' %} <span class="badge text-bg-danger">Urgent</span>{% endif %}<div class="small text-body-secondary">{{ r.first.facility }}</div></td>
+    <td class="text-nowrap"><a href="{{ r.patient.get_absolute_url }}#labs">{{ r.patient.patient_number }}</a>{% old_patient_id r.patient %}<div class="small">{% patient_name r.patient %}</div></td>
+    <td>{% for o in r.orders %}<span class="lab-chip is-{{ o.status }}{% if o.is_abnormal %} is-abnormal{% endif %}" title="{{ o.get_status_display }}">{{ o.test.name }}{% if o.result_value %}: <strong>{{ o.result_value }}</strong>{% endif %}</span>{% endfor %}</td>
+    <td>{% status_badge r.status r.status_label %}{% if r.abnormal %} <span class="badge text-bg-danger">{{ r.abnormal }} abnormal</span>{% endif %}</td>
+    <td class="text-end text-nowrap">
+      {% with step=r.next_step %}{% if step %}{% if step.0 == 'review' and perms.laboratory.review_laborder or step.0 != 'review' and perms.laboratory.change_laborder %}<a class="btn btn-sm btn-primary" href="{% url 'laboratory:lab_action' step.2.pk step.0 %}?next={{ request.get_full_path|urlencode }}">{{ step.1 }}</a>{% endif %}{% endif %}{% endwith %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'laboratory:request_detail' r.group %}"><i class="bi bi-eye"></i> View</a>
+    </td></tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-body-secondary py-4">No requests here.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% include "_pagination.html" %}
 {% endblock %}

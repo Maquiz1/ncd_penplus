@@ -23,8 +23,8 @@ class InvestigationTests(BaseTestCase):
 
     def request(self):
         self.client.force_login(self.clinician_ilala)
-        self.client.post(reverse('investigations:add', args=[self.patient.pk]), {
-            'investigation_type': self.echo.pk, 'description': 'Dyspnoea', 'facility': self.ilala.pk})
+        self.client.post(reverse('investigations:request', args=[self.patient.pk]), {
+            'types': [self.echo.pk], 'clinical_notes': 'Dyspnoea', 'facility': self.ilala.pk})
         return InvestigationOrder.objects.get(patient=self.patient)
 
     def report(self, inv, **results):

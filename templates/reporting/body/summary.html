@@ -1,7 +1,7 @@
 {% load ncd %}{% with r=report %}
 <div class="row g-3 mb-3">
-  <div class="col-6 col-lg-3"><div class="card shadow-sm stat-card"><div class="card-body"><div class="small text-body-secondary">New patients</div><div class="stat-value">{{ r.new_patients }}</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card shadow-sm stat-card"><div class="card-body"><div class="small text-body-secondary">Clinical programme enrollments</div><div class="stat-value">{{ r.programme_total }}</div><div class="small">{{ r.programme_unique_patients }} unique patients</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm stat-card"><div class="card-body"><div class="small text-body-secondary">New subjects</div><div class="stat-value">{{ r.new_patients }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm stat-card"><div class="card-body"><div class="small text-body-secondary">Clinical programme enrollments</div><div class="stat-value">{{ r.programme_total }}</div><div class="small">{{ r.programme_unique_patients }} unique subjects</div></div></div></div>
   <div class="col-6 col-lg-3"><div class="card shadow-sm stat-card"><div class="card-body"><div class="small text-body-secondary">Research enrollments</div><div class="stat-value">{{ r.research_total }}</div></div></div></div>
   <div class="col-6 col-lg-3"><div class="card shadow-sm stat-card"><div class="card-body"><div class="small text-body-secondary">Transfers in / out</div><div class="stat-value">{{ r.transfers_in }} / {{ r.transfers_out }}</div></div></div></div>
 </div>
@@ -20,10 +20,10 @@
     <li class="list-group-item d-flex justify-content-between">Incomplete / open encounters <strong>{{ r.incomplete_encounters }}</strong></li>
     <li class="list-group-item d-flex justify-content-between">Forms awaiting review <strong>{{ r.forms_awaiting_review }}</strong></li>
     <li class="list-group-item d-flex justify-content-between">Lab orders (pending) <strong>{{ r.labs_ordered }} ({{ r.labs_pending }})</strong></li>
-    <li class="list-group-item d-flex justify-content-between">Patients without a phone number <strong>{{ r.missing_phone }}</strong></li>
+    <li class="list-group-item d-flex justify-content-between">Subjects without a phone number <strong>{{ r.missing_phone }}</strong></li>
   </ul></div></div>
   <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Medicines dispensed ({{ r.prescriptions_written }} prescriptions written)</div><div class="table-responsive"><table class="table table-sm mb-0">
-    <thead><tr><th>Medicine</th><th class="text-end">Quantity</th><th class="text-end">Patients</th></tr></thead>
+    <thead><tr><th>Medicine</th><th class="text-end">Quantity</th><th class="text-end">Subjects</th></tr></thead>
     <tbody>{% for row in r.dispensed_by_medication %}<tr><td>{{ row.batch__medication__name }} {{ row.batch__medication__strength }}</td><td class="text-end">{{ row.total }} {{ row.batch__medication__dispensing_unit }}</td><td class="text-end">{{ row.patients }}</td></tr>{% empty %}<tr><td colspan="3" class="text-body-secondary">Nothing dispensed in period.</td></tr>{% endfor %}</tbody></table></div></div></div>
   <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Stock expired or expiring within 90 days of period end</div><div class="table-responsive"><table class="table table-sm mb-0">
     <thead><tr><th>Medicine</th><th>Facility</th><th>Batch</th><th>Expiry</th><th class="text-end">On hand</th></tr></thead>

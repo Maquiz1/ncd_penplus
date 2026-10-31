@@ -51,7 +51,7 @@ class PatientExportView(PermissionRequiredMixin, View):
             writer.writerow(row)
             count += 1
         log_event(request=request, action=AuditEvent.Action.EXPORT, model='patients.Patient',
-                  object_repr=f'Patient register ({count} rows)',
+                  object_repr=f'Subject register ({count} rows)',
                   changes={'identity_columns': with_identity, 'scope': scope_description(request.user)})
         return response
 
@@ -117,7 +117,7 @@ class RecruitmentReportView(ReportPage):
 
 
 class ConditionReportView(ReportPage):
-    report_title = 'Patients by condition'
+    report_title = 'Subjects by condition'
     body_template = 'reporting/body/conditions.html'
     default_period = 'all'
 
@@ -134,11 +134,47 @@ class ConditionReportView(ReportPage):
         data = context['data']
         if data is None:
             return
-        yield (['Condition', 'Patients', 'Active', 'New in period'] + [s.name for s in data['sites']]
+        yield (['Condition', 'Subjects', 'Active', 'New in period'] + [s.name for s in data['sites']]
                + ['Male', 'Female'] + data['age_labels'])
         for g in data['rows']:
             yield ([g['label'], g['total'], g['active'], g['new']] + g['site_counts']
                    + [g['sex'].get('male', 0), g['sex'].get('female', 0)] + g['age_counts'])
+
+
+class DiseaseReportView(ReportPage):
+    """One disease programme in detail: status, sites × conditions, sub-types, sex/age and its indicators."""
+
+    report_title = 'Disease report'
+    body_template = 'reporting/body/disease.html'
+    default_period = 'this_year'
+
+    def disease(self):
+        f = self.get_filters()
+        return f.disease or f.diseases.first()
+
+    def get_context_data(self, **kwargs):
+        from .reports import disease_report
+        disease = self.disease()
+        data = disease_report(self.get_filters(), disease, self.request.user) if disease else None
+        if disease:
+            self.report_title = f'{disease.name} report'
+        return super().get_context_data(disease=disease, data=data, hidden_filters={}, **kwargs)
+
+    def csv_rows(self, context):
+        data = context['data']
+        if data is None:
+            return
+        rows = data['conditions']['rows']
+        yield ['Site', 'Enrolled', 'Active'] + [g['label'] for g in rows]
+        for r in data['by_site']:
+            yield [str(r['site']), r['enrolled'], r['active']] + r['cells']
+        yield ['Total', data['site_total']['enrolled'], data['site_total']['active']] + data['site_total']['cells']
+        for block in data['subtypes']:
+            yield []
+            yield [block['label']] + block['names']
+            for site, cells in block['rows']:
+                yield [str(site)] + cells
+            yield ['Total'] + block['total']
 
 
 class TrendsReportView(ReportPage):
@@ -150,8 +186,8 @@ class TrendsReportView(ReportPage):
         return super().get_context_data(data=trends_report(self.get_filters()), **kwargs)
 
     def csv_rows(self, context):
-        yield ['Month', 'Vitals recorded', 'Patients with BP', 'Mean SBP', 'Mean DBP', 'BP <140/90 (%)',
-               'Patients with HbA1c', 'Mean HbA1c', 'HbA1c <8 (%)', 'Glucose tests', 'Mean glucose']
+        yield ['Month', 'Vitals recorded', 'Subjects with BP', 'Mean SBP', 'Mean DBP', 'BP <140/90 (%)',
+               'Subjects with HbA1c', 'Mean HbA1c', 'HbA1c <8 (%)', 'Glucose tests', 'Mean glucose']
         for r in context['data']['rows']:
             yield [f'{r["month"]:%Y-%m}', r['vitals'], r['bp_patients'], r['sbp'], r['dbp'], r['bp_controlled'],
                    r['a1c_patients'], r['a1c_mean'], r['a1c_controlled'], r['glucose_tests'], r['glucose_mean']]

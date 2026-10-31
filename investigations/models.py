@@ -27,7 +27,7 @@ class InvestigationType(models.Model):
     name = models.CharField(max_length=150)
     modality = models.CharField(max_length=20, choices=Modality.choices)
     description = models.CharField(max_length=255, blank=True)
-    preparation = models.CharField('Patient preparation', max_length=255, blank=True)
+    preparation = models.CharField('Subject preparation', max_length=255, blank=True)
     order = models.PositiveSmallIntegerField(default=10)
     is_active = models.BooleanField(default=True)
 

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">My profile</h1>
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-body fw-semibold">Your details</div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% include "_form_fields.html" %}
+          <div class="mt-4 d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save</button>
+            <a class="btn btn-outline-secondary" href="{% url 'password_change' %}"><i class="bi bi-key"></i> Change password</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-body fw-semibold">Your access</div>
+      <div class="card-body">
+        <dl class="row dl-compact mb-0">
+          <dt class="col-5">Username</dt><dd class="col-7">{{ object.username }}</dd>
+          <dt class="col-5">Position</dt><dd class="col-7">{{ object.position_label|default:"—" }}</dd>
+          <dt class="col-5">Roles</dt><dd class="col-7">{{ object.groups.all|join:", "|default:"None" }}{% if object.is_superuser %} <span class="badge text-bg-dark">Superuser</span>{% endif %}</dd>
+          <dt class="col-5">Access level</dt><dd class="col-7">{{ object.access_summary }}</dd>
+          <dt class="col-5">Programmes</dt><dd class="col-7">{{ object.disease_summary }}</dd>
+          <dt class="col-5">Subject names</dt><dd class="col-7">{% if can_view_identity %}Visible{% else %}Hidden for your role{% endif %}</dd>
+          <dt class="col-5">Last login</dt><dd class="col-7">{{ object.last_login|date:"d M Y H:i"|default:"—" }}</dd>
+          <dt class="col-5">Account created</dt><dd class="col-7">{{ object.date_joined|date:"d M Y" }}</dd>
+        </dl>
+      </div>
+      <div class="card-footer bg-body small text-body-secondary">These are set by your administrator. Ask them if something is wrong.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

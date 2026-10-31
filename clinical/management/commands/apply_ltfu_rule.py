@@ -6,7 +6,7 @@ from clinical.services import apply_ltfu_rule
 
 
 class Command(BaseCommand):
-    help = ('Mark active programme enrollments as default / lost to follow-up when the patient has had no attended '
+    help = ('Mark active programme enrollments as default / lost to follow-up when the subject has had no attended '
             'visit for LTFU_MONTHS months (default 3) after the last attended visit. Schedule daily, e.g. via cron.')
 
     def add_arguments(self, parser):

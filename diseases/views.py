@@ -103,7 +103,7 @@ class DiseaseDeleteView(PermissionRequiredMixin, View):
     def render_form(self, request, disease, form):
         return render(request, 'confirm_action.html', {
             'title': f'Delete disease – {disease}', 'form': form, 'button': 'Delete disease', 'button_class': 'btn-danger',
-            'message': 'The disease is hidden everywhere and can no longer be used. Its patients, diagnoses and history '
+            'message': 'The disease is hidden everywhere and can no longer be used. Its subjects, diagnoses and history '
                        'are kept, and a superuser can restore it.', 'cancel_url': disease.get_absolute_url()})
 
     def get(self, request, pk):

@@ -12,12 +12,40 @@ from facilities.scope import facilities_for_user
 from .models import Position, User
 
 
+# Rights that let someone run the system rather than record care: a role holding one of these that the editor
+# lacks has more power than the editor.
+ADMIN_APPS = ('users', 'auth', 'facilities', 'notifications', 'audit')
+
+
+def ungrantable_roles(user):
+    """Roles holding admin rights the user lacks; they cannot give these roles or manage people who have them.
+
+    National-only setup rights are not compared: they work only for people with a national assignment, and nobody
+    can assign a wider level than their own.
+    """
+    from fnmatch import fnmatch
+
+    from core.roles import NATIONAL_ONLY
+
+    if user is None or user.is_superuser:
+        return Group.objects.none()
+    own = user.get_all_permissions()
+
+    def beyond(perm):
+        return (perm.split('.')[0] in ADMIN_APPS and perm not in own
+                and not any(fnmatch(perm, pattern) for pattern in NATIONAL_ONLY))
+
+    blocked = [g.pk for g in Group.objects.prefetch_related('permissions__content_type')
+               if any(beyond(f'{p.content_type.app_label}.{p.codename}') for p in g.permissions.all())]
+    return Group.objects.filter(pk__in=blocked)
+
+
 class StaffCreateForm(BootstrapModelForm):
     groups = forms.ModelMultipleChoiceField(queryset=Group.objects.order_by('name'), required=False,
                                             widget=forms.CheckboxSelectMultiple, label='Roles')
     diseases = forms.ModelMultipleChoiceField(queryset=None, required=False, widget=forms.CheckboxSelectMultiple,
                                               help_text='Programmes this person works on, e.g. only Cardiac for a cardiologist. '
-                                                        'They then see only those patients, indicators and reports. '
+                                                        'They then see only those subjects, indicators and reports. '
                                                         'Leave empty for all diseases (coordinators, PIs, data managers).')
 
     class Meta:
@@ -25,8 +53,11 @@ class StaffCreateForm(BootstrapModelForm):
         fields = ['username', 'prefix', 'first_name', 'last_name', 'email', 'phone', 'position', 'job_title', 'groups',
                   'diseases']
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, editor=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # Nobody can give a role with more admin rights than their own.
+        self.blocked = ungrantable_roles(editor)
+        self.fields['groups'].queryset = Group.objects.exclude(pk__in=self.blocked).order_by('name')
         self.fields['position'].queryset = Position.objects.filter(is_active=True)
         from clinical.models import Disease
         self.fields['diseases'].queryset = Disease.objects.filter(is_active=True)
@@ -56,7 +87,11 @@ class StaffCreateForm(BootstrapModelForm):
                 raise forms.ValidationError('Give a username, an email address, or both.')
         position = cleaned.get('position')
         if not cleaned.get('groups') and position and position.default_role_id:
-            cleaned['groups'] = Group.objects.filter(pk=position.default_role_id)
+            if self.blocked.filter(pk=position.default_role_id).exists():
+                self.add_error('groups', f'The {position.default_role} role of this position has more rights than '
+                                         'yours. Tick a role you can give, or ask a higher administrator.')
+            else:
+                cleaned['groups'] = Group.objects.filter(pk=position.default_role_id)
         return cleaned
 
 
@@ -83,6 +118,38 @@ class StaffSetPasswordForm(SetPasswordForm):
 class StaffUpdateForm(StaffCreateForm):
     class Meta(StaffCreateForm.Meta):
         fields = ['prefix', 'first_name', 'last_name', 'email', 'phone', 'position', 'job_title', 'groups', 'diseases']
+
+
+class ProfileForm(BootstrapModelForm):
+    """What a person may change on their own account. Roles, position, access and diseases stay with administrators."""
+
+    current_password = forms.CharField(widget=forms.PasswordInput, required=False,
+                                       help_text='Needed only when you change your email address.')
+
+    class Meta:
+        model = User
+        fields = ['prefix', 'first_name', 'last_name', 'email', 'phone']
+        help_texts = {'email': 'Used to log in and to reset your password.',
+                      'phone': 'Work phone, e.g. 0712 345 678.'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['first_name'].required = True
+        self.fields['last_name'].required = True
+        self.original_email = self.instance.email
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if email and User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError('Another account already uses this email address.')
+        return email
+
+    def clean(self):
+        cleaned = super().clean()
+        if 'email' in cleaned and cleaned['email'] != (self.original_email or '').lower():
+            if not self.instance.check_password(cleaned.get('current_password') or ''):
+                self.add_error('current_password', 'Enter your current password to change your email address.')
+        return cleaned
 
 
 class ParentSelect(forms.Select):

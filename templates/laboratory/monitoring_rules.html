@@ -2,11 +2,11 @@
 {% block title %}Monitoring settings{% endblock %}
 {% block content %}
 <h1 class="h3 mb-1">Monitoring settings</h1>
-<p class="text-body-secondary small mb-3">How often routine tests are due. Used by the due list, the patient banner and the nightly “overdue” data issues. Only staff with a National assignment can change them.</p>
+<p class="text-body-secondary small mb-3">How often routine tests are due. Used by the due list, the subject banner and the nightly “overdue” data issues. Only staff with a National assignment can change them.</p>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-  <thead class="table-light"><tr><th>Test</th><th>Patients</th><th class="text-end">Due every</th><th class="text-end">Due again after “not done”</th><th>Status</th><th>Last changed</th><th></th></tr></thead>
+  <thead class="table-light"><tr><th>Test</th><th>Subjects</th><th class="text-end">Due every</th><th class="text-end">Due again after “not done”</th><th>Status</th><th>Last changed</th><th></th></tr></thead>
   <tbody>{% for r in rules %}<tr>
-    <td class="fw-semibold">{{ r.test.name }}</td><td>Active {{ r.disease.name|lower }} patients</td>
+    <td class="fw-semibold">{{ r.test.name }}</td><td>Active {{ r.disease.name|lower }} subjects</td>
     <td class="text-end">{{ r.interval_months }} month{{ r.interval_months|pluralize }}</td>
     <td class="text-end">{{ r.retry_months }} month{{ r.retry_months|pluralize }}</td>
     <td>{% if r.is_active %}<span class="badge text-bg-success">On</span>{% else %}<span class="badge text-bg-secondary">Off</span>{% endif %}</td>

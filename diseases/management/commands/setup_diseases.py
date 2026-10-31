@@ -92,7 +92,7 @@ class Command(BaseCommand):
             _, new = raise_issue(f'diagnosis-condition:{diagnosis.pk}', 'diagnosis_condition_to_confirm',
                                  DataIssue.Category.CLINICAL, f'Confirm the condition for "{diagnosis.description}"',
                                  f'No specific diagnosis was recorded, so it is counted as "{diagnosis.condition.name}". '
-                                 f'Open the patient, edit the diagnosis and choose the correct condition.',
+                                 f'Open the subject, edit the diagnosis and choose the correct condition.',
                                  patient=diagnosis.patient, obj=diagnosis.patient, related_date=diagnosis.diagnosis_date)
             defaulted += new
         self.stdout.write(self.style.SUCCESS(

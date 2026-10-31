@@ -7,19 +7,19 @@
     <div class="text-body-secondary small">{% if user.role_label %}{{ user.role_label }} · {% endif %}{{ today|date:"l, j F Y" }} · Access scope: {{ scope }}</div>
   </div>
   <div class="d-flex gap-2">
-    {% if perms.patients.add_patient and can_view_identity %}<a href="{% url 'patients:create' %}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Register patient</a>{% endif %}
-    {% if perms.patients.view_patient %}<a href="{% url 'patients:list' %}" class="btn btn-outline-primary"><i class="bi bi-search"></i> Find patient</a>{% endif %}
+    {% if perms.patients.add_patient and can_view_identity %}<a href="{% url 'patients:create' %}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Register subject</a>{% endif %}
+    {% if perms.patients.view_patient %}<a href="{% url 'patients:list' %}" class="btn btn-outline-primary"><i class="bi bi-search"></i> Find subject</a>{% endif %}
   </div>
 </div>
 
 {% if scope == 'No assigned scope' %}
-<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Your account has no facility or geographic assignment yet, so no patient data is visible. Ask a facility administrator to assign your scope.</div>
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Your account has no facility or geographic assignment yet, so no subject data is visible. Ask a facility administrator to assign your scope.</div>
 {% endif %}
 
 {% if stats %}
 <div class="row g-3 mb-4">
   {% with s=stats %}
-  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'patients:list' %}"><div class="text-body-secondary small"><i class="bi bi-people"></i> Patients</div><div class="stat-value">{{ s.patients_total }}</div><div class="small text-success">+{{ s.patients_new_month }} this month</div></a></div></div>
+  <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'patients:list' %}"><div class="text-body-secondary small"><i class="bi bi-people"></i> Subjects</div><div class="stat-value">{{ s.patients_total }}</div><div class="small text-success">+{{ s.patients_new_month }} this month</div></a></div></div>
   <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'clinical:enrollment_list' %}?status=active"><div class="text-body-secondary small"><i class="bi bi-journal-medical"></i> In care programmes</div><div class="stat-value">{{ s.programme_active }}</div></a></div></div>
   <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'research:study_list' %}"><div class="text-body-secondary small"><i class="bi bi-mortarboard"></i> In research studies</div><div class="stat-value">{{ s.study_active }}</div></a></div></div>
   <div class="col-6 col-md-4 col-xl-2"><div class="card stat-card shadow-sm h-100"><a class="card-body" href="{% url 'encounters:appointment_list' %}?view=today"><div class="text-body-secondary small"><i class="bi bi-calendar-check"></i> Appointments today</div><div class="stat-value">{{ s.appointments_today }}</div></a></div></div>

@@ -11,5 +11,5 @@
     <div class="small text-body-secondary">{{ count }} record{{ count|pluralize }}{% if deleted %} · <span class="text-danger">{{ deleted }} deleted</span>{% endif %}</div>
   </div></a></div>{% endfor %}
 </div>
-{% empty %}<p class="text-body-secondary">You have no access to patient records.</p>{% endfor %}
+{% empty %}<p class="text-body-secondary">You have no access to subject records.</p>{% endfor %}
 {% endblock %}

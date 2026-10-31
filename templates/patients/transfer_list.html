@@ -12,7 +12,7 @@
   <select class="form-select w-auto" name="status" onchange="this.form.submit()"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
 </form>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Patient</th><th>From</th><th>To</th><th>Requested</th><th>Effective</th><th>Reason</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+  <thead class="table-light"><tr><th>Subject</th><th>From</th><th>To</th><th>Requested</th><th>Effective</th><th>Reason</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
   <tbody>{% for t in object_list %}<tr>
     <td>{% if t.patient.current_facility_id in my_facility_ids %}<a href="{{ t.patient.get_absolute_url }}">{{ t.patient }}</a>{% else %}{{ t.patient }}{% endif %}</td>
     <td>{{ t.from_facility }}</td><td>{{ t.to_facility }}</td><td>{{ t.request_date|date:"d M Y" }}</td><td>{{ t.effective_date|date:"d M Y"|default:"—" }}</td><td class="small">{{ t.reason }}</td>

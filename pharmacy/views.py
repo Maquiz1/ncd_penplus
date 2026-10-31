@@ -200,7 +200,7 @@ class PrescriptionCreateView(PatientChildCreateMixin, CreateView):
 
     def form_valid(self, form):
         if self.patient.is_deceased:
-            form.add_error(None, 'Cannot prescribe for a deceased patient.')
+            form.add_error(None, 'Cannot prescribe for a deceased subject.')
             return self.form_invalid(form)
         form.instance.prescriber = self.request.user
         response = super().form_valid(form)

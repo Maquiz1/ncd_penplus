@@ -184,13 +184,13 @@ class MonitoringRule(models.Model):
 
     test = models.OneToOneField(LabTest, on_delete=models.PROTECT, related_name='monitoring_rule')
     disease = models.ForeignKey('clinical.Disease', on_delete=models.PROTECT, related_name='+',
-                                help_text='Active patients enrolled in this disease are monitored.')
+                                help_text='Active subjects enrolled in this disease are monitored.')
     interval_months = models.PositiveSmallIntegerField(
         'Due every (months)', default=3, validators=[MinValueValidator(1), MaxValueValidator(24)],
         help_text='Months after the last result (or after enrolment when there is none).')
     retry_months = models.PositiveSmallIntegerField(
         'Due again after "not done" (months)', default=1, validators=[MinValueValidator(1), MaxValueValidator(12)],
-        help_text='When an overdue test is recorded as not done, the patient is due again this many months later.')
+        help_text='When an overdue test is recorded as not done, the subject is due again this many months later.')
     is_active = models.BooleanField(default=True, help_text='Untick to stop the due list, banner and overdue flags.')
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
@@ -210,12 +210,12 @@ class MonitoringGap(models.Model):
 
     class Reason(models.TextChoices):
         NOT_ORDERED = 'not_ordered', 'Not ordered at the visit'
-        DID_NOT_ATTEND = 'did_not_attend', 'Patient did not attend'
+        DID_NOT_ATTEND = 'did_not_attend', 'Subject did not attend'
         NOT_COLLECTED = 'not_collected', 'Sample not collected'
         STOCK_OUT = 'stock_out', 'Test kits / reagents out of stock'
         EQUIPMENT = 'equipment', 'Machine not working'
-        REFUSED = 'refused', 'Patient refused'
-        COST = 'cost', 'Patient could not afford it'
+        REFUSED = 'refused', 'Subject refused'
+        COST = 'cost', 'Subject could not afford it'
         RESULT_LOST = 'result_lost', 'Done but result not available / lost'
         OTHER = 'other', 'Other'
 

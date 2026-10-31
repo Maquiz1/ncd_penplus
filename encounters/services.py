@@ -68,3 +68,12 @@ def revise_plan(plan, user, reason, request=None):
     log_event(actor=user, request=request, action=AuditEvent.Action.UPDATE, obj=plan, reason=reason,
               changes={'version': plan.version, 'future_visits_cancelled': cancelled, 'visits_created': created})
     return cancelled, created
+
+
+def todays_encounter(patient):
+    """The subject's visit today (latest one), so orders made from the subject page are linked to it."""
+    import datetime
+    start = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time.min))
+    return (patient.encounters.exclude(status='cancelled')
+            .filter(encounter_date__gte=start, encounter_date__lt=start + datetime.timedelta(days=1))
+            .order_by('-encounter_date').first())

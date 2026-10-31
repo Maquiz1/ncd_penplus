@@ -39,7 +39,7 @@
       </select></div>
     <button class="btn btn-primary"><i class="bi bi-arrow-left-right"></i> Merge</button>
   </form>
-  <div class="form-text">All patients, facilities, staff scopes and screening sessions using it move to the chosen one. If the name is correct and simply missing from the list, choose "No change needed" below.</div>
+  <div class="form-text">All subjects, facilities, staff scopes and screening sessions using it move to the chosen one. If the name is correct and simply missing from the list, choose "No change needed" below.</div>
 </div></div>
 {% endif %}
 
@@ -49,7 +49,7 @@
     <input type="hidden" name="next" value="{% url 'issues:list' %}">
     {% if issue.status == 'open' %}
     <label class="form-label">What was done</label>
-    <textarea class="form-control mb-2" name="note" rows="2" placeholder="e.g. Second visit confirmed unscheduled (patient came with fever)"></textarea>
+    <textarea class="form-control mb-2" name="note" rows="2" placeholder="e.g. Second visit confirmed unscheduled (subject came with fever)"></textarea>
     <button class="btn btn-success" name="decision" value="resolved"><i class="bi bi-check2"></i> Resolved</button>
     <button class="btn btn-outline-secondary" name="decision" value="dismissed">No change needed</button>
     {% else %}

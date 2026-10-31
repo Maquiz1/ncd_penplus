@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.utils.functional import SimpleLazyObject
 
 
 def site(request):
@@ -7,7 +8,27 @@ def site(request):
         'SITE_NAME': settings.SITE_NAME,
         'access_level_label': access_level_label(user),
         'can_view_identity': bool(user and user.is_authenticated and user.has_perm('patients.view_patient_identity')),
+        'service_counts': SimpleLazyObject(lambda: service_counts(user)),
     }
+
+
+def service_counts(user):
+    """Work waiting in the Laboratory and Radiology menus, within the user's scope (counted only when shown)."""
+    counts = {}
+    if not (user and user.is_authenticated):
+        return counts
+    from facilities.scope import scope_queryset
+    if user.has_perm('laboratory.view_laborder'):
+        from laboratory.views import request_tab_counts
+        counts.update({f'lab_{k}': v for k, v in request_tab_counts(user).items()})
+    if user.has_perm('investigations.view_investigationorder'):
+        from django.db.models import Count, Q
+
+        from investigations.models import InvestigationOrder
+        counts.update(scope_queryset(InvestigationOrder.objects.all(), user, 'patient__current_facility').aggregate(
+            rad_pending=Count('pk', filter=Q(status__in=['requested', 'scheduled'])),
+            rad_review=Count('pk', filter=Q(status='completed'))))
+    return counts
 
 
 def access_level_label(user):

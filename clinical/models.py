@@ -64,11 +64,23 @@ class PreScreening(SoftDeleteModel):
         NOT_NOW = 'not_now', 'Does not proceed at this time'
         REFERRED = 'referred', 'Referred elsewhere'
 
+    class Type(models.TextChoices):
+        FACILITY = 'facility', 'Facility'
+        COMMUNITY = 'community', 'Community outreach'
+        SCHOOL = 'school', 'School outreach'
+
     patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='prescreenings')
     facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='+')
-    date = models.DateField(default=timezone.localdate)
-    resides_in_area = models.BooleanField('Resides in the catchment / study area', default=True)
+    date = models.DateField('Date of screening', default=timezone.localdate)
+    screening_type = models.CharField('Type of screening', max_length=20, choices=Type.choices, default=Type.FACILITY)
+    consent_obtained = models.BooleanField('Consenting individual?', null=True, blank=True)
+    consent_date = models.DateField('Date of consent', null=True, blank=True)
+    resides_in_area = models.BooleanField('Permanent resident (lives in the catchment / study area)', default=True)
     expected_stay_months = models.PositiveSmallIntegerField('Expected stay in area (months)', null=True, blank=True)
+    known_ncd = models.BooleanField('Known NCD?', null=True, blank=True,
+                                    help_text='Already diagnosed with an NCD before today (e.g. a known diabetic).')
+    lab_test_requested = models.BooleanField('Request lab test?', null=True, blank=True)
+    lab_request_date = models.DateField('Lab request date', null=True, blank=True)
     disposition = models.CharField(max_length=20, choices=Disposition.choices, default=Disposition.PROCEED)
     notes = models.TextField(blank=True)
 
@@ -240,7 +252,7 @@ class ProgrammeEnrollment(TimeStampedModel):
             clash = ProgrammeEnrollment.objects.filter(patient_id=self.patient_id, programme_id=self.programme_id,
                                                        status__in=['pending', 'active']).exclude(pk=self.pk)
             if clash.exists():
-                raise ValidationError('The patient already has an open enrollment in this programme.')
+                raise ValidationError('The subject already has an open enrollment in this programme.')
 
 
 class EnrollmentEvent(TimeStampedModel):

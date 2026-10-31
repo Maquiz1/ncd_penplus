@@ -27,7 +27,7 @@ class ReportRun(models.Model):
     class Meta:
         ordering = ['-period_start', 'recipient']
         permissions = [('view_reports', 'Can view dashboards and reports'),
-                       ('export_data', 'Can export patient-level data'),
+                       ('export_data', 'Can export subject-level data'),
                        ('receive_monthly_report', 'Receives the monthly enrollment report')]
 
     def __str__(self):

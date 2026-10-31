@@ -37,7 +37,7 @@ class RecordsTests(BaseTestCase):
         self.assertEqual(self.client.get(url).status_code, 200)
         self.client.post(url, {'reason': ''})
         self.assertFalse(Encounter.all_objects.get(pk=self.encounter.pk).is_deleted)  # reason required
-        self.client.post(url, {'reason': 'Entered on the wrong patient'})
+        self.client.post(url, {'reason': 'Entered on the wrong subject'})
         self.assertFalse(Encounter.objects.filter(pk=self.encounter.pk).exists())
         self.assertFalse(Vitals.objects.filter(pk=self.vitals.pk).exists())
         self.appointment.refresh_from_db()

@@ -294,3 +294,80 @@ class AccountLoginAndActivationTests(BaseTestCase):
         self.assertIn('NCD - PENPLUS CLINIC', reset.subject)
         reset_link = re.search(r'https?://\S+/accounts/reset/\S+/', reset.body).group(0)
         self.assertIn(f'href="{reset_link}"', reset.alternatives[0][0])
+
+
+class ProfileTests(BaseTestCase):
+    """Anyone can edit their own contact details, but not their roles or access."""
+
+    def setUp(self):
+        self.user = self.make_user('asha', 'Nurse / Triage Officer', facility=self.ilala)
+        self.user.set_password('Old-pass-123')
+        self.user.email = 'asha@example.org'
+        self.user.save()
+        self.client.force_login(self.user)
+        self.url = reverse('users:profile')
+
+    def post(self, **changes):
+        data = {'prefix': 'Sr.', 'first_name': 'Asha', 'last_name': 'Mushi', 'email': 'asha@example.org',
+                'phone': '0712000111', **changes}
+        return self.client.post(self.url, data)
+
+    def test_edit_own_details(self):
+        self.assertContains(self.client.get(self.url), 'Your access')
+        self.assertRedirects(self.post(groups=[1], is_superuser='on'), self.url)
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.display_name, self.user.phone), ('Sr. Asha Mushi', '0712000111'))
+        self.assertFalse(self.user.is_superuser)
+        self.assertEqual(list(self.user.groups.values_list('name', flat=True)), ['Nurse / Triage Officer'])
+        self.assertTrue(AuditEvent.objects.filter(action='update', object_id=str(self.user.pk)).exists())
+
+    def test_email_change_needs_current_password(self):
+        response = self.post(email='new@example.org')
+        self.assertContains(response, 'Enter your current password')
+        self.assertRedirects(self.post(email='new@example.org', current_password='Old-pass-123'), self.url)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'new@example.org')
+
+    def test_email_must_be_unique(self):
+        self.admin.email = 'taken@example.org'
+        self.admin.save()
+        response = self.post(email='taken@example.org', current_password='Old-pass-123')
+        self.assertContains(response, 'Another account already uses this email')
+
+
+class DataManagerStaffTests(BaseTestCase):
+    """A data manager manages staff at their own level only, and never gives more rights than they have."""
+
+    def test_site_data_manager_sees_only_site_staff(self):
+        manager = self.make_user('dm_site', 'Data Manager', facility=self.ilala)
+        self.client.force_login(manager)
+        response = self.client.get(reverse('users:list'))
+        self.assertContains(response, self.clinician_ilala.username)
+        self.assertNotContains(response, self.clinician_mwanza.username)
+        self.assertEqual(self.client.get(reverse('users:detail', args=[self.clinician_mwanza.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('users:update', args=[self.clinician_ilala.pk])).status_code, 200)
+
+    def test_national_data_manager_sees_all_sites(self):
+        self.client.force_login(self.make_user('dm_nat', 'Data Manager', level='national'))
+        response = self.client.get(reverse('users:list'))
+        self.assertContains(response, self.clinician_ilala.username)
+        self.assertContains(response, self.clinician_mwanza.username)
+
+    def test_cannot_give_or_touch_higher_roles(self):
+        from django.contrib.auth.models import Group
+        manager = self.make_user('dm_site', 'Data Manager', facility=self.ilala)
+        sysadmin = self.make_user('sys_ilala', 'System Administrator', facility=self.ilala)
+        self.client.force_login(manager)
+        form = self.client.get(reverse('users:create')).context['form']
+        roles = set(form.fields['groups'].queryset.values_list('name', flat=True))
+        self.assertIn('Clinician', roles)
+        self.assertNotIn('System Administrator', roles)
+        response = self.client.post(reverse('users:create'), {
+            'first_name': 'Juma', 'last_name': 'Ali', 'username': 'juma',
+            'groups': [Group.objects.get(name='System Administrator').pk]})
+        self.assertFalse(User.objects.filter(username='juma').exists())
+        self.assertEqual(response.status_code, 200)
+        # can see the system administrator at the site, but not change the account
+        self.assertContains(self.client.get(reverse('users:detail', args=[sysadmin.pk])), 'more rights than yours')
+        self.assertEqual(self.client.get(reverse('users:update', args=[sysadmin.pk])).status_code, 404)
+        self.assertEqual(self.client.post(reverse('users:toggle_active', args=[sysadmin.pk])).status_code, 404)

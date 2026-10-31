@@ -73,7 +73,7 @@ class ClinicSession(TimeStampedModel):
 
     class Allocation(models.TextChoices):
         SAME_DAY = 'same_day', 'Everyone on the first day'
-        SPREAD = 'spread', 'Spread patients evenly across the days'
+        SPREAD = 'spread', 'Spread subjects evenly across the days'
 
     name = models.CharField(max_length=150, help_text='e.g. PEN-Plus cardiac clinic with JKCI cardiologist')
     facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='clinic_sessions')
@@ -89,13 +89,13 @@ class ClinicSession(TimeStampedModel):
     move_existing = models.BooleanField('Move existing open appointments in this period to the clinic day',
                                         default=True)
     team = models.CharField('Specialists / team', max_length=255, blank=True)
-    contact_phone = models.CharField('Contact phone for patients', max_length=30, blank=True)
+    contact_phone = models.CharField('Contact phone for subjects', max_length=30, blank=True)
     sms_template = models.TextField('Invitation SMS', default=DEFAULT_INVITATION,
                                     help_text='Placeholders: {facility} {day} {date} {time} {contact}. '
                                               'Do not include diagnoses or study names.')
     send_without_consent = models.BooleanField(
-        'Also send to patients without recorded SMS consent', default=False,
-        help_text='Patients whose consent was not asked yet. Patients who said No never receive SMS.')
+        'Also send to subjects without recorded SMS consent', default=False,
+        help_text='Subjects whose consent was not asked yet. Subjects who said No never receive SMS.')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
 
     class Meta:
@@ -201,7 +201,7 @@ class Encounter(SoftDeleteModel):
 
     class HomeVisitOutcome(models.TextChoices):
         COMPLETED = 'completed', 'Completed'
-        ABSENT = 'absent', 'Patient absent'
+        ABSENT = 'absent', 'Subject absent'
         REFUSED = 'refused', 'Refused'
         RESCHEDULED = 'rescheduled', 'Rescheduled'
         UNSUCCESSFUL = 'unsuccessful', 'Unsuccessful'

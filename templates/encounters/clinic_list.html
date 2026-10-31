@@ -5,7 +5,7 @@
   <h1 class="h3 mb-0">Clinic days</h1>
   {% if perms.encounters.add_clinicsession %}<a class="btn btn-primary" href="{% url 'encounters:clinic_create' %}"><i class="bi bi-plus"></i> New clinic day</a>{% endif %}
 </div>
-<p class="small text-body-secondary">A clinic day (or week) brings a group of patients to the facility on a common date, for example when specialists visit. Appointments are created for every eligible patient and each one is invited by SMS.</p>
+<p class="small text-body-secondary">A clinic day (or week) brings a group of subjects to the facility on a common date, for example when specialists visit. Appointments are created for every eligible subject and each one is invited by SMS.</p>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
   <thead class="table-light"><tr><th>Date(s)</th><th>Clinic</th><th>Facility</th><th>Programmes</th><th class="text-end">Booked</th><th class="text-end">Attended</th><th>Status</th></tr></thead>
   <tbody>{% for s in object_list %}<tr>

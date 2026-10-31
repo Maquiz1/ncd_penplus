@@ -17,7 +17,7 @@ from core.forms import BootstrapModelForm
 from facilities.models import StaffAssignment
 from facilities.scope import facilities_for_user
 
-from .forms import (IdentityAccessForm, LoggedPasswordResetForm, StaffAssignmentForm, StaffCreateForm,
+from .forms import (IdentityAccessForm, ProfileForm, LoggedPasswordResetForm, StaffAssignmentForm, StaffCreateForm,
                     StaffSetPasswordForm, StaffUpdateForm)
 from .models import Position, User
 from .services import pending_activation, send_activation_email, send_bulk_activation
@@ -30,6 +30,13 @@ def staff_in_scope(user):
         return qs
     facilities = facilities_for_user(user)
     return qs.filter(Q(assignments__facility__in=facilities) | Q(pk=user.pk)).filter(is_superuser=False).distinct()
+
+
+def staff_to_manage(user):
+    """Staff in scope whose roles are all within the user's own rights (others can be seen, not changed)."""
+    from .forms import ungrantable_roles
+    blocked = ungrantable_roles(user)
+    return staff_in_scope(user).exclude(groups__in=blocked)
 
 
 STAFF_TABS = [
@@ -81,6 +88,7 @@ class StaffDetailView(PermissionRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        ctx['can_manage'] = staff_to_manage(self.request.user).filter(pk=self.object.pk).exists()
         ctx['assignments'] = self.object.assignments.select_related('facility', 'district', 'region', 'zone')
         ctx['assignment_form'] = StaffAssignmentForm(user=self.request.user)
         ctx['identity_form'] = IdentityAccessForm(instance=self.object)
@@ -97,6 +105,9 @@ class StaffCreateView(PermissionRequiredMixin, CreateView):
     extra_context = {'title': 'Create staff account',
                      'subtitle': 'With an email address, the staff member receives a secure link to set their own '
                                  'password. Without one, set a first password on the account page after saving.'}
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), 'editor': self.request.user}
 
     def form_valid(self, form):
         user = form.save(commit=False)
@@ -130,8 +141,11 @@ class StaffUpdateView(PermissionRequiredMixin, UpdateView):
     template_name = 'generic_form.html'
     extra_context = {'title': 'Edit staff account'}
 
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), 'editor': self.request.user}
+
     def get_queryset(self):
-        return staff_in_scope(self.request.user)
+        return staff_to_manage(self.request.user)
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -166,7 +180,7 @@ class StaffToggleActiveView(PermissionRequiredMixin, View):
     permission_required = 'users.change_user'
 
     def post(self, request, pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        staff = get_object_or_404(staff_to_manage(request.user), pk=pk)
         if staff == request.user:
             messages.error(request, 'You cannot deactivate your own account.')
             return redirect('users:detail', pk=pk)
@@ -189,7 +203,7 @@ class StaffSetPasswordView(PermissionRequiredMixin, View):
     template_name = 'confirm_action.html'
 
     def get_staff(self, request, pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        staff = get_object_or_404(staff_to_manage(request.user), pk=pk)
         if staff == request.user or (staff.is_superuser and not request.user.is_superuser):
             raise PermissionDenied
         return staff
@@ -226,7 +240,7 @@ class StaffDeleteView(PermissionRequiredMixin, View):
     permission_required = 'users.delete_user'
 
     def post(self, request, pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk, is_deleted=False)
+        staff = get_object_or_404(staff_to_manage(request.user), pk=pk, is_deleted=False)
         if staff == request.user or staff.is_superuser:
             messages.error(request, 'You cannot delete your own account or a superuser.')
             return redirect('users:detail', pk=pk)
@@ -261,7 +275,7 @@ class StaffResendActivationView(PermissionRequiredMixin, View):
     permission_required = 'users.change_user'
 
     def post(self, request, pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        staff = get_object_or_404(staff_to_manage(request.user), pk=pk)
         if not staff.email or not staff.is_active:
             messages.error(request, 'The account needs an email address and must be active.')
         else:
@@ -279,7 +293,7 @@ class AssignmentCreateView(PermissionRequiredMixin, View):
     permission_required = 'facilities.add_staffassignment'
 
     def post(self, request, pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        staff = get_object_or_404(staff_to_manage(request.user), pk=pk)
         form = StaffAssignmentForm(request.POST, user=request.user)
         if form.is_valid():
             assignment = form.save(commit=False)
@@ -299,7 +313,7 @@ class AssignmentEndView(PermissionRequiredMixin, View):
     permission_required = 'facilities.change_staffassignment'
 
     def post(self, request, pk, assignment_pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        staff = get_object_or_404(staff_to_manage(request.user), pk=pk)
         assignment = get_object_or_404(StaffAssignment, pk=assignment_pk, user=staff)
         if not request.user.is_superuser and assignment.facility not in facilities_for_user(request.user):
             messages.error(request, 'This assignment is outside your scope.')
@@ -321,7 +335,7 @@ class StaffBulkActivationView(PermissionRequiredMixin, View):
     template_name = 'users/bulk_activation.html'
 
     def pending(self, request):
-        return pending_activation(staff_in_scope(request.user), migrated_only=request.GET.get('migrated') == '1'
+        return pending_activation(staff_to_manage(request.user), migrated_only=request.GET.get('migrated') == '1'
                                   or request.POST.get('migrated') == '1')
 
     def get(self, request):
@@ -377,7 +391,7 @@ class IdentityAccessView(PermissionRequiredMixin, View):
     permission_required = 'users.manage_identity_access'
 
     def post(self, request, pk):
-        staff = get_object_or_404(staff_in_scope(request.user), pk=pk)
+        staff = get_object_or_404(staff_to_manage(request.user), pk=pk)
         before = (staff.identity_access, staff.identity_access_until)
         form = IdentityAccessForm(request.POST, instance=staff)
         if form.is_valid():
@@ -393,8 +407,8 @@ class IdentityAccessView(PermissionRequiredMixin, View):
 
 
 CAPABILITIES = [
-    ('Patients', [('See names, phones and identifiers', 'patients.view_patient_identity'),
-                  ('Register patients', 'patients.add_patient'), ('Record SMS consent', 'patients.record_sms_consent'),
+    ('Subjects', [('See names, phones and identifiers', 'patients.view_patient_identity'),
+                  ('Register subjects', 'patients.add_patient'), ('Record SMS consent', 'patients.record_sms_consent'),
                   ('Record death', 'patients.record_death')]),
     ('Care', [('Screening', 'clinical.add_screening'), ('Diagnosis & conditions', 'clinical.add_diagnosis'),
               ('Programme enrolment / status', 'clinical.change_programmeenrollment'),
@@ -479,3 +493,27 @@ class PositionUpdateView(PositionSaveMixin, UpdateView):
     permission_required = 'users.change_position'
     audit_action = AuditEvent.Action.UPDATE
     extra_context = {'title': 'Edit position', 'subtitle': 'Untick "active" to stop offering it for new staff.'}
+
+
+class ProfileView(UpdateView):
+    """The logged-in person's own profile: edit contact details, see the access an administrator gave them."""
+
+    form_class = ProfileForm
+    template_name = 'users/profile.html'
+    success_url = reverse_lazy('users:profile')
+
+    def get_object(self, queryset=None):
+        # A fresh copy, so a form with errors does not change the name shown in the menu.
+        user = User.objects.get(pk=self.request.user.pk)
+        self._audit_before = snapshot(user)
+        return user
+
+    def form_valid(self, form):
+        if 'phone' in form.changed_data:
+            form.instance.phone_verified = False
+        response = super().form_valid(form)
+        changes = diff(self._audit_before, snapshot(self.object))
+        if changes:
+            log_event(request=self.request, action=AuditEvent.Action.UPDATE, obj=self.object, changes=changes)
+        messages.success(self.request, 'Your profile was saved.')
+        return response

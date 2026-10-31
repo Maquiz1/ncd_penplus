@@ -9,8 +9,8 @@
   {% if perms.encounters.change_clinicsession and object.status != 'cancelled' %}
   <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-outline-secondary" href="{% url 'encounters:clinic_update' object.pk %}"><i class="bi bi-pencil"></i> Edit</a>
-    <form method="post" action="{% url 'encounters:clinic_action' object.pk 'schedule' %}">{% csrf_token %}<button class="btn btn-primary"><i class="bi bi-calendar-plus"></i> {% if object.status == 'draft' %}Schedule appointments{% else %}Add newly eligible patients{% endif %}</button></form>
-    {% if object.status != 'draft' and perms.notifications.add_smsmessage %}<form method="post" action="{% url 'encounters:clinic_action' object.pk 'sms' %}" onsubmit="return confirm('Send the invitation SMS to every booked patient who has not received it yet?');">{% csrf_token %}<button class="btn btn-success"><i class="bi bi-chat-dots"></i> Send SMS invitations</button></form>{% endif %}
+    <form method="post" action="{% url 'encounters:clinic_action' object.pk 'schedule' %}">{% csrf_token %}<button class="btn btn-primary"><i class="bi bi-calendar-plus"></i> {% if object.status == 'draft' %}Schedule appointments{% else %}Add newly eligible subjects{% endif %}</button></form>
+    {% if object.status != 'draft' and perms.notifications.add_smsmessage %}<form method="post" action="{% url 'encounters:clinic_action' object.pk 'sms' %}" onsubmit="return confirm('Send the invitation SMS to every booked subject who has not received it yet?');">{% csrf_token %}<button class="btn btn-success"><i class="bi bi-chat-dots"></i> Send SMS invitations</button></form>{% endif %}
     {% if object.status == 'scheduled' %}<form method="post" action="{% url 'encounters:clinic_action' object.pk 'close' %}" onsubmit="return confirm('Mark everyone who has not attended on past clinic days as missed?');">{% csrf_token %}<button class="btn btn-outline-secondary">Close attendance</button></form>{% endif %}
     <button class="btn btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#cancel-box">Cancel clinic day</button>
   </div>
@@ -23,15 +23,15 @@
 {% if preview %}
 <div class="card shadow-sm mb-3 border-primary-subtle"><div class="card-header bg-primary-subtle fw-semibold">Preview – nothing is booked yet</div><div class="card-body">
   <div class="row g-3">
-    <div class="col-md-3"><div class="small text-body-secondary">Eligible patients</div><div class="fs-3 fw-semibold">{{ preview.patients }}</div>
-      {% if not preview.patients %}<div class="small text-danger">No one matches. Patients must be active (or LTFU if included) in the selected programmes at {{ object.facility }}.</div>{% endif %}</div>
+    <div class="col-md-3"><div class="small text-body-secondary">Eligible subjects</div><div class="fs-3 fw-semibold">{{ preview.patients }}</div>
+      {% if not preview.patients %}<div class="small text-danger">No one matches. Subjects must be active (or LTFU if included) in the selected programmes at {{ object.facility }}.</div>{% endif %}</div>
     <div class="col-md-3"><div class="small text-body-secondary">By programme</div>{% for k, v in preview.by_programme.items %}<div class="small">{{ k }}: <strong>{{ v }}</strong></div>{% endfor %}</div>
     <div class="col-md-3"><div class="small text-body-secondary">By status</div>{% for k, v in preview.by_status.items %}<div class="small">{{ k }}: <strong>{{ v }}</strong></div>{% endfor %}</div>
     <div class="col-md-3"><div class="small text-body-secondary">SMS</div>{% for k, v in preview.sms.items %}<div class="small">{{ k|capfirst }}: <strong>{{ v }}</strong></div>{% endfor %}</div>
   </div>
   <hr>
   <div class="small">Clinic days: {% for d in preview.days %}{{ d|date:"D d M" }}{% if not forloop.last %}, {% endif %}{% endfor %} ({{ object.get_allocation_display|lower }}).
-    {{ preview.existing }} patient(s) already have an open appointment between {{ preview.window.0|date:"d M" }} and {{ preview.window.1|date:"d M Y" }}{% if object.move_existing %}; it will be moved to the clinic day{% else %}; they will keep it and not be booked again{% endif %}.</div>
+    {{ preview.existing }} subject(s) already have an open appointment between {{ preview.window.0|date:"d M" }} and {{ preview.window.1|date:"d M Y" }}{% if object.move_existing %}; it will be moved to the clinic day{% else %}; they will keep it and not be booked again{% endif %}.</div>
 </div></div>
 {% endif %}
 
@@ -39,7 +39,7 @@
   <div class="col-lg-7"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Invitation SMS</div><div class="card-body">
     <div class="p-2 bg-body-tertiary rounded small">{{ sample_sms }}</div>
     <div class="small text-body-secondary mt-2">{{ sample_sms|length }} characters{% if sample_sms|length > 160 %} – longer than one SMS (160), may be charged as 2 messages{% endif %}. Automatic reminders are also sent the day before and on the day.
-      {% if not object.send_without_consent %} Only patients with recorded SMS consent receive messages.{% endif %}</div>
+      {% if not object.send_without_consent %} Only subjects with recorded SMS consent receive messages.{% endif %}</div>
   </div></div></div>
   <div class="col-lg-5"><div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Progress</div><div class="card-body small">
     <div class="mb-2"><strong>Appointments:</strong> {% for k, v in attendance.items %}{% status_badge k %} {{ v }} {% empty %}none yet{% endfor %}</div>
@@ -48,8 +48,8 @@
 </div>
 
 {% if rows %}
-<div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Booked patients ({{ rows|length }})</div><div class="table-responsive" style="max-height: 600px;"><table class="table table-sm table-hover mb-0">
-  <thead class="sticky-top bg-body"><tr><th>Day</th><th>Patient</th><th>Name</th><th>Appointment</th><th>SMS</th><th></th></tr></thead>
+<div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Booked subjects ({{ rows|length }})</div><div class="table-responsive" style="max-height: 600px;"><table class="table table-sm table-hover mb-0">
+  <thead class="sticky-top bg-body"><tr><th>Day</th><th>Subject</th><th>Name</th><th>Appointment</th><th>SMS</th><th></th></tr></thead>
   <tbody>{% for a, sms in rows %}<tr>
     <td class="text-nowrap">{{ a.scheduled_date|date:"D d M" }}</td><td><a href="{{ a.patient.get_absolute_url }}">{{ a.patient }}</a></td><td>{% patient_name a.patient %}</td>
     <td>{% status_badge a.status a.get_status_display %}</td>

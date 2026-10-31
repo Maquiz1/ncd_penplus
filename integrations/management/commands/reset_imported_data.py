@@ -53,7 +53,7 @@ def dependent_rows():
 
 
 class Command(BaseCommand):
-    help = ('Remove all patient data before a fresh EDCS import (until go-live). Refuses when data was entered '
+    help = ('Remove all subject data before a fresh EDCS import (until go-live). Refuses when data was entered '
             'directly in this system since the last import.')
 
     def add_arguments(self, parser):
@@ -108,6 +108,6 @@ class Command(BaseCommand):
                     with connection.cursor() as cursor:
                         cursor.execute('SET FOREIGN_KEY_CHECKS=1')
         AuditEvent.objects.create(action='delete', model=RESET_MARKER,
-                                  object_repr='Patient data removed before a fresh EDCS import',
+                                  object_repr='Subject data removed before a fresh EDCS import',
                                   changes={'tables': len(rows), 'patients': len(rows.get(Patient, ()))})
-        self.stdout.write(self.style.SUCCESS('Patient data removed. Staff, facilities, catalogues and settings kept.'))
+        self.stdout.write(self.style.SUCCESS('Subject data removed. Staff, facilities, catalogues and settings kept.'))

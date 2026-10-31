@@ -1,40 +1,78 @@
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.db import transaction
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
+from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
 from audit.models import AuditEvent
 from audit.services import log_event
-from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientChildUpdateMixin,
+from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildUpdateMixin, PatientContextMixin,
                          ScopedQuerysetMixin)
+from encounters.services import todays_encounter
 from facilities.scope import scope_queryset
 from issues.detectors import diagnosis_prompts
+from laboratory.models import LabOrder
 from pharmacy.services import consume_for_service, shortfall_message
 
-from .forms import InvestigationFieldForm, InvestigationForm, InvestigationReportForm, InvestigationTypeForm
+from .forms import InvestigationFieldForm, InvestigationReportForm, InvestigationRequestForm, InvestigationTypeForm
 from .models import InvestigationField, InvestigationOrder, InvestigationType
+from .ordering import catalogue, preselected, quick_picks
 
 
-class InvestigationCreateView(PatientChildCreateMixin, CreateView):
-    permission_required = 'investigations.add_investigationorder'
-    model = InvestigationOrder
-    form_class = InvestigationForm
-    title = 'Request investigation (ECG / echo / imaging)'
-    success_tab = '#labs'
+class InvestigationRequestView(PermissionRequiredMixin, PatientContextMixin, FormView):
+    """Laboratory and radiology requests for one subject, normally from today's visit."""
+
+    form_class = InvestigationRequestForm
+    template_name = 'investigations/request.html'
+
+    def has_permission(self):
+        user = self.request.user
+        return user.has_perm('laboratory.add_laborder') or user.has_perm('investigations.add_investigationorder')
 
     def get_initial(self):
-        initial = super().get_initial()
-        initial['encounter'] = self.request.GET.get('encounter')
-        initial['investigation_type'] = self.request.GET.get('type')
-        return initial
+        visit = self.request.GET.get('encounter') or todays_encounter(self.patient)
+        return {'facility': self.patient.current_facility_id, 'encounter': getattr(visit, 'pk', visit),
+                **preselected(self.request.GET)}
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = context['form']
+        context.update(tabs=catalogue(form), picks=quick_picks(self.patient, form), title='Investigations',
+                       selected={f'{name[:-1]}-{pk}' for name in ('tests', 'panels', 'types')
+                                 for pk in self._chosen(form, name)})
+        return context
+
+    @staticmethod
+    def _chosen(form, name):
+        return [getattr(v, 'pk', v) for v in form[name].value() or []]
+
+    @transaction.atomic
     def form_valid(self, form):
-        form.instance.requested_by = self.request.user
-        return super().form_valid(form)
+        data, user = form.cleaned_data, self.request.user
+        common = {'patient': self.patient, 'facility': data['facility'], 'encounter': data.get('encounter'),
+                  'created_by': user}
+        notes, group = data.get('clinical_notes', ''), uuid.uuid4()
+        tests, types = form.requested_tests(), data['types']
+        for test, panel in tests:
+            order = LabOrder.objects.create(test=test, panel=panel, request_group=group, ordered_by=user,
+                                            priority=data['priority'], clinical_notes=notes, **common)
+            log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=order)
+        for itype in types:
+            order = InvestigationOrder.objects.create(investigation_type=itype, description=notes or itype.name,
+                                                      scheduled_for=data.get('scheduled_for'), requested_by=user, **common)
+            log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=order)
+        sent = [f'{len(tests)} laboratory test{pluralize(len(tests))}'] if tests else []
+        sent += [f'{len(types)} radiology request{pluralize(len(types))}'] if types else []
+        messages.success(self.request, f'Sent: {" and ".join(sent)}.')
+        visit = data.get('encounter')
+        return redirect(visit.get_absolute_url() if visit else self.patient.get_absolute_url() + '#labs')
 
 
 class InvestigationWorklistView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):

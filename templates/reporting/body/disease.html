@@ -1,0 +1,53 @@
+{% load ncd %}
+<ul class="nav nav-pills mb-3 d-print-none">
+  {% for d in filters.diseases %}<li class="nav-item"><a class="nav-link {% if d == disease %}active{% endif %}" href="{% querystring disease=d.code condition=None page=None %}">{{ d.name }}</a></li>{% endfor %}
+</ul>
+{% if not data %}<p class="text-body-secondary">No active disease selected.</p>{% else %}
+
+<div class="row g-2 mb-3">
+  {% for label, value, colour in data.tiles %}<div class="col-6 col-md-4 col-xl-2"><div class="stat-tile" style="border-left-color: var(--bs-{{ colour }});"><div class="stat-label">{{ label }}</div><div class="stat-num">{{ value }}</div></div></div>{% endfor %}
+</div>
+
+{% if data.indicators %}
+<h2 class="h6 text-uppercase text-body-secondary mb-2">Indicators on {{ filters.end|date:"d M Y" }}</h2>
+<div class="row g-2 mb-3">
+  {% for i, r in data.indicators %}<div class="col-md-6 col-xl-4"><div class="indicator-tile h-100">
+    <div class="indicator-value">{% if i.kind == 'avg' %}{{ r.value|default_if_none:"—" }}<small> {{ i.unit }}</small>{% elif r.pct is not None %}{{ r.pct|floatformat:0 }}%{% else %}—{% endif %}</div>
+    <div class="indicator-label">{{ i.label }}</div>
+    <div class="small text-body-secondary mt-1">{% if i.kind == 'avg' %}{{ r.n }} with data{% else %}<a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=numerator&{{ filters.querystring }}">{{ r.numerator|length }}</a> of <a href="{% url 'indicators:drill' %}?key={{ i.key }}&part=denominator&{{ filters.querystring }}">{{ r.denominator|length }}</a> patients{% if r.missed %} · <a class="link-danger" href="{% url 'indicators:drill' %}?key={{ i.key }}&part=missed&{{ filters.querystring }}">{{ r.missed }} not met</a>{% endif %}{% endif %}</div>
+  </div></div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-body fw-semibold">{{ disease.name }} by site and condition <span class="small fw-normal text-body-secondary">· enrolled up to {{ filters.end|date:"d M Y" }}</span></div>
+  <div class="table-responsive"><table class="table table-sm table-bordered table-hover mb-0">
+    <thead class="table-light"><tr><th rowspan="2">#</th><th rowspan="2">Site</th><th rowspan="2" class="text-end">Enrolled</th><th rowspan="2" class="text-end">Active</th>
+      {% if data.conditions.rows %}<th colspan="{{ data.conditions.rows|length }}" class="text-center">Condition</th>{% endif %}</tr>
+      <tr>{% for g in data.conditions.rows %}<th class="text-end small"><a href="{% url 'reporting:conditions' %}?{{ filters.querystring }}&disease={{ disease.code }}&condition={{ g.code }}#patients">{{ g.label }}</a></th>{% endfor %}</tr></thead>
+    <tbody>{% for r in data.by_site %}<tr><td class="text-body-secondary">{{ forloop.counter }}</td><td class="text-nowrap">{{ r.site }}</td><td class="text-end">{{ r.enrolled }}</td><td class="text-end">{{ r.active }}</td>{% for n in r.cells %}<td class="text-end">{{ n }}</td>{% endfor %}</tr>
+      {% empty %}<tr><td colspan="20" class="text-center text-body-secondary py-3">No subjects enrolled.</td></tr>{% endfor %}</tbody>
+    {% if data.by_site %}<tfoot class="table-light fw-semibold"><tr><td></td><td>Total</td><td class="text-end">{{ data.site_total.enrolled }}</td><td class="text-end">{{ data.site_total.active }}</td>{% for n in data.site_total.cells %}<td class="text-end">{{ n }}</td>{% endfor %}</tr></tfoot>{% endif %}
+  </table></div>
+  <div class="card-footer bg-body small text-body-secondary">A subject with more than one condition is counted under each{% if data.conditions.multi %} ({{ data.conditions.multi }} subjects){% endif %}. Click a condition to list its subjects.</div>
+</div>
+
+{% for block in data.subtypes %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-body fw-semibold">{{ block.label }}: types by site</div>
+  <div class="table-responsive"><table class="table table-sm table-bordered mb-0">
+    <thead class="table-light"><tr><th>Site</th>{% for n in block.names %}<th class="text-end small">{{ n }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for site, cells in block.rows %}<tr><td class="text-nowrap">{{ site }}</td>{% for n in cells %}<td class="text-end">{{ n }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    <tfoot class="table-light fw-semibold"><tr><td>Total</td>{% for n in block.total %}<td class="text-end">{{ n }}</td>{% endfor %}</tr></tfoot>
+  </table></div>
+</div>
+{% endfor %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-body fw-semibold">Sex and age group</div>
+  <div class="table-responsive"><table class="table table-sm table-bordered mb-0">
+    <thead class="table-light"><tr><th>Condition</th><th class="text-end">Male</th><th class="text-end">Female</th>{% for a in data.conditions.age_labels %}<th class="text-end small">{{ a }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for g in data.conditions.rows %}<tr><td>{{ g.label }}</td><td class="text-end">{{ g.sex|get_item:'male'|default:0 }}</td><td class="text-end">{{ g.sex|get_item:'female'|default:0 }}</td>{% for n in g.age_counts %}<td class="text-end">{{ n }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}

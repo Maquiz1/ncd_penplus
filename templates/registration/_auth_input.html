@@ -1,5 +1,17 @@
 {# One account-page field with an icon, and an eye button on password boxes to show what was typed. #}
-{# compact=True (sign-in box): label only for screen readers, placeholder in the box and the icon on the right. #}
+{# compact=True (sign-in and reset pages): label above, icon inside on the left, eye button inside on the right. #}
+{% if compact %}
+<div class="auth-field">
+  <label class="auth-label" for="{{ id }}">{{ label }}</label>
+  <div class="auth-input{% if errors %} has-error{% endif %}">
+    <i class="bi bi-{{ icon }} lead-icon"></i>
+    <input type="{{ type }}" name="{{ name }}" id="{{ id }}" autocomplete="{{ autocomplete }}"{% if value %} value="{{ value }}"{% endif %}{% if autofocus %} autofocus{% endif %} required>
+    {% if type == 'password' %}<button class="auth-eye js-show-password" type="button" title="Show password" aria-label="Show password" tabindex="-1"><i class="bi bi-eye"></i></button>{% endif %}
+  </div>
+  {% for e in errors %}<div class="auth-error">{{ e }}</div>{% endfor %}
+  {% if help %}<div class="auth-help">{{ help }}</div>{% endif %}
+</div>
+{% else %}
 <div class="mb-3">
   <label class="{% if compact %}visually-hidden{% else %}form-label{% endif %}" for="{{ id }}">{{ label }}</label>
   <div class="input-group has-validation">
@@ -12,3 +24,4 @@
   </div>
   {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
 </div>
+{% endif %}

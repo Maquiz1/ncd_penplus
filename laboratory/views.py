@@ -1,5 +1,3 @@
-import uuid
-
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -13,13 +11,12 @@ from django.views.generic import CreateView, ListView, UpdateView
 from audit.models import AuditEvent
 from audit.services import log_event
 from core.forms import ReasonForm
-from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientContextMixin,
-                         ScopedQuerysetMixin)
+from core.mixins import AuditedCreateMixin, AuditedUpdateMixin, PatientContextMixin
 from facilities.scope import scope_queryset
 from issues.detectors import diagnosis_prompts, hba1c_overdue
 from pharmacy.services import consume_for_service, shortfall_message
 
-from .forms import (GroupResultForm, LabCategoryForm, LabOrderForm, LabPanelForm, LabTestForm, MonitoringGapForm,
+from .forms import (GroupResultForm, LabCategoryForm, LabPanelForm, LabTestForm, MonitoringGapForm,
                     MonitoringRuleForm, SpecimenForm)
 from .models import LabCategory, LabOrder, LabPanel, LabTest, MonitoringGap, MonitoringRule
 
@@ -28,59 +25,146 @@ def back(request, obj):
     return request.POST.get('next') or request.GET.get('next') or reverse('laboratory:lab_worklist')
 
 
-class LabOrderCreateView(PatientChildCreateMixin, CreateView):
-    permission_required = 'laboratory.add_laborder'
-    model = LabOrder
-    form_class = LabOrderForm
-    title = 'Order laboratory tests'
-    success_tab = '#labs'
-
-    def get_initial(self):
-        initial = super().get_initial()
-        initial['encounter'] = self.request.GET.get('encounter')
-        return initial
-
-    def form_valid(self, form):
-        data = {k: v for k, v in form.cleaned_data.items() if k not in ('tests', 'panels')}
-        group = uuid.uuid4()
-        requested = form.requested_tests()
-        for test, panel in requested:
-            order = LabOrder.objects.create(patient=self.patient, test=test, panel=panel, request_group=group,
-                                            ordered_by=self.request.user, created_by=self.request.user, **data)
-            log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=order)
-        messages.success(self.request, f'{len(requested)} test(s) ordered.')
-        encounter = data.get('encounter')
-        return redirect(encounter.get_absolute_url() if encounter else self.get_success_url())
+# Worklist tabs: a request is listed under a tab when any of its tests is at that step.
+REQUEST_TABS = [
+    ('collect', 'To collect', ['ordered']),
+    ('results', 'Awaiting results', ['collected']),
+    ('review', 'Doctor review', ['resulted']),
+    ('completed', 'Completed', ['reviewed']),
+    ('cancelled', 'Cancelled', ['cancelled']),
+    ('all', 'All', None),
+]
 
 
-class LabWorklistView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
+def requests_in_scope(user):
+    return scope_queryset(LabOrder.objects.all(), user, 'patient__current_facility')
+
+
+def request_tab_counts(user):
+    from django.db.models import Count, Q
+    orders = requests_in_scope(user)
+    counts = orders.aggregate(**{key: Count('request_group', distinct=True, filter=Q(status__in=statuses))
+                                 for key, _l, statuses in REQUEST_TABS if statuses})
+    counts['all'] = orders.values('request_group').distinct().count()
+    return counts
+
+
+class LabWorklistView(PermissionRequiredMixin, ListView):
+    """Lab requests, one row per request (all tests ordered together), like the GoTHOMIS lab module."""
+
     permission_required = 'laboratory.view_laborder'
-    model = LabOrder
     template_name = 'laboratory/lab_worklist.html'
-    paginate_by = 50
+    paginate_by = 30
 
-    def get_queryset(self):
-        qs = super().get_queryset().select_related('patient', 'test', 'facility', 'ordered_by')
-        status = self.request.GET.get('status', 'pending')
-        if status == 'pending':
-            qs = qs.filter(status__in=['ordered', 'collected'])
-        elif status:
-            qs = qs.filter(status=status)
+    def tab(self):
+        key = self.request.GET.get('tab', 'collect')
+        return next((t for t in REQUEST_TABS if t[0] == key), REQUEST_TABS[0])
+
+    def orders(self):
+        from patients.models import PatientIdentifier
+        from django.db.models import Q
+        qs = requests_in_scope(self.request.user)
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(Q(patient__patient_number__icontains=q) | Q(specimen_id__iexact=q) | Q(
+                patient__identifiers__id_type=PatientIdentifier.IdType.EDCS_STUDY, patient__identifiers__value__iexact=q))
         return qs
 
+    def get_queryset(self):
+        from django.db.models import Max, Min
+        qs = self.orders()
+        statuses = self.tab()[2]
+        if statuses:
+            qs = qs.filter(request_group__in=qs.filter(status__in=statuses).values('request_group'))
+        return qs.values('request_group').annotate(ordered=Min('ordered_at'), last=Max('updated_at')).order_by('-ordered')
+
     def get_context_data(self, **kwargs):
-        return super().get_context_data(statuses=LabOrder.Status.choices,
-                                        current_status=self.request.GET.get('status', 'pending'), **kwargs)
+        from patients.models import with_old_study_id
+        ctx = super().get_context_data(**kwargs)
+        groups = [row['request_group'] for row in ctx['object_list']]
+        orders = with_old_study_id(LabOrder.objects.filter(request_group__in=groups)
+                                   .select_related('patient', 'test', 'facility', 'ordered_by', 'encounter'), 'patient')
+        by_group = {}
+        for o in orders.order_by('test__name'):
+            by_group.setdefault(o.request_group, []).append(o)
+        counts = request_tab_counts(self.request.user)
+        ctx.update(requests=[LabRequest(by_group[g]) for g in groups if g in by_group], tab=self.tab()[0],
+                   tabs=[(key, label, counts.get(key)) for key, label, _s in REQUEST_TABS])
+        return ctx
+
+
+class LabRequest:
+    """The tests ordered together for one subject, with the request's overall step."""
+
+    STEP_ORDER = ['ordered', 'collected', 'resulted', 'reviewed', 'cancelled']
+
+    def __init__(self, orders):
+        self.orders = orders
+        self.first = orders[0]
+        live = [o for o in orders if o.status != 'cancelled'] or orders
+        self.status = min((o.status for o in live), key=self.STEP_ORDER.index)
+        self.patient, self.group = self.first.patient, self.first.request_group
+        self.abnormal = sum(1 for o in orders if o.is_abnormal)
+
+    @property
+    def next_step(self):
+        """(url step name, button label, order to act on) for the request's next step, or None."""
+        steps = {'ordered': ('collect', 'Collect specimen'), 'collected': ('result', 'Enter results'),
+                 'resulted': ('review', 'Doctor review')}
+        if self.status not in steps:
+            return None
+        order = next(o for o in self.orders if o.status == self.status)
+        return steps[self.status] + (order,)
+
+    def status_label(self):
+        return dict(LabOrder.Status.choices)[self.status]
+
+
+class LabRequestDetailView(PermissionRequiredMixin, View):
+    """One request: subject, tests with values and ranges, and when each step happened and by whom."""
+
+    permission_required = 'laboratory.view_laborder'
+
+    def get(self, request, group):
+        from patients.models import with_old_study_id
+        orders = list(with_old_study_id(requests_in_scope(request.user).filter(request_group=group)
+                                        .select_related('patient__current_facility', 'test', 'facility', 'ordered_by',
+                                                        'collected_by', 'resulted_by', 'reviewed_by', 'encounter'),
+                                        'patient').order_by('test__name'))
+        if not orders:
+            raise Http404
+        lab_request = LabRequest(orders)
+        first = lab_request.first
+        events = [(first.ordered_at, 'Requested', first.ordered_by, first.clinical_notes)]
+        for attr, label, who in (('collected_at', 'Specimen collected', 'collected_by'),
+                                 ('resulted_at', 'Results entered', 'resulted_by'),
+                                 ('reviewed_at', 'Confirmed by doctor', 'reviewed_by')):
+            done = [o for o in orders if getattr(o, attr)]
+            if done:
+                last = max(done, key=lambda o: getattr(o, attr))
+                events.append((getattr(last, attr), label, getattr(last, who),
+                               f'{len(done)} of {len(orders)} test(s)' if len(done) < len(orders) else ''))
+        for o in orders:
+            if o.status == 'cancelled':
+                events.append((o.updated_at, f'{o.test.name} cancelled', None, o.cancel_reason))
+        return render(request, 'laboratory/request_detail.html', {
+            'req': lab_request, 'patient': first.patient, 'events': sorted(events, key=lambda e: e[0])})
 
 
 class LabOrderActionView(PermissionRequiredMixin, View):
-    """collect → result → review, or cancel. Collect and result apply to all tests requested together."""
+    """collect → result → review, or cancel. Collect, result and review apply to all tests requested together."""
 
     permission_required = 'laboratory.change_laborder'
+
+    def has_permission(self):
+        # The doctor confirming results needs only the review right, not lab-bench rights.
+        if self.kwargs.get('step') == 'review':
+            return self.request.user.has_perm('laboratory.review_laborder')
+        return super().has_permission()
     STEPS = {
         'collect': (('ordered',), 'Record specimen collection'),
         'result': (('collected',), 'Enter results'),
-        'review': (('resulted',), 'Review result'),
+        'review': (('resulted',), 'Review results (doctor confirmation)'),
         'cancel': (('ordered', 'collected'), 'Cancel order'),
     }
 
@@ -96,7 +180,7 @@ class LabOrderActionView(PermissionRequiredMixin, View):
         return order
 
     def group(self, order, step):
-        if step in ('collect', 'result'):
+        if step in ('collect', 'result', 'review'):
             return list(LabOrder.objects.filter(request_group=order.request_group, patient=order.patient,
                                                 status__in=self.STEPS[step][0]).select_related('test'))
         return [order]
@@ -142,8 +226,9 @@ class LabOrderActionView(PermissionRequiredMixin, View):
                 o.record_result(value, request.user, form.cleaned_data['result_notes'], now)
                 changed.append(o)
         elif step == 'review':
-            order.reviewed_by, order.reviewed_at, order.status = request.user, now, LabOrder.Status.REVIEWED
-            changed.append(order)
+            for o in orders:
+                o.reviewed_by, o.reviewed_at, o.status = request.user, now, LabOrder.Status.REVIEWED
+                changed.append(o)
         elif step == 'cancel':
             order.cancel_reason, order.status = form.cleaned_data['reason'], LabOrder.Status.CANCELLED
             changed.append(order)
@@ -278,12 +363,12 @@ class MonitoringListView(PermissionRequiredMixin, View):
         else:
             state = 'all'
         rows.sort(key=lambda r: (r[1]['due'], r[0].patient_number))
-        labels = dict(STATES, not_done='Not done recorded', all='All diabetes patients')
+        labels = dict(STATES, not_done='Not done recorded', all='All diabetes subjects')
         if request.GET.get('format') == 'csv':
             log_event(request=request, action=AuditEvent.Action.EXPORT, model='laboratory.Monitoring',
                       object_repr=f'HbA1c {labels[state]} · {filters.area_label}')
             return csv_response(f'hba1c-{state}-{timezone.localdate()}.csv',
-                                ['Patient ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last HbA1c', 'Last HbA1c date',
+                                ['Subject ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last HbA1c', 'Last HbA1c date',
                                  'Days since', 'Due date', 'Status', 'Ordered (waiting for result)', 'Not done reason',
                                  'Not done recorded'],
                                 [[p.patient_number, p.old_study_id or p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
@@ -308,7 +393,7 @@ class MonitoringGapCreateView(PermissionRequiredMixin, PatientContextMixin, View
         from .monitoring import monitoring_status
         status = monitoring_status(self.patient, self.code)
         if status is None:
-            raise Http404('The patient is not enrolled in active diabetes care.')
+            raise Http404('The subject is not enrolled in active diabetes care.')
         return status
 
     def render_form(self, request, status, form):
@@ -316,7 +401,7 @@ class MonitoringGapCreateView(PermissionRequiredMixin, PatientContextMixin, View
                                                   if status['last_date'] else ', no result since enrolment')
         return render(request, 'confirm_action.html', {
             'title': f'{status["test"]} not done', 'patient': self.patient, 'form': form, 'button': 'Save',
-            'message': f'{status["test"]} {when}. Record why it was not done. The patient stays on the list and is '
+            'message': f'{status["test"]} {when}. Record why it was not done. The subject stays on the list and is '
                        f'due again {status["retry_months"]} month(s) from the date recorded; enter the result as '
                        f'usual once the test is done.',
             'cancel_url': request.GET.get('next') or self.patient.get_absolute_url(), 'next': request.GET.get('next', '')})
@@ -368,7 +453,7 @@ class MonitoringRuleUpdateView(PermissionRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         return super().get_context_data(
             title=f'{self.object.test.name} monitoring', cancel_url=reverse('laboratory:monitoring_rules'),
-            subtitle='Changes apply straight away to the due list, the patient banner and the overdue data issues.',
+            subtitle='Changes apply straight away to the due list, the subject banner and the overdue data issues.',
             **kwargs)
 
     def form_valid(self, form):

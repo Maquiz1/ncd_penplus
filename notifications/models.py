@@ -30,7 +30,7 @@ class SmsMessage(TimeStampedModel):
                                        related_name='sms_messages')
     purpose = models.CharField(max_length=20, choices=Purpose.choices)
     phone = models.CharField(max_length=20, help_text='International format, e.g. 255712345678')
-    recipient = models.CharField(max_length=20, default='patient', help_text='patient or next of kin / guardian')
+    recipient = models.CharField(max_length=20, default='patient', help_text='subject or next of kin / guardian')
     body = models.TextField()
     for_date = models.DateField(null=True, blank=True, help_text='Appointment date the message refers to.')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED, db_index=True)
@@ -92,7 +92,7 @@ class SmsSettings(models.Model):
     sender_id = models.CharField('Sender ID', max_length=11, blank=True,
                                  help_text='Approved sender name, max 11 characters. Blank = SMS_SENDER_ID from .env.')
     default_contact = models.CharField(max_length=30, blank=True,
-                                       help_text='Phone number patients can call, used in reminders when a clinic day '
+                                       help_text='Phone number subjects can call, used in reminders when a clinic day '
                                                  'has none. Blank = SMS_DEFAULT_CONTACT from .env.')
     beem_api_key_encrypted = models.TextField(blank=True)
     beem_secret_key_encrypted = models.TextField(blank=True)

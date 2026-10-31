@@ -141,7 +141,7 @@ class ScreeningSessionTests(BaseTestCase):
                                            programme=ClinicalProgramme.objects.get(code='cardiac-care'))
         data = {k: v for k, v in self.person().items() if not k.startswith('p-')}
         response = self.client.post(self.url + f'?patient={existing.pk}', {**data, 'patient': existing.pk})
-        self.assertContains(response, 'Known Cardiac disease patient')
+        self.assertContains(response, 'Known Cardiac disease subject')
         response = self.client.post(self.url + f'?patient={existing.pk}',
                                     {**data, 'patient': existing.pk, 's-result_cardiac': '', 's-referred': ''})
         self.assertEqual(response.status_code, 302)
@@ -249,3 +249,146 @@ class FamilyMemberTests(BaseTestCase):
         self.assertEqual((member.scd_status, member.alive, member.age_years), ('affected', True, 7))
         self.assertContains(self.client.get(reverse('patients:detail', args=[patient.pk])), 'Has sickle cell disease')
         self.assertEqual(self.client.get(reverse('clinical:family_edit', args=[member.pk])).status_code, 200)
+
+
+class PatientFlowTests(BaseTestCase):
+    """Progress bar, next step, duplicate pre-screening and the stuck-in-the-flow list."""
+
+    def states(self, patient):
+        from clinical.flow import patient_flow
+        track = patient_flow(patient)[0]
+        return [s.state for s in track.steps], track.next.label if track.next else None
+
+    def test_next_step_follows_the_pathway(self):
+        from clinical.models import Disease, PreScreening
+        from encounters.models import Encounter, FollowUpPlan
+        p = self.make_patient()
+        self.assertEqual(self.states(p), (['done'] + ['todo'] * 6, 'Record pre-screening'))
+        PreScreening.objects.create(patient=p, facility=self.ilala)
+        self.assertEqual(self.states(p)[1], 'Record disease screening')
+        diabetes = Disease.objects.get(code='diabetes')
+        screening = Screening.objects.create(patient=p, disease=diabetes, facility=self.ilala, screened_by=self.admin)
+        self.assertEqual(self.states(p), (['done', 'done', 'waiting'] + ['todo'] * 4, 'Record screening result'))
+        screening.result = 'positive'
+        screening.save()
+        self.assertEqual(self.states(p)[1], 'Add diagnosis')
+        Diagnosis.objects.create(patient=p, disease=diabetes, description='T2DM', clinician=self.admin)
+        self.assertEqual(self.states(p)[1], 'Enroll in programme')
+        enrollment = ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala,
+                                                        programme=ClinicalProgramme.objects.get(code='dm-care'))
+        self.assertEqual(self.states(p)[1], 'Record baseline visit')
+        Encounter.objects.create(patient=p, facility=self.ilala, stage='baseline', staff=self.admin)
+        self.assertEqual(self.states(p)[1], 'Create follow-up plan')
+        FollowUpPlan.objects.create(patient=p, facility=self.ilala, programme_enrollment=enrollment,
+                                    anchor_date=timezone.localdate())
+        self.assertEqual(self.states(p), (['done', 'done', 'done', 'waiting', 'done', 'done', 'done'], None))
+
+    def test_negative_screening_ends_the_pathway(self):
+        from clinical.flow import patient_flow
+        from clinical.models import Disease
+        p = self.make_patient()
+        Screening.objects.create(patient=p, disease=Disease.objects.get(code='diabetes'), facility=self.ilala,
+                                 screened_by=self.admin, result='negative')
+        track = patient_flow(p)[0]
+        self.assertIsNone(track.next)
+        self.assertIn('negative', track.message)
+
+    def test_patient_page_shows_next_step(self):
+        p = self.make_patient()
+        self.client.force_login(self.clinician_ilala)
+        response = self.client.get(reverse('patients:detail', args=[p.pk]))
+        self.assertContains(response, 'Next step: Record pre-screening')
+
+    def test_second_prescreening_same_day_refused(self):
+        from clinical.models import PreScreening
+        p = self.make_patient()
+        first = PreScreening.objects.create(patient=p, facility=self.ilala)
+        self.client.force_login(self.clinician_ilala)
+        url = reverse('clinical:prescreening_add', args=[p.pk])
+        self.assertRedirects(self.client.get(url), reverse('clinical:prescreening_update', args=[first.pk]))
+        response = self.client.post(url, {'facility': self.ilala.pk, 'date': timezone.localdate().isoformat(),
+                                          'resides_in_area': 'on', 'disposition': 'proceed'})
+        self.assertContains(response, 'already has a pre-screening')
+        self.assertEqual(PreScreening.objects.filter(patient=p).count(), 1)
+
+    def test_flow_gaps_list(self):
+        from clinical.models import Disease
+        positive = self.make_patient()
+        Screening.objects.create(patient=positive, disease=Disease.objects.get(code='diabetes'), facility=self.ilala,
+                                 screened_by=self.admin, result='positive')
+        enrolled = self.make_patient()
+        ProgrammeEnrollment.objects.create(patient=enrolled, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        self.client.force_login(self.clinician_ilala)
+        url = reverse('clinical:flow_gaps')
+        response = self.client.get(url, {'gap': 'positive_no_diagnosis'})
+        self.assertContains(response, positive.patient_number)
+        self.assertNotContains(response, enrolled.patient_number)
+        response = self.client.get(url, {'gap': 'enrolled_no_baseline'})
+        self.assertContains(response, enrolled.patient_number)
+
+
+class SubjectSummaryTests(BaseTestCase):
+    """Summaries are for investigators and coordinators: subject IDs, never names."""
+
+    def test_pi_sees_summary_without_identity(self):
+        from encounters.models import Encounter, Vitals
+        from patients.models import PatientIdentifier
+        from patients.models import Patient
+        p = self.make_patient(first_name='Neema', last_name='Kileo', phone='0755111222')
+        Patient.all_objects.filter(pk=p.pk).update(old_id=7)
+        PatientIdentifier.objects.create(patient=p, id_type='edcs_study', value='1-007')
+        ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='baseline', staff=self.admin,
+                                         chief_complaint='Thirst')
+        Vitals.objects.create(encounter=visit, weight_kg=51, systolic_bp=150, diastolic_bp=95)
+        self.client.force_login(self.make_user('pi', 'PI / Co-Investigator', level='national'))
+        response = self.client.get(reverse('patients:summaries'), {'q': '1-007'})
+        self.assertContains(response, p.patient_number)
+        response = self.client.get(reverse('patients:summary', args=[p.pk]))
+        self.assertContains(response, p.patient_number)
+        self.assertContains(response, 'Old ID 1-007')
+        self.assertContains(response, 'Diabetes care programme')
+        self.assertContains(response, '150/95')
+        self.assertNotContains(response, 'Kileo')
+        self.assertNotContains(response, '0755111222')
+
+    def test_summary_search_ignores_names(self):
+        p = self.make_patient(first_name='Neema', last_name='Kileo')
+        self.client.force_login(self.clinician_ilala)
+        response = self.client.get(reverse('patients:summaries'), {'q': 'Kileo'})
+        self.assertNotContains(response, p.patient_number)
+
+    def test_summary_out_of_scope_is_hidden(self):
+        p = self.make_patient(self.mwanza)
+        self.client.force_login(self.clinician_ilala)
+        self.assertEqual(self.client.get(reverse('patients:summary', args=[p.pk])).status_code, 404)
+
+    def test_prescreening_consent_rules(self):
+        from clinical.models import PreScreening
+        p = self.make_patient()
+        self.client.force_login(self.clinician_ilala)
+        url = reverse('clinical:prescreening_add', args=[p.pk])
+        base = {'facility': self.ilala.pk, 'date': timezone.localdate().isoformat(), 'screening_type': 'facility',
+                'resides_in_area': 'True', 'disposition': 'proceed'}
+        self.assertContains(self.client.post(url, {**base, 'consent_obtained': 'True'}), 'Enter the date of consent')
+        self.assertContains(self.client.post(url, {**base, 'consent_obtained': 'False'}),
+                            'Without consent the person cannot proceed')
+        response = self.client.post(url, {**base, 'consent_obtained': 'True', 'consent_date': base['date'],
+                                          'known_ncd': 'False', 'lab_test_requested': 'True'})
+        self.assertEqual(response.status_code, 302)
+        record = PreScreening.objects.get(patient=p)
+        self.assertEqual((record.consent_obtained, record.known_ncd, record.lab_request_date),
+                         (True, False, timezone.localdate()))
+
+    def test_report_viewer_sees_summaries_not_register(self):
+        p = self.make_patient(first_name='Neema', last_name='Kileo')
+        viewer = self.make_user('me_officer', 'Report Viewer', facility=self.ilala)
+        self.client.force_login(viewer)
+        response = self.client.get(reverse('patients:summary', args=[p.pk]))
+        self.assertContains(response, p.patient_number)
+        self.assertNotContains(response, 'Kileo')
+        self.assertNotContains(response, 'Full record')
+        self.assertEqual(self.client.get(reverse('patients:list')).status_code, 403)
+        self.assertEqual(self.client.get(reverse('patients:detail', args=[p.pk])).status_code, 403)

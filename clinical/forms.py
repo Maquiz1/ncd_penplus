@@ -10,10 +10,55 @@ from .models import (ClinicalProgramme, FamilyMember, Diagnosis, Disease, PreScr
                      ScreeningSession)
 
 
+YES_NO = [(True, 'Yes'), (False, 'No')]
+
+
 class PreScreeningForm(PatientChildForm):
+    """General pre-screening, laid out like the old EDCS screening form."""
+
+    SECTIONS = [
+        ('Screening', 'bi-clipboard2-check', ['date', 'screening_type', 'facility']),
+        ('Consent', 'bi-pen', ['consent_obtained', 'consent_date']),
+        ('Residence', 'bi-house', ['resides_in_area', 'expected_stay_months']),
+        ('NCD and tests', 'bi-droplet-half', ['known_ncd', 'lab_test_requested', 'lab_request_date']),
+        ('Outcome', 'bi-signpost-split', ['disposition', 'notes']),
+    ]
+
     class Meta:
         model = PreScreening
-        fields = ['facility', 'date', 'resides_in_area', 'expected_stay_months', 'disposition', 'notes']
+        fields = ['date', 'screening_type', 'facility', 'consent_obtained', 'consent_date', 'resides_in_area',
+                  'expected_stay_months', 'known_ncd', 'lab_test_requested', 'lab_request_date', 'disposition', 'notes']
+        widgets = {'consent_obtained': forms.RadioSelect(choices=YES_NO), 'known_ncd': forms.RadioSelect(choices=YES_NO),
+                   'lab_test_requested': forms.RadioSelect(choices=YES_NO),
+                   'resides_in_area': forms.RadioSelect(choices=YES_NO), 'notes': forms.Textarea(attrs={'rows': 2})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['consent_obtained'].required = True
+        self.fields['resides_in_area'].required = False
+        self.fields['consent_date'].help_text = 'Required when the person consented.'
+        self.fields['lab_request_date'].help_text = 'When a lab test was requested.'
+
+    def sections(self):
+        return [(title, icon, [self[name] for name in names]) for title, icon, names in self.SECTIONS]
+
+    def clean(self):
+        data = super().clean()
+        if data.get('consent_obtained') is None:
+            self.add_error('consent_obtained', 'Answer Yes or No.')
+        if data.get('consent_obtained') and not data.get('consent_date'):
+            self.add_error('consent_date', 'Enter the date of consent.')
+        if data.get('consent_obtained') is False and data.get('disposition') == PreScreening.Disposition.PROCEED:
+            self.add_error('disposition', 'Without consent the person cannot proceed to disease screening.')
+        if data.get('lab_test_requested') and not data.get('lab_request_date'):
+            data['lab_request_date'] = data.get('date')
+        patient = self.patient or getattr(self.instance, 'patient', None)
+        if patient and data.get('date'):
+            same_day = PreScreening.objects.filter(patient=patient, date=data['date']).exclude(pk=self.instance.pk)
+            if same_day.exists():
+                raise forms.ValidationError(f'This subject already has a pre-screening on {data["date"]:%d %b %Y}. '
+                                            'Edit that one instead of adding another.')
+        return data
 
 
 class ScreeningCreateForm(PatientChildForm):
@@ -153,7 +198,7 @@ class SessionScreeningForm(BootstrapForm):
                                                                  status__in=['pending', 'active']).exists())
                 if known:
                     self.add_error(f'result_{disease.code}',
-                                   f'Known {disease.name} patient (diagnosed or enrolled) – excluded from screening.')
+                                   f'Known {disease.name} subject (diagnosed or enrolled) – excluded from screening.')
 
 
 class PatientQuickForm(PatientForm):
@@ -235,4 +280,4 @@ class FamilyMemberForm(PatientChildForm):
         fields = ['relation', 'sex', 'age_years', 'alive', 'scd_status', 'tested', 'test_date', 'test_type',
                   'referred_for_screening', 'recorded_on', 'notes']
         widgets = {'alive': forms.NullBooleanSelect, 'tested': forms.NullBooleanSelect}
-        help_texts = {'scd_status': 'Do not record names: relatives are not registered patients.'}
+        help_texts = {'scd_status': 'Do not record names: relatives are not registered subjects.'}

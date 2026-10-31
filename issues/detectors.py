@@ -70,7 +70,7 @@ def duplicate_identifiers():
         label = dict(PatientIdentifier.IdType.choices).get(group['id_type'], group['id_type'])
         _, new = raise_issue(
             f'dup-id:{group["id_type"]}:{group["v"]}', 'duplicate_identifier', DataIssue.Category.IDENTITY,
-            f'{label} "{group["v"]}" is shared by {len(members)} patients',
+            f'{label} "{group["v"]}" is shared by {len(members)} subjects',
             'Patients: ' + ', '.join(p.patient_number for p in members) +
             '. Correct the identifier on the wrong record, or soft-delete a true duplicate.',
             patient=members[0])
@@ -87,7 +87,7 @@ def duplicate_people():
                                                   date_of_birth=group['date_of_birth']).order_by('pk'))
         _, new = raise_issue(
             f'dup-person:{group["f"]}:{group["l"]}:{group["date_of_birth"]}', 'possible_duplicate_patient',
-            DataIssue.Category.IDENTITY, f'{len(members)} patients with the same name and date of birth',
+            DataIssue.Category.IDENTITY, f'{len(members)} subjects with the same name and date of birth',
             'Patients: ' + ', '.join(p.patient_number for p in members) + '. Check whether they are the same person.',
             patient=members[0])
         created += new
@@ -109,7 +109,7 @@ def consent_to_verify():
     for c in ConsentRecord.objects.filter(notes__icontains='verify the paper consent').select_related('patient', 'study'):
         _, new = raise_issue(f'consent:{c.pk}', 'consent_to_verify', DataIssue.Category.CONSENT,
                              f'Consent for {c.study.code} not recorded in EDCS',
-                             'The patient was enrolled in the EDCS without a consent entry. Check the signed paper '
+                             'The subject was enrolled in the EDCS without a consent entry. Check the signed paper '
                              'consent form and update the consent record.', patient=c.patient, obj=c,
                              related_date=c.consent_date.date())
         created += new
@@ -136,7 +136,7 @@ def address_problems():
     for p in in_care:
         _, new = raise_issue(f'address-incomplete:{p.pk}', 'address_incomplete', DataIssue.Category.LOCATIONS,
                              'Address incomplete (no ward)',
-                             'Record the district, ward and street/village so the patient can be traced and counted '
+                             'Record the district, ward and street/village so the subject can be traced and counted '
                              'by area.', patient=p)
         created += new
     return created

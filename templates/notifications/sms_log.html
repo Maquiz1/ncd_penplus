@@ -11,7 +11,7 @@
   <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
 </form>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
-  <thead class="table-light"><tr><th>Created</th><th>Patient</th><th>To</th><th>Type</th><th>Message</th><th>Status</th><th>Sent</th></tr></thead>
+  <thead class="table-light"><tr><th>Created</th><th>Subject</th><th>To</th><th>Type</th><th>Message</th><th>Status</th><th>Sent</th></tr></thead>
   <tbody>{% for m in object_list %}<tr>
     <td class="text-nowrap small">{{ m.created_at|date:"d M Y H:i" }}</td>
     <td>{% if m.patient %}<a href="{{ m.patient.get_absolute_url }}">{{ m.patient }}</a>{% else %}<span class="text-body-secondary">— (test)</span>{% endif %}</td>

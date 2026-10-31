@@ -1,40 +1,8 @@
 from django import forms
 
-from core.forms import BootstrapForm, BootstrapModelForm, PatientChildForm, apply_bootstrap
+from core.forms import BootstrapForm, BootstrapModelForm, apply_bootstrap
 
-from .models import LabCategory, LabOrder, LabPanel, LabTest, MonitoringGap, MonitoringRule
-
-
-class LabOrderForm(PatientChildForm):
-    panels = forms.ModelMultipleChoiceField(queryset=LabPanel.objects.filter(is_active=True), required=False,
-                                            widget=forms.CheckboxSelectMultiple, help_text='Orders every test in the panel.')
-    tests = forms.ModelMultipleChoiceField(queryset=LabTest.objects.filter(is_active=True).select_related('category'),
-                                           required=False, widget=forms.CheckboxSelectMultiple,
-                                           label='Individual tests')
-
-    class Meta:
-        model = LabOrder
-        fields = ['panels', 'tests', 'facility', 'encounter', 'priority', 'clinical_notes']
-
-    def clean(self):
-        cleaned = super().clean()
-        if not cleaned.get('panels') and not cleaned.get('tests'):
-            raise forms.ValidationError('Select at least one panel or test.')
-        return cleaned
-
-    def requested_tests(self):
-        """(test, panel) pairs without duplicates; panel tests first."""
-        seen, result = set(), []
-        for panel in self.cleaned_data.get('panels') or []:
-            for test in panel.tests.filter(is_active=True):
-                if test.pk not in seen:
-                    seen.add(test.pk)
-                    result.append((test, panel))
-        for test in self.cleaned_data.get('tests') or []:
-            if test.pk not in seen:
-                seen.add(test.pk)
-                result.append((test, None))
-        return result
+from .models import LabCategory, LabPanel, LabTest, MonitoringGap, MonitoringRule
 
 
 class SpecimenForm(BootstrapForm):

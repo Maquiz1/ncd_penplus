@@ -9,7 +9,7 @@
   <li class="nav-item"><a class="nav-link {% if current_status == '' %}active{% endif %}" href="?status=">All</a></li>
 </ul>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Prescribed</th><th>Patient</th><th>Medicine</th><th>Dose / frequency</th><th class="text-end">Qty</th><th>Facility</th><th>Prescriber</th><th>Status</th><th></th></tr></thead>
+  <thead class="table-light"><tr><th>Prescribed</th><th>Subject</th><th>Medicine</th><th>Dose / frequency</th><th class="text-end">Qty</th><th>Facility</th><th>Prescriber</th><th>Status</th><th></th></tr></thead>
   <tbody>{% for p in object_list %}<tr>
     <td class="text-nowrap">{{ p.prescribed_at|date:"d M Y H:i" }}</td><td><a href="{{ p.patient.get_absolute_url }}#medications">{{ p.patient }}</a><div class="small">{% patient_name p.patient %}</div></td>
     <td>{{ p.medication }}</td><td>{{ p.dose }} {{ p.get_route_display|lower }}, {{ p.frequency }}{% if p.duration_days %} × {{ p.duration_days }} d{% endif %}</td>

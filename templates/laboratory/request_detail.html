@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Lab request {{ patient.patient_number }}{% endblock %}
+{% block content %}
+{% with o=req.first %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div><h1 class="h4 mb-0">Lab request · {{ o.ordered_at|date:"d M Y H:i" }}</h1><div class="small text-body-secondary">{{ req.orders|length }} test{{ req.orders|length|pluralize }} · {% status_badge req.status req.status_label %}</div></div>
+  <div class="d-flex gap-2">
+    {% with step=req.next_step %}{% if step %}{% if step.0 == 'review' and perms.laboratory.review_laborder or step.0 != 'review' and perms.laboratory.change_laborder %}<a class="btn btn-primary btn-sm" href="{% url 'laboratory:lab_action' step.2.pk step.0 %}?next={{ request.path|urlencode }}">{{ step.1 }}</a>{% endif %}{% endif %}{% endwith %}
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratory:lab_worklist' %}"><i class="bi bi-list-ul"></i> All requests</a>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100"><div class="card-header bg-body fw-semibold">Request</div>
+      <ul class="list-group list-group-flush small">
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Facility</span><span>{{ o.facility }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Priority</span><span>{% if o.priority == 'urgent' %}<span class="badge text-bg-danger">Urgent</span>{% else %}Routine{% endif %}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Requested by</span><span>{{ o.ordered_by.display_name }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Visit</span><span>{% if o.encounter %}<a href="{{ o.encounter.get_absolute_url }}">{{ o.encounter.get_stage_display }} {{ o.encounter.encounter_date|date:"d M Y" }}</a>{% else %}Not linked{% endif %}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span class="text-body-secondary">Specimen no.</span><span>{{ o.specimen_id|default:"—" }}</span></li>
+        {% if o.clinical_notes %}<li class="list-group-item"><span class="text-body-secondary">Clinical notes</span><div>{{ o.clinical_notes }}</div></li>{% endif %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Tests</div><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>#</th><th>Test</th><th>Result</th><th>Unit</th><th>Reference</th><th>Status</th></tr></thead>
+      <tbody>{% for t in req.orders %}<tr><td class="text-body-secondary">{{ forloop.counter }}</td><td>{{ t.test.name }}{% if t.panel %}<div class="small text-body-secondary">{{ t.panel }}</div>{% endif %}</td>
+        <td class="{% if t.is_abnormal %}text-danger fw-semibold{% endif %}">{{ t.result_value|default:"—" }}{% if t.is_abnormal %} <i class="bi bi-exclamation-circle" title="Outside the reference range"></i>{% endif %}</td>
+        <td>{{ t.result_unit|default:t.test.unit|default:"—" }}</td><td class="small text-body-secondary">{{ t.reference_snapshot|default:t.test.reference_display|default:"—" }}</td>
+        <td>{% status_badge t.status t.get_status_display %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% if o.result_notes %}<div class="card-footer bg-body small"><span class="text-body-secondary">Remarks:</span> {{ o.result_notes }}</div>{% endif %}</div>
+    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">History</div>
+      <div class="card-body"><ol class="timeline mb-0">
+        {% for when, label, who, note in events %}<li class="timeline-item"><span class="timeline-dot bg-primary"><i class="bi bi-check2"></i></span>
+          <div class="fw-semibold">{{ label }}</div><div class="small text-body-secondary">{{ when|date:"d M Y H:i" }}{% if who %} · {{ who.display_name }}{% endif %}{% if note %} · {{ note }}{% endif %}</div></li>{% endfor %}
+      </ol></div>
+    </div>
+  </div>
+</div>
+{% endwith %}
+{% endblock %}

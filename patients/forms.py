@@ -52,7 +52,7 @@ class PatientForm(LocationFieldsMixin, BootstrapModelForm):
             )[:10])
             if self.duplicates and not cleaned.get('confirm_not_duplicate'):
                 raise forms.ValidationError(
-                    'Possible duplicate patients were found. Review them below; if this is a different person, '
+                    'Possible duplicate subjects were found. Review them below; if this is a different person, '
                     'tick the confirmation box and save again.')
         return cleaned
 
@@ -78,7 +78,7 @@ class PatientTransferForm(PatientChildForm):
     def clean_to_facility(self):
         facility = self.cleaned_data['to_facility']
         if self.patient and facility == self.patient.current_facility:
-            raise forms.ValidationError('The patient is already assigned to this facility.')
+            raise forms.ValidationError('The subject is already assigned to this facility.')
         return facility
 
 

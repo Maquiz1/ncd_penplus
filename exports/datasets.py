@@ -107,7 +107,7 @@ def patient_columns(patient_path, date_field):
         return when.year - dob.year - ((when.month, when.day) < (dob.month, dob.day))
 
     return [
-        Column('patient_id', 'Patient ID (NCD number)', 'text', lambda o, m: patient(o).patient_number),
+        Column('patient_id', 'Subject ID (NCD number)', 'text', lambda o, m: patient(o).patient_number),
         Column('old_study_id', 'Old EDCS study ID (full)', 'text', lambda o, m: old_study_ids().get(patient(o).pk)),
         Column('old_id', 'Old EDCS client number', 'text', lambda o, m: patient(o).old_id),
         Column('site', 'Site (current facility code)', 'code', lambda o, m: patient(o).current_facility.code),
@@ -169,11 +169,11 @@ def _patient_dataset():
     from patients.models import Patient
     identity = IDENTITY_FIELDS['patients.Patient']
     old_study_ids = study_id_lookup()
-    columns = [Column('patient_id', 'Patient ID (NCD number)', 'text', lambda o, m: o.patient_number),
+    columns = [Column('patient_id', 'Subject ID (NCD number)', 'text', lambda o, m: o.patient_number),
                Column('old_study_id', 'Old EDCS study ID (full)', 'text', lambda o, m: old_study_ids().get(o.pk)),
                Column('age_years', 'Age today (years)', 'number', lambda o, m: o.age if o.date_of_birth else None)]
     columns += field_columns(Patient, identity, skip=('patient_number', 'merged_into', 'sms_consent_recorded_at'))
-    return Dataset('patients', 'Patients (registration)', 'Registration & screening', Patient, '', 'registration_date',
+    return Dataset('patients', 'Subjects (registration)', 'Registration & screening', Patient, '', 'registration_date',
                    columns, select_related=('current_facility', 'registration_facility', 'residence_ward', 'residence_street'))
 
 
@@ -301,7 +301,7 @@ def laboratory_dataset():
                               'number' if test.result_type == LabTest.ResultType.NUMERIC else 'text', value,
                               unit=test.unit))
     return Dataset('laboratory', 'Laboratory (one row per lab date)', 'Study forms', LabOrder, 'patient', 'ordered_at',
-                   columns, queryset_filter={'status': LabOrder.Status.RESULTED},
+                   columns, queryset_filter={'status__in': [LabOrder.Status.RESULTED, LabOrder.Status.REVIEWED]},
                    select_related=('patient__current_facility', 'facility'), wrap=LabVisits,
                    description='Results of every test done on the same day, side by side. Replaces the EDCS '
                                'lab_details form (and the lab values on other EDCS forms).')

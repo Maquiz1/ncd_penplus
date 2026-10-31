@@ -6200,5 +6200,693 @@
     ]
    ]
   }
+ },
+ "symptoms": {
+  "visit_date": {
+   "label": "Date of Visit",
+   "type": "date"
+  },
+  "dyspnea": {
+   "label": "Dyspnea on exertion: NYHA Classification",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "I"
+    ],
+    [
+     "2",
+     "II"
+    ],
+    [
+     "3",
+     "III"
+    ],
+    [
+     "4",
+     "IV"
+    ],
+    [
+     "5",
+     "Cannot determine"
+    ]
+   ]
+  },
+  "orthopnea": {
+   "label": "Orthopnea",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "paroxysmal": {
+   "label": "Paroxysmal nocturnal dyspnea",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "headache": {
+   "label": "Headache Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "chest_pain": {
+   "label": "Chest Pain",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_chest_pain": {
+   "label": "Pain Score Today( Headache ):",
+   "type": "number"
+  },
+  "abnorminal_pain": {
+   "label": "Abnorminal Pain",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_abnorminal_pain": {
+   "label": "Pain Score Today( Abnorminal Pain )",
+   "type": "number"
+  },
+  "upper_arms": {
+   "label": "Upper arms Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_upper_arms": {
+   "label": "Pain Score Today( Upper arms )",
+   "type": "number"
+  },
+  "lower_arms": {
+   "label": "Lower arms Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_lower_arms": {
+   "label": "Pain Score Today( Lower arms ):",
+   "type": "number"
+  },
+  "waist": {
+   "label": "Waist Pains",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "score_waist": {
+   "label": "Pain Score Today( Waist )",
+   "type": "number"
+  },
+  "joints": {
+   "label": "Joints Pains( Specify )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "spescify_joints": {
+   "label": "Joints( Specify )",
+   "type": "number"
+  },
+  "score_joints": {
+   "label": "Pain Score Today ( Joints )",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "other_pain": {
+   "label": "Any Other Pain?",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "spescify_other_pain": {
+   "label": "Other Pain ( Specify )",
+   "type": "text"
+  },
+  "score_other_pain": {
+   "label": "Pain Score Today ( Other )",
+   "type": "number"
+  },
+  "cough": {
+   "label": "Cough",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "thirst": {
+   "label": "Increased thirst",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "urination": {
+   "label": "Increased Urination",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "vision": {
+   "label": "Vision Changes",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "vomiting": {
+   "label": "Vomiting",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "weight_loss": {
+   "label": "Weight Loss",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "breathing": {
+   "label": "Difficulty Breathing",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "other_sickle": {
+   "label": "Any Other (Symptoms) ?",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "sickle_specify": {
+   "label": "Other Symptoms (Specify)",
+   "type": "text"
+  },
+  "edema": {
+   "label": "Edema",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "None"
+    ],
+    [
+     "2",
+     "Trace"
+    ],
+    [
+     "3",
+     "1+"
+    ],
+    [
+     "4",
+     "2+"
+    ],
+    [
+     "5",
+     "3+"
+    ]
+   ]
+  },
+  "lungs": {
+   "label": "Lungs",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Clear"
+    ],
+    [
+     "2",
+     "Bibasilar"
+    ],
+    [
+     "3",
+     "Crackles"
+    ],
+    [
+     "4",
+     "Wheeze"
+    ],
+    [
+     "96",
+     "Other"
+    ]
+   ]
+  },
+  "lungs_other": {
+   "label": "Other Lungs",
+   "type": "text"
+  },
+  "jvp": {
+   "label": "JVP",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Elevated"
+    ],
+    [
+     "2",
+     "Normal"
+    ],
+    [
+     "3",
+     "Unable to determine"
+    ]
+   ]
+  },
+  "volume": {
+   "label": "Volume status",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Hyper"
+    ],
+    [
+     "2",
+     "Hypo"
+    ],
+    [
+     "3",
+     "Euvolemic"
+    ]
+   ]
+  },
+  "murmur": {
+   "label": "Loud Murmur?",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Present"
+    ],
+    [
+     "2",
+     "Absent"
+    ],
+    [
+     "3",
+     "Unknown"
+    ]
+   ]
+  },
+  "foot_exam": {
+   "label": "Foot Exam",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ]
+   ]
+  },
+  "foot_exam_finding": {
+   "label": "Foot Exam Category",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Normal"
+    ],
+    [
+     "2",
+     "Abnormal"
+    ]
+   ]
+  },
+  "foot_exam_other": {
+   "label": "Foot exam Finding Other:",
+   "type": "text"
+  },
+  "fasting": {
+   "label": "Fasting FS",
+   "type": "number"
+  },
+  "random_fs": {
+   "label": "Random FS",
+   "type": "number"
+  },
+  "hba1c": {
+   "label": "HbA1C:( During enrollment )",
+   "type": "number"
+  },
+  "hypoglycemia_symptoms": {
+   "label": "Symptoms of hypoglycemia?",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "hypoglycemia_severe": {
+   "label": "Severe hypoglycemia in last month?",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unsure"
+    ]
+   ]
+  },
+  "hypoglycemia__number": {
+   "label": "If Yes, how many episodes of severe hypoglycemia",
+   "type": "number"
+  },
+  "malnutrition": {
+   "label": "Malnutrition",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "pallor": {
+   "label": "Pallor",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "jaundice": {
+   "label": "Jaundice",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "splenomegaly": {
+   "label": "Splenomegaly",
+   "type": "radio",
+   "options": [
+    [
+     "1",
+     "Yes"
+    ],
+    [
+     "2",
+     "No"
+    ],
+    [
+     "3",
+     "Unk"
+    ]
+   ]
+  },
+  "hb": {
+   "label": "Hb",
+   "type": "number"
+  },
+  "wbc": {
+   "label": "WBC",
+   "type": "number"
+  },
+  "plt": {
+   "label": "Plt",
+   "type": "number"
+  },
+  "labs_other": {
+   "label": "Other",
+   "type": "number"
+  }
  }
 }

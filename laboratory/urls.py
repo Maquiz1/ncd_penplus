@@ -6,7 +6,7 @@ app_name = 'laboratory'
 
 urlpatterns = [
     path('lab/', views.LabWorklistView.as_view(), name='lab_worklist'),
-    path('patients/<int:patient_pk>/lab/add/', views.LabOrderCreateView.as_view(), name='lab_add'),
+    path('lab/request/<uuid:group>/', views.LabRequestDetailView.as_view(), name='request_detail'),
     path('lab/<int:pk>/<str:step>/', views.LabOrderActionView.as_view(), name='lab_action'),
     path('monitoring/hba1c/', views.MonitoringListView.as_view(), name='monitoring'),
     path('patients/<int:patient_pk>/hba1c-not-done/', views.MonitoringGapCreateView.as_view(), name='gap_add'),

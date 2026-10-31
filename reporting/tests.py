@@ -44,3 +44,21 @@ class ReportTests(BaseTestCase):
         body = self.client.get(reverse('reporting:recruitment') + '?period=all&format=csv').content.decode()
         total = [line for line in body.splitlines() if line.startswith('Total')][0].split(',')
         self.assertEqual(total[5], '1')   # enrolled
+
+
+class DiseaseReportTests(BaseTestCase):
+    def test_disease_report_by_site_and_condition(self):
+        from clinical.models import ClinicalProgramme, Diagnosis, ProgrammeEnrollment
+        from clinical.models import Disease
+        p = self.make_patient()
+        ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        Diagnosis.objects.create(patient=p, disease=Disease.objects.get(code='diabetes'),
+                                 description='Type 1 diabetes mellitus', status='confirmed', clinician=self.admin)
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('reporting:disease'), {'disease': 'diabetes', 'period': 'all'})
+        self.assertContains(response, 'Diabetes report')
+        self.assertContains(response, self.ilala.name)
+        self.assertEqual(response.context['data']['site_total']['enrolled'], 1)
+        csv = self.client.get(reverse('reporting:disease'), {'disease': 'diabetes', 'period': 'all', 'format': 'csv'})
+        self.assertEqual(csv.status_code, 200)

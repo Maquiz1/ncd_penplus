@@ -42,7 +42,7 @@ class ExportJob(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        permissions = [('export_identifiable', 'Can export patient names and identifiers')]
+        permissions = [('export_identifiable', 'Can export subject names and identifiers')]
 
     def __str__(self):
         return f'{self.dataset_label} ({self.get_fmt_display()}) by {self.user}'

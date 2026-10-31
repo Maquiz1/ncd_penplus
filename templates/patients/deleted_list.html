@@ -1,13 +1,13 @@
 {% extends "base.html" %}{% load ncd %}
-{% block title %}Deleted patients{% endblock %}
+{% block title %}Deleted subjects{% endblock %}
 {% block content %}
-<h1 class="h3 mb-3">Deleted patients</h1>
+<h1 class="h3 mb-3">Deleted subjects</h1>
 <p class="text-body-secondary">Soft-deleted records keep their full history and can be restored.</p>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table mb-0">
-  <thead class="table-light"><tr><th>Patient ID</th><th>Facility</th><th>Deleted</th><th>By</th><th>Reason</th><th></th></tr></thead>
+  <thead class="table-light"><tr><th>Subject ID</th><th>Facility</th><th>Deleted</th><th>By</th><th>Reason</th><th></th></tr></thead>
   <tbody>{% for p in object_list %}<tr><td>{{ p.patient_number }}{% old_patient_id p %}</td><td>{{ p.current_facility }}</td><td>{{ p.deleted_at|date:"d M Y H:i" }}</td><td>{{ p.deleted_by }}</td><td>{{ p.deletion_reason }}</td>
     <td><form method="post" action="{% url 'patients:restore' p.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button></form></td></tr>
-  {% empty %}<tr><td colspan="6" class="text-body-secondary text-center py-4">No deleted patients.</td></tr>{% endfor %}</tbody>
+  {% empty %}<tr><td colspan="6" class="text-body-secondary text-center py-4">No deleted subjects.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% include "_pagination.html" %}
 {% endblock %}

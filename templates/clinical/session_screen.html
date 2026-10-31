@@ -13,7 +13,7 @@
 {% if not existing %}
 <div class="card shadow-sm mb-3"><div class="card-body">
   <form method="get" class="d-flex gap-2">
-    <input class="form-control" name="q" value="{{ query }}" placeholder="Screened before? Search by name, phone or patient ID">
+    <input class="form-control" name="q" value="{{ query }}" placeholder="Screened before? Search by name, phone or subject ID">
     <button class="btn btn-outline-primary text-nowrap"><i class="bi bi-search"></i> Search</button>
   </form>
   {% if query %}
@@ -34,7 +34,7 @@
         <div class="card-body">
           {% if existing %}
             <dl class="row dl-compact mb-0">
-              <dt class="col-4">Patient ID</dt><dd class="col-8"><a href="{{ existing.get_absolute_url }}">{{ existing.patient_number }}</a></dd>
+              <dt class="col-4">Subject ID</dt><dd class="col-8"><a href="{{ existing.get_absolute_url }}">{{ existing.patient_number }}</a></dd>
               <dt class="col-4">Name</dt><dd class="col-8">{{ existing.full_name }}</dd>
               <dt class="col-4">Sex / age</dt><dd class="col-8">{{ existing.get_sex_display }}, {{ existing.age }} years</dd>
               <dt class="col-4">Phone</dt><dd class="col-8">{{ existing.phone|default:"—" }}</dd>
@@ -77,7 +77,7 @@
             </div>
             {% endfor %}
           </div>
-          <p class="small text-body-secondary mt-3 mb-0">Protocol rules: age ≥ {{ session.min_age }}, consent (and assent with guardian for under-18s), permanent resident; known patients for a disease are excluded; positives must be informed and referred.</p>
+          <p class="small text-body-secondary mt-3 mb-0">Protocol rules: age ≥ {{ session.min_age }}, consent (and assent with guardian for under-18s), permanent resident; known subjects for a disease are excluded; positives must be informed and referred.</p>
         </div>
       </div>
     </div>

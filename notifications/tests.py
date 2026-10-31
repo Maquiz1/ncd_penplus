@@ -132,7 +132,7 @@ class ClinicDayTests(BaseTestCase):
                     reverse('encounters:clinic_update', args=[session.pk]), reverse('notifications:log')):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
-        self.assertContains(self.client.get(session.get_absolute_url()), 'Eligible patients')
+        self.assertContains(self.client.get(session.get_absolute_url()), 'Eligible subjects')
         self.client.post(reverse('encounters:clinic_action', args=[session.pk, 'schedule']))
         self.client.post(reverse('encounters:clinic_action', args=[session.pk, 'sms']))
         self.assertEqual(SmsMessage.objects.filter(status='sent').count(), 2)

@@ -55,4 +55,4 @@ class Command(BaseCommand):
         self.stdout.write('Issues for review:')
         for key, items in sorted(issues.items()):
             self.stdout.write(f'  {key}: {len(items)}')
-        self.stdout.write(f'Full report (patient numbers and old IDs only, no names): {report_path}')
+        self.stdout.write(f'Full report (subject numbers and old IDs only, no names): {report_path}')

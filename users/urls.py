@@ -6,6 +6,7 @@ app_name = 'users'
 
 urlpatterns = [
     path('', views.StaffListView.as_view(), name='list'),
+    path('me/', views.ProfileView.as_view(), name='profile'),
     path('new/', views.StaffCreateView.as_view(), name='create'),
     path('roles/', views.RoleMatrixView.as_view(), name='roles'),
     path('positions/', views.PositionListView.as_view(), name='positions'),

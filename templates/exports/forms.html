@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <div><h1 class="h3 mb-0">Forms</h1>
-    <div class="small text-body-secondary">The study forms in the order of the visit, with their data and data dictionary. Scope: {{ scope }}{% if diseases %} · only patients of your programmes{% endif %}.</div></div>
+    <div class="small text-body-secondary">The study forms in the order of the visit, with their data and data dictionary. Scope: {{ scope }}{% if diseases %} · only subjects of your programmes{% endif %}.</div></div>
   <div class="d-flex flex-wrap gap-2">
     <form method="post" action="{% url 'exports:form_download' %}">{% csrf_token %}<input type="hidden" name="form" value="*">
       <button class="btn btn-primary"><i class="bi bi-file-earmark-excel"></i> All forms (Excel)</button></form>
@@ -17,7 +17,7 @@
     </div>
   </div>
 </div>
-<div class="alert alert-info py-2 small"><i class="bi bi-shield-lock"></i> Downloads here are <strong>de-identified</strong> (no names, phone numbers, identifiers or free-text notes); each row has the patient ID and the old EDCS ID.{% if can_identify %} For identifiable data, dates or one site use <a href="{% url 'exports:list' %}">Data exports</a>.{% endif %} Files are built in the background and appear under Data exports.</div>
+<div class="alert alert-info py-2 small"><i class="bi bi-shield-lock"></i> Downloads here are <strong>de-identified</strong> (no names, phone numbers, identifiers or free-text notes); each row has the subject ID and the old EDCS ID.{% if can_identify %} For identifiable data, dates or one site use <a href="{% url 'exports:list' %}">Data exports</a>.{% endif %} Files are built in the background and appear under Data exports.</div>
 
 <div class="card shadow-sm"><div class="table-responsive"><table class="table mb-0 align-middle">
   <thead class="table-light"><tr><th style="width:2.5rem">#</th><th style="min-width:18rem">Form</th><th>Tables</th><th class="text-end">Records</th><th class="text-end" style="width:15rem">Download</th></tr></thead>

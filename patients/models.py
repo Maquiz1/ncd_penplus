@@ -42,7 +42,7 @@ class Patient(SoftDeleteModel):
         ALIVE = 'alive', 'Alive'
         DECEASED = 'deceased', 'Deceased'
 
-    patient_number = models.CharField('Patient ID', max_length=20, unique=True, editable=False)
+    patient_number = models.CharField('Subject ID', max_length=20, unique=True, editable=False)
     old_id = models.PositiveIntegerField('Old ID', unique=True, null=True, blank=True, editable=False,
                                          help_text='Client ID in the previous PEN-Plus EDCS (clients.id).')
     first_name = models.CharField(max_length=100)
@@ -55,7 +55,7 @@ class Patient(SoftDeleteModel):
     phone_verified = models.BooleanField(default=False, editable=False)
     alternate_phone = models.CharField(max_length=30, blank=True)
     sms_consent = models.BooleanField('Consents to SMS reminders', null=True, blank=True, default=None,
-                                      help_text='Ask the patient (or guardian). Messages are only sent after a Yes.')
+                                      help_text='Ask the subject (or guardian). Messages are only sent after a Yes.')
     sms_consent_recorded_at = models.DateTimeField(null=True, blank=True, editable=False)
     residence_district = models.ForeignKey(District, on_delete=models.PROTECT, null=True, blank=True, related_name='+')
     residence_ward = models.ForeignKey(Ward, on_delete=models.PROTECT, null=True, blank=True, related_name='+')
@@ -80,9 +80,10 @@ class Patient(SoftDeleteModel):
     class Meta:
         ordering = ['-created_at']
         permissions = [
-            ('view_patient_identity', 'Can view patient identity fields (names, phones, identifiers)'),
-            ('restore_patient', 'Can restore soft-deleted patients'),
-            ('record_death', 'Can record patient death'),
+            ('view_patient_identity', 'Can view subject identity fields (names, phones, identifiers)'),
+            ('view_subject_summary', 'Can view de-identified subject summaries'),
+            ('restore_patient', 'Can restore soft-deleted subjects'),
+            ('record_death', 'Can record subject death'),
             ('record_sms_consent', 'Can record SMS consent at a visit'),
         ]
         indexes = [models.Index(fields=['last_name', 'first_name']), models.Index(fields=['phone'])]

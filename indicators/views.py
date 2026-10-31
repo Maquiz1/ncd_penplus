@@ -166,7 +166,7 @@ class DrillView(IndicatorPermission, View):
         if last_visit is not None and request.GET.get('format') == 'csv':
             log_event(request=request, action=AuditEvent.Action.EXPORT, model='indicators.Drill', object_repr=title)
             return csv_response(f'indicator-{indicator.key}-{part}-{date}.csv',
-                                ['Patient ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last visit', 'Days since last visit'],
+                                ['Subject ID', 'Old ID', 'Sex', 'Age', 'Facility', 'Last visit', 'Days since last visit'],
                                 [[p.patient_number, p.old_study_id or p.old_id or '', p.get_sex_display(), p.age, p.current_facility,
                                   p.last_visit or '', '' if p.days_since_visit is None else p.days_since_visit]
                                  for p in patients])

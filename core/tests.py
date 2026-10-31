@@ -327,7 +327,7 @@ class SchedulingTests(BaseTestCase):
         attended.save()
         plan.interval_months = 3
         plan.save()
-        revise_plan(plan, self.admin, 'Stable patient')
+        revise_plan(plan, self.admin, 'Stable subject')
         self.assertEqual(plan.version, 2)
         for pk in past:
             self.assertNotEqual(Appointment.objects.get(pk=pk).status, 'cancelled')
@@ -515,9 +515,9 @@ class PageSmokeTests(BaseTestCase):
             reverse('crf:section_add', args=[self.draft.pk]), reverse('crf:field_add', args=[self.draft.pk]),
             reverse('crf:submission_list'), reverse('crf:submission_add', args=[p, self.version.pk]) + f'?encounter={e}',
             reverse('crf:submission_detail', args=[self.submission.pk]),
-            reverse('laboratory:lab_worklist'), reverse('laboratory:lab_add', args=[p]),
+            reverse('laboratory:lab_worklist'), reverse('investigations:request', args=[p]),
             reverse('laboratory:lab_action', args=[self.lab.pk, 'collect']),
-            reverse('investigations:worklist'), reverse('investigations:add', args=[p]),
+            reverse('investigations:worklist'),
             reverse('investigations:report', args=[self.inv.pk]),
             reverse('reporting:report'), reverse('reporting:runs'), reverse('audit:list'),
             reverse('users:list'), reverse('users:create'), reverse('users:detail', args=[self.clinician_ilala.pk]),

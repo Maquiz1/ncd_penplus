@@ -6,7 +6,7 @@
   <div class="d-flex flex-wrap gap-2 d-print-none">
     {% if studies|length > 1 %}<div class="dropdown"><button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">Study: {{ study.code }}</button><ul class="dropdown-menu">{% for s in studies %}<li><a class="dropdown-item" href="?{{ filters.querystring }}&study={{ s.pk }}">{{ s.code }} – {{ s.title|truncatechars:50 }}</a></li>{% endfor %}</ul></div>{% endif %}
     {% if report_title == 'Period summary' %}
-      {% if perms.reporting.export_data %}<a class="btn btn-outline-secondary" href="{% url 'reporting:export_patients' %}"><i class="bi bi-download"></i> Patient register CSV</a>{% endif %}
+      {% if perms.reporting.export_data %}<a class="btn btn-outline-secondary" href="{% url 'reporting:export_patients' %}"><i class="bi bi-download"></i> Subject register CSV</a>{% endif %}
       {% if perms.reporting.view_reportrun %}<a class="btn btn-outline-secondary" href="{% url 'reporting:runs' %}"><i class="bi bi-envelope-check"></i> Monthly report log</a>{% endif %}
     {% endif %}
     {% if report_title == 'Data quality' and perms.issues.view_dataissue %}<a class="btn btn-primary" href="{% url 'issues:list' %}"><i class="bi bi-exclamation-diamond"></i> Open Data issues</a>{% endif %}

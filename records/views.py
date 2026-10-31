@@ -163,7 +163,7 @@ class RecordRestoreView(LoginRequiredMixin, View):
             raise PermissionDenied
         obj = record_or_404(rtype, request, pk, deleted=True)
         if rtype.patient_of(obj).is_deleted:
-            messages.error(request, 'The patient is deleted: restore the patient first.')
+            messages.error(request, 'The subject is deleted: restore the subject first.')
         else:
             restored = restore_record(obj, request.user, request=request)
             messages.success(request, 'Record restored.' + (f' {restored} linked record(s) restored too.' if restored else ''))

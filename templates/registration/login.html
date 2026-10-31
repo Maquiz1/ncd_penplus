@@ -1,20 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Log in{% endblock %}
+{% block title %}Sign in{% endblock %}
 {% block auth_content %}
-<div class="card">
-  <div class="card-body p-4">
-    <p class="login-box-msg">Sign in to start your session</p>
-    {% if form.errors %}<div class="alert alert-danger py-2 small">Invalid username, email or password, or the account is inactive.</div>{% endif %}
-    <form method="post" novalidate>
-      {% csrf_token %}
-      {% include "registration/_auth_input.html" with label="Username or email" icon="envelope" type="text" name="username" id="id_username" autocomplete="username" value=form.username.value autofocus=True compact=True %}
-      {% include "registration/_auth_input.html" with label="Password" icon="lock-fill" type="password" name="password" id="id_password" autocomplete="current-password" compact=True %}
-      <input type="hidden" name="next" value="{{ next }}">
-      <div class="d-flex justify-content-between align-items-center">
-        <a href="{% url 'password_reset' %}" class="small">Forgot password?</a>
-        <button class="btn btn-primary px-4" type="submit">Sign in</button>
-      </div>
-    </form>
-  </div>
-</div>
+<h2>Welcome back</h2>
+<p class="auth-sub">Sign in with your username or email address.</p>
+{% if form.errors %}<div class="auth-alert error"><i class="bi bi-exclamation-circle-fill"></i><div>Invalid username, email or password, or the account is inactive.</div></div>{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "registration/_auth_input.html" with label="Username or email" icon="person" type="text" name="username" id="id_username" autocomplete="username" value=form.username.value autofocus=True compact=True %}
+  {% include "registration/_auth_input.html" with label="Password" icon="lock" type="password" name="password" id="id_password" autocomplete="current-password" compact=True %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="auth-row"><a class="auth-link" href="{% url 'password_reset' %}">Forgot password?</a></div>
+  <button class="auth-btn" type="submit"><i class="bi bi-box-arrow-in-right me-2"></i>Sign in</button>
+</form>
+<p class="auth-alt">New staff? Your administrator creates your account and emails you an activation link.</p>
 {% endblock %}

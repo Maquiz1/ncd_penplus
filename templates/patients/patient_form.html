@@ -1,13 +1,13 @@
 {% extends "base.html" %}{% load ncd %}
-{% block title %}{% if object %}Edit patient{% else %}Register patient{% endif %}{% endblock %}
+{% block title %}{% if object %}Edit subject{% else %}Register subject{% endif %}{% endblock %}
 {% block content %}
-<h1 class="h3 mb-3">{% if object %}Edit patient {{ object.patient_number }}{% else %}Register patient{% endif %}</h1>
-{% if not object %}<p class="text-body-secondary">Search the <a href="{% url 'patients:list' %}">patient register</a> first. The system also checks for likely duplicates when you save, and assigns an ID such as NP{% now "y" %}-0001.</p>{% endif %}
+<h1 class="h3 mb-3">{% if object %}Edit subject {{ object.patient_number }}{% else %}Register subject{% endif %}</h1>
+{% if not object %}<p class="text-body-secondary">Search the <a href="{% url 'patients:list' %}">subject register</a> first. The system also checks for likely duplicates when you save, and assigns an ID such as NP{% now "y" %}-0001.</p>{% endif %}
 {% if form.duplicates %}
 <div class="card border-warning mb-3">
   <div class="card-header bg-warning-subtle fw-semibold"><i class="bi bi-people"></i> Possible duplicates</div>
   <div class="table-responsive"><table class="table table-sm mb-0">
-    <thead><tr><th>Patient ID</th><th>Name</th><th>Date of birth</th><th>Phone</th><th>Facility</th><th></th></tr></thead>
+    <thead><tr><th>Subject ID</th><th>Name</th><th>Date of birth</th><th>Phone</th><th>Facility</th><th></th></tr></thead>
     <tbody>{% for d in form.duplicates %}
       <tr><td>{{ d.patient_number }}</td><td>{{ d.full_name }}</td><td>{{ d.date_of_birth|date:"d M Y" }}</td><td>{{ d.phone }}</td><td>{{ d.current_facility }}</td>
       <td>{% if d.is_deleted %}<span class="badge text-bg-secondary">Deleted</span>{% else %}<a href="{% url 'patients:detail' d.pk %}" target="_blank">Open</a>{% endif %}</td></tr>

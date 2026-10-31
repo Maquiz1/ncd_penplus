@@ -6,7 +6,7 @@ app_name = 'investigations'
 
 urlpatterns = [
     path('', views.InvestigationWorklistView.as_view(), name='worklist'),
-    path('patients/<int:patient_pk>/add/', views.InvestigationCreateView.as_view(), name='add'),
+    path('patients/<int:patient_pk>/request/', views.InvestigationRequestView.as_view(), name='request'),
     path('<int:pk>/', views.InvestigationDetailView.as_view(), name='detail'),
     path('<int:pk>/report/', views.InvestigationReportView.as_view(), name='report'),
     path('<int:pk>/review/', views.InvestigationReviewView.as_view(), name='review'),

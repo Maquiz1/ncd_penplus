@@ -11,7 +11,7 @@ Each entry lists permission patterns: "app.codename", "app.*" (all in app) or
 through StaffAssignment, never through the role.
 """
 
-VIEW_CLINICAL = ['patients.view_patient', 'clinical.view_*', 'encounters.view_*', 'laboratory.view_*', 'investigations.view_*',
+VIEW_CLINICAL = ['patients.view_patient', 'patients.view_subject_summary', 'clinical.view_*', 'encounters.view_*', 'laboratory.view_*', 'investigations.view_*',
                  'crf.view_formsubmission', 'crf.view_formdefinition', 'crf.view_formversion', 'research.view_study',
                  'facilities.view_facility']
 IDENTITY = ['patients.view_patient_identity']
@@ -109,7 +109,11 @@ ROLES = {
         'notifications.view_emaillog', 'notifications.view_siteconfiguration', 'notifications.view_smssettings', 'facilities.merge_locations', 'facilities.view_ward', 'facilities.view_street',
         'clinical.add_disease', 'clinical.change_disease', 'clinical.delete_disease', 'diseases.*',
         'investigations.*investigationtype', 'investigations.*investigationfield', 'pharmacy.*consumableuse',
-        'clinical.add_familymember', 'clinical.change_familymember'] + RECORD_CORRECTION + MONITORING,
+        'clinical.add_familymember', 'clinical.change_familymember',
+        # Staff at the data manager's own level (facility, district, region, zone or national).
+        'users.view_user', 'users.view_position', 'users.add_user', 'users.change_user',
+        'facilities.view_staffassignment', 'facilities.add_staffassignment', 'facilities.change_staffassignment',
+    ] + RECORD_CORRECTION + MONITORING,
     'Facility Coordinator': VIEW_CLINICAL + REPORTS + [
         'patients.view_patienttransfer', 'patients.add_patienttransfer', 'patients.change_patienttransfer',
         'encounters.add_followupplan', 'encounters.change_followupplan', 'encounters.change_appointment',
@@ -127,7 +131,7 @@ ROLES = {
                                                        'reporting.receive_monthly_report'],
     'Monitor / Auditor': VIEW_CLINICAL + ['research.view_*', 'audit.view_auditevent', 'patients.view_patienttransfer',
                                           'pharmacy.view_*'],
-    'Report Viewer': REPORTS + ['facilities.view_facility'],
+    'Report Viewer': REPORTS + ['facilities.view_facility', 'patients.view_subject_summary'],
 }
 
 

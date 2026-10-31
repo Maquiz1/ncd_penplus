@@ -3,10 +3,10 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
   <div><h1 class="h3 mb-0">HbA1c monitoring</h1>
-  <div class="small text-body-secondary">Active diabetes patients · {% if rule.is_active %}HbA1c every {{ rule.interval_months }} months{% else %}monitoring is switched off{% endif %} · {{ filters.area_label }} · {{ total }} patient{{ total|pluralize }}</div></div>
+  <div class="small text-body-secondary">Active diabetes subjects · {% if rule.is_active %}HbA1c every {{ rule.interval_months }} months{% else %}monitoring is switched off{% endif %} · {{ filters.area_label }} · {{ total }} subject{{ total|pluralize }}</div></div>
   <a class="btn btn-sm btn-outline-secondary d-print-none" href="?{{ qs }}&state={{ state }}&format=csv"><i class="bi bi-filetype-csv"></i> CSV</a>
 </div>
-{% if rule and not rule.is_active %}<div class="alert alert-warning">HbA1c monitoring is switched off in Monitoring settings, so no patients are listed.</div>{% endif %}
+{% if rule and not rule.is_active %}<div class="alert alert-warning">HbA1c monitoring is switched off in Monitoring settings, so no subjects are listed.</div>{% endif %}
 {% include "reporting/_filters.html" %}
 <ul class="nav nav-pills mb-3 d-print-none">
   {% for key, label in states %}<li class="nav-item"><a class="nav-link {% if state == key %}active{% endif %}" href="?{{ qs }}&state={{ key }}">{{ label }} <span class="badge {% if key == 'overdue' and counts|get_item:key %}text-bg-danger{% else %}text-bg-light{% endif %}">{{ counts|get_item:key }}</span></a></li>{% endfor %}
@@ -15,7 +15,7 @@
 </ul>
 <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">{{ state_label }} <span class="text-body-secondary fw-normal">({{ rows|length }})</span></div>
 <div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-  <thead class="table-light"><tr><th>Patient</th><th>Name</th><th>Facility</th><th>Last HbA1c</th><th class="text-end">Days since</th><th>Due</th><th>Status</th><th class="text-end d-print-none">Action</th></tr></thead>
+  <thead class="table-light"><tr><th>Subject</th><th>Name</th><th>Facility</th><th>Last HbA1c</th><th class="text-end">Days since</th><th>Due</th><th>Status</th><th class="text-end d-print-none">Action</th></tr></thead>
   <tbody>{% for p, s in rows %}<tr>
     <td><a href="{{ p.get_absolute_url }}#labs">{{ p.patient_number }}</a>{% old_patient_id p %}</td>
     <td>{% patient_name p %}</td>
@@ -28,10 +28,10 @@
       {% if s.gap %}<div class="small text-body-secondary" title="{{ s.gap.note }}">Not done: {{ s.gap.get_reason_display }} ({{ s.gap.recorded_on|date:"d M" }})</div>{% endif %}</td>
     <td class="text-end text-nowrap d-print-none">{% with nxt=request.get_full_path|urlencode %}
       {% if s.pending and perms.laboratory.change_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:lab_worklist' %}">Worklist</a>
-      {% elif s.state != 'ok' and perms.laboratory.add_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:lab_add' p.pk %}">Order</a>{% endif %}
+      {% elif s.state != 'ok' and perms.laboratory.add_laborder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'investigations:request' p.pk %}?test={{ s.code }}">Order</a>{% endif %}
       {% if s.state == 'overdue' and not s.pending and perms.laboratory.add_monitoringgap %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'laboratory:gap_add' p.pk %}?next={{ nxt }}" title="Record why it was not done">Not done…</a>{% endif %}
     {% endwith %}</td></tr>
-  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No patients in this list.</td></tr>{% endfor %}</tbody>
+  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No subjects in this list.</td></tr>{% endfor %}</tbody>
 </table></div></div>
-<p class="small text-body-secondary mt-2">Due = {{ rule.interval_months }} months after the last HbA1c result (or after enrolment when there is none). <strong>Not done…</strong> records why an overdue HbA1c was missed (no kits, machine down, patient absent, refused…). It closes the data issue and the patient is due again {{ rule.retry_months }} month{{ rule.retry_months|pluralize }} later. Only a result removes the patient from the list for good.{% if perms.laboratory.view_monitoringrule %} <a href="{% url 'laboratory:monitoring_rules' %}">Monitoring settings</a>{% endif %}</p>
+<p class="small text-body-secondary mt-2">Due = {{ rule.interval_months }} months after the last HbA1c result (or after enrolment when there is none). <strong>Not done…</strong> records why an overdue HbA1c was missed (no kits, machine down, subject absent, refused…). It closes the data issue and the subject is due again {{ rule.retry_months }} month{{ rule.retry_months|pluralize }} later. Only a result removes the subject from the list for good.{% if perms.laboratory.view_monitoringrule %} <a href="{% url 'laboratory:monitoring_rules' %}">Monitoring settings</a>{% endif %}</p>
 {% endblock %}

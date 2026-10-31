@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Subject summaries{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Subject summaries</h1>
+    <div class="small text-body-secondary">One page per subject: programmes, visits, history, vitals, results, medicines and admissions. Subject IDs only, no names.</div></div>
+</div>
+<form class="card shadow-sm mb-3" method="get"><div class="card-body row g-2">
+  <div class="col-md-3"><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Subject ID or old ID (e.g. 1-001)" aria-label="Subject ID or old ID"></div>
+  <div class="col-md-3"><select class="form-select" name="facility" aria-label="Site"><option value="">All my sites</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if request.GET.facility == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="programme" aria-label="Programme"><option value="">All programmes</option>{% for p in programmes %}<option value="{{ p.pk }}" {% if request.GET.programme == p.pk|stringformat:"s" %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="status" aria-label="Programme status"><option value="">Any status</option>{% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="col-md-2 d-grid"><button class="btn btn-primary"><i class="bi bi-search"></i> Search</button></div>
+</div></form>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Subject ID</th><th>Sex / age</th><th>Site</th><th>Programmes</th><th>Last visit</th><th class="text-nowrap">Next follow-up</th><th></th></tr></thead>
+  <tbody>{% for p in object_list %}<tr>
+    <td class="text-nowrap"><a class="fw-semibold" href="{% url 'patients:summary' p.pk %}">{{ p.patient_number }}</a>{% old_patient_id p %}</td>
+    <td class="text-nowrap">{{ p.get_sex_display }}, {{ p.age }} y{% if p.vital_status == 'deceased' %} {% status_badge 'deceased' 'Deceased' %}{% endif %}</td>
+    <td>{{ p.current_facility }}</td>
+    <td>{% for e in p.programme_enrollments.all %}<div class="small">{{ e.programme }} {% status_badge e.status e.get_status_display %}</div>{% empty %}<span class="small text-body-secondary">Not enrolled</span>{% endfor %}</td>
+    <td class="small text-nowrap">{{ p.last_visit|date:"d M Y"|default:"—" }}</td>
+    <td class="small text-nowrap">{{ p.next_visit|date:"d M Y"|default:"—" }}</td>
+    <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-primary" href="{% url 'patients:summary' p.pk %}"><i class="bi bi-file-earmark-medical"></i> Summary</a></td>
+  </tr>{% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No subjects found.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

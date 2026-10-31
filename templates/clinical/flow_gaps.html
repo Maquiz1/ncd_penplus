@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}Stuck in the flow{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Subjects stuck in the flow</h1>
+<p class="text-body-secondary small mb-3">Registered → pre-screened → screened → diagnosed → enrolled → baseline visit → follow-up plan. Each tab lists the subjects waiting between two steps; open the subject and use the <strong>Next step</strong> button.</p>
+<ul class="nav nav-tabs tab-scroll mb-3">
+  {% for key, label, help, count in tabs %}<li class="nav-item"><a class="nav-link {% if key == gap %}active{% endif %}" href="?gap={{ key }}" title="{{ help }}">{{ label }} <span class="badge {% if count %}text-bg-warning{% else %}text-bg-light{% endif %}">{{ count }}</span></a></li>{% endfor %}
+</ul>
+{% for key, label, help, count in tabs %}{% if key == gap %}<p class="small text-body-secondary">{{ help }}</p>{% endif %}{% endfor %}
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Subject ID</th>{% if can_view_identity %}<th>Name</th>{% endif %}<th>Facility</th><th>Details</th><th></th></tr></thead>
+  <tbody>{% for p in object_list %}<tr>
+    <td><a href="{{ p.get_absolute_url }}">{{ p.patient_number }}</a>{% old_patient_id p %}</td>
+    {% if can_view_identity %}<td>{{ p.full_name }}</td>{% endif %}
+    <td>{{ p.current_facility }}</td>
+    <td class="small">{% for d in p.gap_detail %}<div>{{ d }}</div>{% endfor %}</td>
+    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ p.get_absolute_url }}">Open</a></td></tr>
+  {% empty %}<tr><td colspan="5" class="text-center text-body-secondary py-4">Nobody is stuck here.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "_pagination.html" %}
+{% endblock %}

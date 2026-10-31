@@ -104,14 +104,14 @@ def record_death(patient, date_of_death, cause, user, request=None):
     closed = {}
     for model in (ProgrammeEnrollment, StudyEnrollment):
         count = model.objects.filter(patient=patient, status__in=['pending', 'active']).update(
-            status='deceased', outcome_date=date_of_death, outcome_reason='Patient died')
+            status='deceased', outcome_date=date_of_death, outcome_reason='Subject died')
         closed[model._meta.model_name] = count
     closed['appointments_cancelled'] = Appointment.objects.filter(
         patient=patient, scheduled_date__gte=date_of_death,
         status__in=['scheduled', 'confirmed', 'rescheduled', 'expected'],
-    ).update(status='cancelled', notes='Cancelled: patient deceased')
+    ).update(status='cancelled', notes='Cancelled: subject deceased')
     closed['prescriptions_cancelled'] = Prescription.objects.filter(
         patient=patient, status__in=Prescription.OPEN_STATUSES,
-    ).update(status='cancelled', cancel_reason='Patient deceased')
+    ).update(status='cancelled', cancel_reason='Subject deceased')
     log_event(actor=user, request=request, action=AuditEvent.Action.STATUS, obj=patient,
               changes={'vital_status': ['alive', 'deceased'], 'closed': closed}, reason=cause)

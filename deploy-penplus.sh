@@ -49,6 +49,7 @@ docker compose up -d
 
 echo "Updating roles and scheduled jobs (existing values are kept)..."
 docker compose exec -T penplus-web python manage.py setup_roles
+docker compose exec -T penplus-web python manage.py continue_edcs_forms
 docker compose exec -T penplus-web python manage.py setup_periodic_tasks
 
 if [ "${1:-}" = "--first" ]; then

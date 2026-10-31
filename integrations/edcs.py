@@ -9,6 +9,7 @@ import calendar
 import datetime
 import json
 import re
+import uuid
 from collections import Counter, defaultdict
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -52,8 +53,8 @@ META_COLUMNS = {'id', 'study_id', 'visit_code', 'visit_day', 'vid', 'seq_no', 'p
                 'status', 'created_on', 'site_id'}
 # Tables kept as read-only legacy forms (everything not mapped to a structured record is preserved here).
 LEGACY_FORMS = {
-    'screening': 'Screening', 'demographic': 'Demographics', 'main_diagnosis': 'Patient category',
-    'history': 'Patient & family history', 'symptoms': 'Symptoms & examination', 'results': 'Results (ECG / echo / SCD)',
+    'screening': 'Screening', 'demographic': 'Demographics', 'main_diagnosis': 'Subject category',
+    'history': 'Subject & family history', 'symptoms': 'Symptoms & examination', 'results': 'Results (ECG / echo / SCD)',
     'cardiac': 'Main diagnosis – cardiac', 'diabetic': 'Main diagnosis – diabetes', 'sickle_cell': 'Main diagnosis – sickle cell',
     'hospitalization': 'Hospitalization', 'hospitalization_details': 'Hospitalization details',
     'hospitalization_table': 'Hospitalization episodes', 'dgns_complctns_comorbdts': 'Diagnosis, complications & comorbidities',
@@ -69,19 +70,19 @@ REGISTRATION_FIELDS = {  # clients columns kept as a legacy registration form (i
                                             ('7', 'Postgraduate degree'), ('8', 'N/A')]),
     'occupation': ('Occupational exposures', [('1', 'Yes'), ('2', 'No')]),
     'exposure': ('Exposure (if yes)', None),
-    'relation': ('Relation of supporter to patient', [('1', 'Mzazi'), ('2', 'Kaka / Dada'), ('3', 'Mwenza'),
+    'relation': ('Relation of supporter to subject', [('1', 'Mzazi'), ('2', 'Kaka / Dada'), ('3', 'Mwenza'),
                                                       ('4', 'Ndugu wengine'), ('5', 'Rafiki'), ('96', 'Wengine')]),
     'relation_patient': ('Relation (other)', None),
     'gender_gurdian': ('Guardian sex', [('1', 'Male'), ('2', 'Female')]),
     'age_gurdian': ('Guardian age', None),
     'occupation_gurdian': ('Guardian employment status', None),
     'education_gurdian': ('Guardian education level', None),
-    'cardiac': ('Patient for cardiac', [('1', 'Yes'), ('2', 'No')]),
-    'diabetes': ('Patient for diabetes', [('1', 'Yes'), ('2', 'No')]),
-    'sickle_cell': ('Patient for sickle cell', [('1', 'Yes'), ('2', 'No')]),
+    'cardiac': ('Subject for cardiac', [('1', 'Yes'), ('2', 'No')]),
+    'diabetes': ('Subject for diabetes', [('1', 'Yes'), ('2', 'No')]),
+    'sickle_cell': ('Subject for sickle cell', [('1', 'Yes'), ('2', 'No')]),
     'other': ('Other disease', [('1', 'Yes'), ('2', 'No')]),
     'other_diseases': ('Other diseases (specify)', None),
-    'dignosis_type': ('Patient category', [('1', 'Cardiac'), ('2', 'Diabetes'), ('3', 'Sickle cell'), ('96', 'Other')]),
+    'dignosis_type': ('Subject category', [('1', 'Cardiac'), ('2', 'Diabetes'), ('3', 'Sickle cell'), ('96', 'Other')]),
     'screened': ('Screened', None), 'eligible': ('Eligible', None), 'enrolled': ('Enrolled', None),
     'end_study': ('Ended study', None), 'comments': ('Comments', None),
 }
@@ -119,6 +120,11 @@ STUDY_STATUS = {'active': 'active', 'ltfu': 'ltfu', 'other': 'other', 'withdrawn
                 'deceased': 'deceased'}
 MED_ACTIONS = {'1': 'continue', '2': 'start', '3': 'stop', '4': 'not_eligible'}
 # EDCS uses these as 'not done / missing' in lab fields (e.g. 93 of 96 sodium values are 98 or 99).
+def edcs_lab_request(patient_pk, date):
+    """Stable request id for the EDCS lab results of one subject on one day."""
+    return uuid.uuid5(uuid.NAMESPACE_URL, f'edcs-lab/{patient_pk}/{date}')
+
+
 MISSING_LAB_VALUES = {'0', '00', '000', '0.0', '98', '99', '98.0', '99.0', '-', '--', '.', 'n/a', 'na'}
 # Old EDCS test_list names (normalised prefix) that are tests we already have.
 EDCS_TEST_MATCH = {'fullbloodpicture': 'cbc', 'hblevel': 'hb', 'sicklingtest': 'sickling', 'peripheralbloodsmear': 'blood-smear',
@@ -295,6 +301,7 @@ class Importer:
         self.apply_outcome_timeline()
         self.fill_missed_months()
         self.import_legacy_forms()
+        self.continue_legacy_forms()
         self.apply_deaths()
         self.apply_soft_deletes()
         self.find_duplicates()
@@ -402,7 +409,7 @@ class Importer:
                                                  created_by=self.import_user)
             self.remember('clients', row['id'], patient)
             self.patients[text(row['id'])] = patient
-            self.counts['patients created'] += 1
+            self.counts['subjects created'] += 1
 
     # ------------------------------------------------------------ visits
     def import_visits(self):
@@ -646,14 +653,19 @@ class Importer:
             return
         encounter = self.encounter_for(row)
         test = self.lab_tests[test_code]
-        if encounter and LabOrder.objects.filter(encounter=encounter, test=test, result_value=raw).exists():
+        # Tests of the same subject and day form one request; EDCS results were already confirmed there.
+        group = edcs_lab_request(patient.pk, date)
+        same = LabOrder.objects.filter(test=test, result_value=raw[:100].strip())
+        if same.filter(request_group=group).exists() or (encounter and same.filter(encounter=encounter).exists()):
+            self.counts['duplicate lab results skipped (same result in several EDCS forms)'] += 1
             return
         user = self.staff(row.get('staff_id'))
         when = at_nine(date)
         order = LabOrder(patient=patient, encounter=encounter, facility=self.facility(row.get('site_id')), test=test,
                          ordered_by=user, ordered_at=when, created_by=self.import_user,
-                         clinical_notes='Imported from EDCS')
+                         request_group=group, clinical_notes='Imported from EDCS')
         order.record_result(raw[:100], user, when=when)
+        order.status, order.reviewed_by, order.reviewed_at = LabOrder.Status.REVIEWED, user, when
         order.save()
         self.remember(key, row['id'], order)
         self.counts['lab results created'] += 1
@@ -711,8 +723,9 @@ class Importer:
                 user = self.staff(row.get('staff_id'))
                 order = InvestigationOrder.objects.create(
                     patient=patient, encounter=self.encounter_for(row), facility=self.facility(row.get('site_id')),
-                    modality=modality, description=f'{name} (imported from EDCS)', status='completed',
+                    modality=modality, description=f'{name} (imported from EDCS)', status='reviewed',
                     requested_by=user, requested_at=at_nine(when), performed_at=at_nine(when), reported_by=user,
+                    reviewed_by=user, reviewed_at=at_nine(when),
                     findings='\n'.join(findings) or 'Performed; no findings recorded in EDCS.',
                     created_by=self.import_user)
                 self.remember(key, row['id'], order)
@@ -877,6 +890,14 @@ class Importer:
             for row, patient in self.active_rows(table):
                 self.add_submission(table, row, patient, version, columns)
 
+    def continue_legacy_forms(self):
+        """Make the EDCS forms live in this system and map EDCS screening to pre-screening."""
+        from integrations.legacy_forms import run
+        report = run(self.import_user)
+        self.counts['EDCS forms made live'] = len(report['live_forms'])
+        if report['prescreenings']:
+            self.counts['pre-screenings created from EDCS screening'] += report['prescreenings']
+
     # ------------------------------------------------------------ final steps
     def apply_deaths(self):
         for patient_pk, (date, cause) in self.deaths.items():
@@ -891,7 +912,7 @@ class Importer:
             patient = self.patient(row['id'])
             if patient and text(row.get('status')) == '0' and not patient.is_deleted:
                 patient.soft_delete(self.import_user, 'Deleted in EDCS before migration')
-                self.counts['patients soft-deleted (deleted in EDCS)'] += 1
+                self.counts['subjects soft-deleted (deleted in EDCS)'] += 1
 
     def find_duplicates(self):
         seen = defaultdict(list)
@@ -1072,7 +1093,7 @@ class Importer:
                     ExternalRecord.objects.filter(source=SOURCE, table='gap', content_type=gap_ct,
                                                   object_id=str(appointment.pk)).delete()
                     appointment.delete()
-                    self.counts['missed-visit entries removed (patient was already LTFU / out of care)'] += 1
+                    self.counts['missed-visit entries removed (subject was already LTFU / out of care)'] += 1
 
     # ------------------------------------------------------------ data issues for staff to resolve
     def raise_data_issues(self):
@@ -1087,7 +1108,7 @@ class Importer:
             if value and value.casefold() in placeholders:
                 _, new = raise_issue(f'edcs:placeholder-id:{row["id"]}', 'placeholder_hospital_id',
                                      DataIssue.Category.IDENTITY, f'Hospital ID "{value}" looks like a placeholder',
-                                     f'The EDCS hospital ID "{value}" is used by {id_use[value.casefold()]} patients, '
+                                     f'The EDCS hospital ID "{value}" is used by {id_use[value.casefold()]} subjects, '
                                      f'so it was not imported. Add the real hospital/MRN number.', patient=patient)
                 created['placeholder_hospital_id'] += new
             enrolled_condition = any(text(row.get(c)) == '1' for c in ('cardiac', 'diabetes', 'sickle_cell')) or \
@@ -1126,7 +1147,7 @@ class Importer:
                 continue
             if patient is None:
                 _, new = raise_issue(f'edcs:orphan-visit:{row["id"]}', 'visit_without_patient', DataIssue.Category.MIGRATION,
-                                     f'EDCS visit {row["id"]} has no patient',
+                                     f'EDCS visit {row["id"]} has no subject',
                                      f'Visit {row["visit_code"]} #{row["seq_no"]} refers to client {row["client_id"]}, '
                                      f'which does not exist in the EDCS. Not imported.',
                                      facility=self.facility(row.get('site_id')))
@@ -1141,7 +1162,7 @@ class Importer:
         for row in self.rows('screening'):
             if text(row.get('status')) == '1' and self.patient(row.get('patient_id')) is None:
                 _, new = raise_issue(f'edcs:orphan-screening:{row["id"]}', 'screening_without_patient',
-                                     DataIssue.Category.MIGRATION, f'EDCS screening {row["id"]} has no patient',
+                                     DataIssue.Category.MIGRATION, f'EDCS screening {row["id"]} has no subject',
                                      f'Screening dated {text(row.get("screening_date"))} refers to client '
                                      f'{row.get("patient_id")}, which does not exist. Not imported.',
                                      facility=self.facility(row.get('site_id')))

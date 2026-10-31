@@ -1,22 +1,71 @@
 from django import forms
 
 from core.forms import BootstrapModelForm, PatientChildForm, apply_bootstrap
+from laboratory.models import LabOrder, LabPanel
 
 from .models import InvestigationField, InvestigationOrder, InvestigationType
+from .ordering import history, orderable_tests
 
 RESULT_PREFIX = 'r_'
 
 
-class InvestigationForm(PatientChildForm):
+class InvestigationRequestForm(PatientChildForm):
+    """One request from a visit: laboratory tests and panels, and radiology. Each person only gets what they may order."""
+
+    panels = forms.ModelMultipleChoiceField(queryset=LabPanel.objects.filter(is_active=True), required=False,
+                                            widget=forms.CheckboxSelectMultiple)
+    tests = forms.ModelMultipleChoiceField(queryset=orderable_tests(), required=False,
+                                           widget=forms.CheckboxSelectMultiple)
+    types = forms.ModelMultipleChoiceField(queryset=InvestigationType.objects.filter(is_active=True), required=False,
+                                           widget=forms.CheckboxSelectMultiple)
+    scheduled_for = forms.DateTimeField(required=False, label='Radiology appointment')
+    confirm_repeat = forms.BooleanField(required=False, label='Yes, request these again')
+
     class Meta:
-        model = InvestigationOrder
-        fields = ['investigation_type', 'description', 'facility', 'encounter', 'scheduled_for']
-        labels = {'description': 'Indication / clinical question'}
+        model = LabOrder
+        fields = ['facility', 'encounter', 'priority', 'clinical_notes']
+        labels = {'priority': 'Laboratory priority', 'clinical_notes': 'Clinical notes / reason for request',
+                  'encounter': 'Visit'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['investigation_type'].queryset = InvestigationType.objects.filter(is_active=True)
-        self.fields['investigation_type'].required = True
+        self.repeats = []
+        self.notes = history(self.patient)
+        self.fields['priority'].required = False
+        if not self.user.has_perm('laboratory.add_laborder'):
+            self.fields['panels'].queryset = LabPanel.objects.none()
+            self.fields['tests'].queryset = orderable_tests().none()
+        if not self.user.has_perm('investigations.add_investigationorder'):
+            self.fields['types'].queryset = InvestigationType.objects.none()
+
+    def clean(self):
+        cleaned = super().clean()
+        tests, types = self.requested_tests(), cleaned.get('types') or []
+        if not tests and not types:
+            raise forms.ValidationError('Select at least one test.')
+        if any(t.code == 'other-procedure' for t in types) and not cleaned.get('clinical_notes'):
+            self.add_error('clinical_notes', 'Describe the procedure you are requesting.')
+        self.repeats = ([t.name for t, _panel in tests if self.notes['test'].get(t.pk, ('', False))[1]]
+                        + [t.name for t in types if self.notes['type'].get(t.pk, ('', False))[1]])
+        if self.repeats and not cleaned.get('confirm_repeat'):
+            raise forms.ValidationError('Already requested and not finished, or requested today: '
+                                        f'{", ".join(self.repeats)}.')
+        cleaned['priority'] = cleaned.get('priority') or LabOrder.Priority.ROUTINE
+        return cleaned
+
+    def requested_tests(self):
+        """(test, panel) pairs without duplicates; panel tests first."""
+        seen, result = set(), []
+        for panel in self.cleaned_data.get('panels') or []:
+            for test in panel.tests.filter(is_active=True):
+                if test.pk not in seen:
+                    seen.add(test.pk)
+                    result.append((test, panel))
+        for test in self.cleaned_data.get('tests') or []:
+            if test.pk not in seen:
+                seen.add(test.pk)
+                result.append((test, None))
+        return result
 
 
 class InvestigationReportForm(PatientChildForm):

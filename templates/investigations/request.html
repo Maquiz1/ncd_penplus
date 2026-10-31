@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Investigations · {{ patient.patient_number }}{% endblock %}
+{% block content %}
+<form method="post" novalidate id="inv-form">
+  {% csrf_token %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h4 mb-0">Investigations</h1>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ patient.get_absolute_url }}#labs"><i class="bi bi-clipboard2-data"></i> Results</a>
+  </div>
+
+  {% if form.non_field_errors %}<div class="alert alert-warning">
+    {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+    {% if form.repeats %}<div class="form-check mt-2">{{ form.confirm_repeat }}<label class="form-check-label fw-semibold" for="{{ form.confirm_repeat.id_for_label }}">{{ form.confirm_repeat.label }}</label></div>{% endif %}
+  </div>{% endif %}
+
+  {% if picks %}<div class="inv-picks mb-3">
+    <div class="small fw-semibold text-body-secondary mb-1">Quick picks for this subject</div>
+    {% for p in picks %}<button type="button" class="btn btn-sm btn-outline-primary inv-pick" data-pick="{{ p.key }}" aria-pressed="false">{{ p.label }}{% if p.badge %} <span class="badge {% if p.badge == 'Overdue' %}text-bg-danger{% else %}text-bg-warning{% endif %}">{{ p.badge }}</span>{% endif %}</button>{% endfor %}
+  </div>{% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <ul class="nav nav-pills inv-tabs">
+            {% for key, label, groups in tabs %}<li class="nav-item"><button type="button" class="nav-link{% if forloop.first %} active{% endif %}" data-tab="{{ key }}">{{ label }}</button></li>{% endfor %}
+          </ul>
+          <input type="search" id="inv-search" class="form-control form-control-sm inv-search" placeholder="Search all tests…" aria-label="Search all tests">
+        </div>
+        <div class="card-body">
+          {% if not tabs %}<p class="text-body-secondary mb-0">No tests are available to request.</p>{% endif %}
+          <div class="row g-3">
+            <div class="col-md-4" id="inv-groups">
+              {% for key, label, groups in tabs %}{% for group, items in groups %}<button type="button" class="inv-group" data-tab="{{ key }}" data-group="{{ key }}-{{ forloop.counter }}">{{ group }}</button>{% endfor %}{% endfor %}
+            </div>
+            <div class="col-md-8" id="inv-items">
+              {% for key, label, groups in tabs %}{% for group, items in groups %}{% with group_key=forloop.counter %}{% for i in items %}
+              <label class="inv-item{% if i.warn %} is-warn{% endif %}" data-tab="{{ key }}" data-group="{{ key }}-{{ group_key }}" data-tab-label="{{ label }}" data-key="{{ i.key }}" data-name="{{ i.name }}" data-note="{{ i.note }}">
+                <input type="checkbox" class="form-check-input" name="{{ i.field_name }}" value="{{ i.pk }}"{% if i.key in selected %} checked{% endif %}>
+                <span><span class="inv-item-name">{{ i.name }}</span>{% if i.hint %}<small class="d-block text-body-secondary">{{ i.hint }}</small>{% endif %}{% if i.note %}<small class="d-block {% if i.warn %}text-warning-emphasis{% else %}text-body-secondary{% endif %}">{% if i.warn %}<i class="bi bi-exclamation-triangle"></i> {% endif %}{{ i.note }}</small>{% endif %}</span>
+              </label>{% endfor %}{% endwith %}{% endfor %}{% endfor %}
+              <p class="text-body-secondary small mb-0" id="inv-none" hidden>No test matches your search.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm inv-tray">
+        <div class="card-header bg-body fw-semibold">Selected (<span id="inv-count">0</span>)</div>
+        <ul class="list-group list-group-flush" id="inv-selected"></ul>
+        <div class="card-body">
+          <p class="small text-body-secondary" id="inv-empty">Tick the tests you need. They are sent together.</p>
+          <div class="row g-2">
+            {% include "_form_field.html" with field=form.encounter %}
+            {% include "_form_field.html" with field=form.facility %}
+            <div id="inv-priority" class="col-12"><div class="row">{% include "_form_field.html" with field=form.priority %}</div></div>
+            <div id="inv-schedule" class="col-12"><div class="row">{% include "_form_field.html" with field=form.scheduled_for %}</div></div>
+            {% include "_form_field.html" with field=form.clinical_notes %}
+          </div>
+        </div>
+        <div class="card-footer bg-body d-flex gap-2 justify-content-end">
+          <a href="{{ patient.get_absolute_url }}" class="btn btn-outline-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary" id="inv-send"><i class="bi bi-send"></i> Send request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+// Tabs and categories show part of the catalogue; search looks through all of it; the tray lists what is ticked.
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.inv-item'));
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.inv-group'));
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.inv-tabs [data-tab]'));
+  var search = document.getElementById('inv-search');
+  var none = document.getElementById('inv-none');
+  var tab = tabs.length ? tabs[0].dataset.tab : null;
+  var group = {};
+
+  function firstGroup(t) { return groups.filter(function (g) { return g.dataset.tab === t; })[0]; }
+
+  function show() {
+    var q = search.value.trim().toLowerCase();
+    var shown = 0;
+    tabs.forEach(function (b) { b.classList.toggle('active', !q && b.dataset.tab === tab); });
+    document.getElementById('inv-groups').hidden = !!q;
+    var current = group[tab] || (firstGroup(tab) && firstGroup(tab).dataset.group);
+    groups.forEach(function (g) {
+      g.hidden = g.dataset.tab !== tab;
+      g.classList.toggle('active', g.dataset.group === current);
+    });
+    items.forEach(function (i) {
+      var match = q ? i.textContent.toLowerCase().indexOf(q) !== -1 : i.dataset.group === current;
+      i.hidden = !match;
+      if (match) shown++;
+    });
+    none.hidden = shown > 0;
+  }
+
+  function renderTray() {
+    var list = document.getElementById('inv-selected');
+    var checked = items.filter(function (i) { return i.querySelector('input').checked; });
+    list.textContent = '';
+    checked.forEach(function (i) {
+      var row = document.createElement('li');
+      row.className = 'list-group-item d-flex justify-content-between align-items-start gap-2 py-2';
+      var text = document.createElement('div');
+      text.textContent = i.dataset.name;
+      if (i.classList.contains('is-warn')) {
+        var warn = document.createElement('small');
+        warn.className = 'd-block text-warning-emphasis';
+        warn.textContent = i.dataset.note;
+        text.appendChild(warn);
+      }
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn-close btn-sm';
+      remove.setAttribute('aria-label', 'Remove ' + i.dataset.name);
+      remove.addEventListener('click', function () { i.querySelector('input').checked = false; renderTray(); });
+      row.appendChild(text);
+      row.appendChild(remove);
+      list.appendChild(row);
+    });
+    document.getElementById('inv-count').textContent = checked.length;
+    document.getElementById('inv-empty').hidden = checked.length > 0;
+    document.getElementById('inv-send').disabled = checked.length === 0;
+    document.getElementById('inv-priority').hidden = !checked.some(function (i) { return i.dataset.tab === 'lab'; });
+    document.getElementById('inv-schedule').hidden = !checked.some(function (i) { return i.dataset.tab === 'rad'; });
+    document.querySelectorAll('.inv-pick').forEach(function (p) {
+      var on = checked.some(function (i) { return i.dataset.key === p.dataset.pick; });
+      p.classList.toggle('active', on);
+      p.setAttribute('aria-pressed', on);
+    });
+  }
+
+  tabs.forEach(function (b) { b.addEventListener('click', function () { tab = b.dataset.tab; search.value = ''; show(); }); });
+  groups.forEach(function (g) { g.addEventListener('click', function () { group[tab] = g.dataset.group; show(); }); });
+  search.addEventListener('input', show);
+  items.forEach(function (i) { i.querySelector('input').addEventListener('change', renderTray); });
+  document.querySelectorAll('.inv-pick').forEach(function (p) {
+    p.addEventListener('click', function () {
+      var item = items.filter(function (i) { return i.dataset.key === p.dataset.pick; })[0];
+      if (!item) return;
+      item.querySelector('input').checked = !item.querySelector('input').checked;
+      renderTray();
+    });
+  });
+  // Pressing Enter in the search must not send the request.
+  search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+  if (tab) show();
+  renderTray();
+})();
+</script>
+{% endblock %}

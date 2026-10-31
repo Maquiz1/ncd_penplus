@@ -20,5 +20,5 @@
       <td class="text-end fw-semibold">{% if ytd is None %}–{% elif row.kind == 'pct' %}{% if ytd.pct is not None %}{{ ytd.pct }}%{% else %}n/a{% endif %}{% else %}{{ ytd.n }}{% endif %}</td>
     </tr>{% endfor %}</tbody>
 </table></div></div>
-<p class="small text-body-secondary mt-2">Counts are patients unless stated (PP11–PP14 count tests). Stock indicators (e.g. active) are at the end of each quarter, or today for the current quarter; flow indicators (new, LTFU, deaths) are within the quarter. YTD = sum for flows, latest quarter for stocks. Click a number to see the patients. Health-system indicators (PPF1–PPF6: training, mentorship, stock-outs) come in the next phase.</p>
+<p class="small text-body-secondary mt-2">Counts are patients unless stated (PP11–PP14 count tests). Stock indicators (e.g. active) are at the end of each quarter, or today for the current quarter; flow indicators (new, LTFU, deaths) are within the quarter. YTD = sum for flows, latest quarter for stocks. Click a number to see the subjects. Health-system indicators (PPF1–PPF6: training, mentorship, stock-outs) come in the next phase.</p>
 {% endblock %}

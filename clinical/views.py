@@ -13,6 +13,7 @@ from audit.models import AuditEvent
 from audit.services import log_event
 from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientChildUpdateMixin,
                          ScopedQuerysetMixin)
+from core.forms import ReasonForm
 from facilities.scope import default_facility, scope_queryset
 from research.services import mirror_programme_status
 from patients.models import Patient
@@ -29,8 +30,59 @@ class PreScreeningCreateView(PatientChildCreateMixin, CreateView):
     permission_required = 'clinical.add_prescreening'
     model = PreScreening
     form_class = PreScreeningForm
+    template_name = 'clinical/prescreening_form.html'
     title = 'Pre-screening'
     success_tab = '#screening'
+
+    def get(self, request, *args, **kwargs):
+        today = self.patient.prescreenings.filter(date=timezone.localdate()).first()
+        if today and request.user.has_perm('clinical.change_prescreening'):
+            messages.info(request, 'This subject was already pre-screened today. Edit that pre-screening instead.')
+            return redirect('clinical:prescreening_update', today.pk)
+        if today:
+            messages.warning(request, 'This subject was already pre-screened today. You cannot add another one '
+                                      'for the same day.')
+            return redirect(self.patient.get_absolute_url() + '#screening')
+        return super().get(request, *args, **kwargs)
+
+
+class PreScreeningUpdateView(PatientChildUpdateMixin, UpdateView):
+    permission_required = 'clinical.change_prescreening'
+    model = PreScreening
+    form_class = PreScreeningForm
+    template_name = 'clinical/prescreening_form.html'
+    title = 'Edit pre-screening'
+    success_tab = '#screening'
+
+
+class PreScreeningDeleteView(PermissionRequiredMixin, View):
+    """Soft-delete a pre-screening entered by mistake (e.g. a duplicate)."""
+
+    permission_required = 'clinical.delete_prescreening'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = get_object_or_404(scope_queryset(PreScreening.objects.all(), request.user,
+                                                       'patient__current_facility'), pk=kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def render_form(self, form):
+        return render(self.request, 'confirm_action.html', {
+            'title': f'Delete pre-screening of {self.object.date:%d %b %Y}', 'patient': self.object.patient,
+            'form': form, 'message': 'Use this for a pre-screening entered twice or by mistake.',
+            'button': 'Delete pre-screening', 'button_class': 'btn-danger',
+            'cancel_url': self.object.patient.get_absolute_url() + '#screening'})
+
+    def get(self, request, pk):
+        return self.render_form(ReasonForm())
+
+    def post(self, request, pk):
+        form = ReasonForm(request.POST)
+        if not form.is_valid():
+            return self.render_form(form)
+        self.object.soft_delete(request.user, form.cleaned_data['reason'])
+        log_event(request=request, action=AuditEvent.Action.DELETE, obj=self.object, reason=form.cleaned_data['reason'])
+        messages.success(request, 'Pre-screening deleted.')
+        return redirect(self.object.patient.get_absolute_url() + '#screening')
 
 
 class ScreeningCreateView(PatientChildCreateMixin, CreateView):
@@ -151,7 +203,7 @@ class ReturnToCareView(PermissionRequiredMixin, View):
             raise PermissionDenied('Only closed enrollments (default, lost to follow-up, withdrawn, transferred out) '
                                    'can be reopened.')
         if enrollment.patient.is_deceased:
-            raise PermissionDenied('The patient is recorded as deceased.')
+            raise PermissionDenied('The subject is recorded as deceased.')
         return enrollment
 
     def render_form(self, request, enrollment, form):
@@ -178,7 +230,7 @@ class ReturnToCareView(PermissionRequiredMixin, View):
             return self.render_form(request, enrollment, form)
         if ProgrammeEnrollment.objects.filter(patient=enrollment.patient, programme=enrollment.programme,
                                               status__in=['pending', 'active']).exclude(pk=enrollment.pk).exists():
-            form.add_error(None, 'The patient already has another open enrollment in this programme.')
+            form.add_error(None, 'The subject already has another open enrollment in this programme.')
             return self.render_form(request, enrollment, form)
         data = form.cleaned_data
         kind = 'transfer_in' if data['kind'] == 'transfer_in' else 'return'
@@ -408,3 +460,32 @@ class FamilyMemberUpdateView(PatientChildUpdateMixin, UpdateView):
     form_class = FamilyMemberForm
     title = 'Edit family member'
     success_tab = '#clinical'
+
+
+class FlowGapsView(PermissionRequiredMixin, ListView):
+    """Patients stuck between two steps of the care pathway."""
+
+    permission_required = 'patients.view_patient'
+    template_name = 'clinical/flow_gaps.html'
+    paginate_by = 50
+
+    def get_queryset(self):
+        from patients.models import with_old_study_id
+        from .flow import GAPS, gap_querysets
+
+        self.gaps = gap_querysets(Patient.objects.in_scope(self.request.user))
+        self.gap = self.request.GET.get('gap')
+        if self.gap not in self.gaps:
+            self.gap = GAPS[0][0]
+        return with_old_study_id(self.gaps[self.gap].select_related('current_facility')
+                                 .order_by('current_facility__name', 'patient_number'))
+
+    def get_context_data(self, **kwargs):
+        from .flow import GAPS, gap_details
+
+        ctx = super().get_context_data(**kwargs)
+        details = gap_details(self.gap, [p.pk for p in ctx['object_list']])
+        for p in ctx['object_list']:
+            p.gap_detail = details.get(p.pk, [])
+        ctx.update(gap=self.gap, tabs=[(key, label, help, self.gaps[key].count()) for key, label, help in GAPS])
+        return ctx
