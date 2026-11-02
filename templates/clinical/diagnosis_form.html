@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Doctor confirmation · {{ patient.patient_number }}{% endblock %}
+{% block content %}
+<form method="post" novalidate id="dx-form">
+  {% csrf_token %}
+  {{ form.disease }}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div><h1 class="h4 mb-0">Doctor confirmation</h1><div class="small text-body-secondary">Look at the results, then tick every condition you diagnose, in any disease. One diagnosis is recorded for each.</div></div>
+  </div>
+
+  {% if form.non_field_errors or form.conditions.errors or form.disease.errors %}<div class="alert alert-danger">
+    {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}{% for e in form.conditions.errors %}<div>{{ e }}</div>{% endfor %}{% for e in form.disease.errors %}<div>{{ e }}</div>{% endfor %}
+  </div>{% endif %}
+
+  {% if waiting %}<div class="alert alert-warning py-2"><i class="bi bi-hourglass-split"></i> Still waiting for: {{ waiting|join:", " }}. Keep the diagnosis provisional until the results are back.</div>{% endif %}
+  {% if lab_results or imaging_results %}<div class="card shadow-sm mb-3">
+    <div class="card-header bg-body fw-semibold">Latest results</div>
+    <div class="card-body py-2">
+      {% for o in lab_results %}<span class="lab-chip is-{{ o.status }}{% if o.is_abnormal %} is-abnormal{% endif %}">{{ o.test.name }}: <strong>{{ o.result_value }} {{ o.result_unit }}</strong></span>{% endfor %}
+      {% for i in imaging_results %}<span class="lab-chip is-resulted{% if i.is_abnormal %} is-abnormal{% endif %}">{{ i.name }}{% if i.conclusion %}: <strong>{{ i.conclusion }}</strong>{% endif %}</span>{% endfor %}
+    </div>
+  </div>{% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span class="fw-semibold">Conditions</span>
+          <input type="search" id="inv-search" class="form-control form-control-sm inv-search" placeholder="Search all conditions…" aria-label="Search all conditions">
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4" id="inv-groups">
+              {% for disease, items in groups %}<button type="button" class="inv-group" data-group="{{ disease.pk }}">{{ disease.name }}</button>{% endfor %}
+            </div>
+            <div class="col-md-8 dx-items" id="inv-items">
+              {% for disease, items in groups %}{% for i in items %}
+              <label class="inv-item{% if i.parent %} inv-sub{% endif %}" data-group="{{ disease.pk }}" data-key="{{ i.pk }}" data-name="{{ i.label }}" data-disease="{{ disease.name }}">
+                <input type="checkbox" class="form-check-input" name="conditions" value="{{ i.pk }}"{% if i.pk in selected %} checked{% endif %}>
+                <span><span class="inv-item-name">{{ i.name }}</span>{% if i.parent %}<small class="d-none dx-parent text-body-secondary">{{ i.parent.name }}</small>{% endif %}{% if i.recorded %}<small class="d-block text-warning-emphasis"><i class="bi bi-exclamation-triangle"></i> {{ i.recorded }}</small>{% endif %}</span>
+              </label>{% endfor %}{% endfor %}
+              <p class="text-body-secondary small mb-0" id="inv-none" hidden>No condition matches your search.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm inv-tray">
+        <div class="card-header bg-body fw-semibold">Selected (<span id="inv-count">0</span>)</div>
+        <ul class="list-group list-group-flush" id="inv-selected"></ul>
+        <div class="card-body">
+          <p class="small text-body-secondary" id="inv-empty">Tick the conditions on the left.</p>
+          <div class="row g-2">
+            {% include "_form_field.html" with field=form.status %}
+            {% include "_form_field.html" with field=form.diagnosis_date %}
+            {% include "_form_field.html" with field=form.encounter %}
+          </div>
+          <details class="mt-3"{% if form.description.errors or form.description.value or form.onset_date.errors or form.code.errors %} open{% endif %}>
+            <summary class="small fw-semibold">More details (optional)</summary>
+            <div class="row g-2 mt-1">
+              {% include "_form_field.html" with field=form.description %}
+              {% include "_form_field.html" with field=form.onset_date %}
+              {% include "_form_field.html" with field=form.code %}
+              {% include "_form_field.html" with field=form.complications %}
+              {% include "_form_field.html" with field=form.notes %}
+            </div>
+          </details>
+        </div>
+        <div class="card-footer bg-body d-flex gap-2 justify-content-end">
+          <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary" id="inv-send"><i class="bi bi-check-lg"></i> Save diagnosis</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+// Diseases show their conditions; search looks through all of them; the tray lists what is ticked.
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.inv-item'));
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.inv-group'));
+  var search = document.getElementById('inv-search');
+  var none = document.getElementById('inv-none');
+  var disease = document.querySelector('input[name="disease"]');
+  var description = document.getElementById('{{ form.description.id_for_label }}');
+  var known = groups.map(function (g) { return g.dataset.group; });
+  var current = known.indexOf(disease.value) !== -1 ? disease.value : (groups[0] && groups[0].dataset.group);
+
+  function show() {
+    var q = search.value.trim().toLowerCase();
+    var shown = 0;
+    disease.value = current || '';
+    document.getElementById('inv-groups').hidden = !!q;
+    groups.forEach(function (g) { g.classList.toggle('active', g.dataset.group === current); });
+    items.forEach(function (i) {
+      var match = q ? (i.dataset.disease + ' ' + i.dataset.name).toLowerCase().indexOf(q) !== -1 : i.dataset.group === current;
+      i.hidden = !match;
+      if (match) shown++;
+      var parent = i.querySelector('.dx-parent');
+      if (parent) parent.classList.toggle('d-none', !q);
+    });
+    none.hidden = shown > 0;
+  }
+
+  function renderTray() {
+    var list = document.getElementById('inv-selected');
+    var checked = items.filter(function (i) { return i.querySelector('input').checked; });
+    list.textContent = '';
+    checked.forEach(function (i) {
+      var row = document.createElement('li');
+      row.className = 'list-group-item d-flex justify-content-between align-items-start gap-2 py-2';
+      var text = document.createElement('div');
+      text.textContent = i.dataset.name;
+      var small = document.createElement('small');
+      small.className = 'd-block text-body-secondary';
+      small.textContent = i.dataset.disease;
+      text.appendChild(small);
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn-close btn-sm';
+      remove.setAttribute('aria-label', 'Remove ' + i.dataset.name);
+      remove.addEventListener('click', function () { i.querySelector('input').checked = false; renderTray(); });
+      row.appendChild(text);
+      row.appendChild(remove);
+      list.appendChild(row);
+    });
+    document.getElementById('inv-count').textContent = checked.length;
+    document.getElementById('inv-empty').hidden = checked.length > 0;
+    document.getElementById('inv-send').disabled = checked.length === 0 && !description.value.trim();
+  }
+
+  groups.forEach(function (g) { g.addEventListener('click', function () { current = g.dataset.group; show(); }); });
+  search.addEventListener('input', show);
+  search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+  description.addEventListener('input', renderTray);
+  items.forEach(function (i) { i.querySelector('input').addEventListener('change', renderTray); });
+  show();
+  renderTray();
+})();
+</script>
+{% endblock %}

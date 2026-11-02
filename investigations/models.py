@@ -123,6 +123,7 @@ class InvestigationOrder(SoftDeleteModel):
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
                                     related_name='+')
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_comment = models.TextField('Doctor comment', blank=True)
     cancel_reason = models.CharField(max_length=255, blank=True)
 
     class Meta:

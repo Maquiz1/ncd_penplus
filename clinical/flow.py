@@ -1,8 +1,8 @@
 """Where a patient is in the care pathway, and the patients who are stuck in it.
 
-Per disease the path is: registered → pre-screened → screened → diagnosed → enrolled → baseline visit →
-follow-up plan. Screening, diagnosis and enrollment happen once to bring the patient into care; visits and
-appointments then repeat.
+Per disease the path is: registered → pre-screened → screened (what to screen for; optional with a known NCD) →
+investigations → doctor confirmation → enrolled → follow-up plan. All of that is one baseline visit; follow-up and
+unscheduled visits then repeat.
 """
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -39,6 +39,7 @@ class Track:
     disease: object
     steps: list = field(default_factory=list)
     next: NextStep = None
+    also: list = field(default_factory=list)
     message: str = ''
     in_care: bool = False
 
@@ -47,26 +48,40 @@ def _step(steps, key):
     return next(s for s in steps if s.key == key)
 
 
+def may_enroll(patient, disease):
+    """A subject enters a programme once a doctor has confirmed the diagnosis of its disease."""
+    return patient.diagnoses.filter(disease=disease, status=Diagnosis.Status.CONFIRMED).exists()
+
+
+def _orders(patient):
+    """(date, still waiting for a result) of every laboratory and radiology request."""
+    rows = [(timezone.localtime(when).date(), status in ('ordered', 'collected'))
+            for when, status in patient.lab_orders.exclude(status='cancelled').values_list('ordered_at', 'status')]
+    rows += [(timezone.localtime(when).date(), status in ('requested', 'scheduled'))
+             for when, status in patient.investigations.exclude(status='cancelled').values_list('requested_at', 'status')]
+    return rows
+
+
 def patient_flow(patient):
     """One track per disease the patient was screened, diagnosed or enrolled for (or one general track)."""
     today = timezone.localdate()
     prescreenings = list(patient.prescreenings.order_by('-date', '-pk'))
+    known_ncd = bool(prescreenings and prescreenings[0].known_ncd)
+    known_diseases = list(prescreenings[0].known_diseases.all()) if known_ncd else []
     screenings = list(patient.screenings.select_related('disease').order_by('-screening_date', '-pk'))
     diagnoses = list(patient.diagnoses.select_related('disease').exclude(status=Diagnosis.Status.RULED_OUT)
                      .order_by('-diagnosis_date', '-pk'))
     ruled_out = set(patient.diagnoses.filter(status=Diagnosis.Status.RULED_OUT).values_list('disease_id', flat=True))
     enrollments = list(patient.programme_enrollments.select_related('programme__disease')
                        .order_by('-enrollment_date', '-pk'))
-    encounters = patient.encounters.exclude(status='cancelled')
-    baseline = encounters.filter(stage='baseline').order_by('encounter_date').first()
-    follow_up = encounters.filter(stage__in=['follow_up', 'unscheduled']).order_by('encounter_date').first()
+    orders = _orders(patient)
     plan = patient.followup_plans.filter(is_active=True).first()
     next_appointment = patient.appointments.filter(status__in=['scheduled', 'confirmed', 'rescheduled'],
                                                    scheduled_date__gte=today).order_by('scheduled_date').first()
 
     diseases = []
     for d in [e.programme.disease for e in enrollments] + [d.disease for d in diagnoses] + \
-             [s.disease for s in screenings]:
+             [s.disease for s in screenings] + known_diseases:
         if d not in diseases:
             diseases.append(d)
     pk = patient.pk
@@ -79,8 +94,9 @@ def patient_flow(patient):
         arrived_diagnosed = bool(d_diagnoses or d_enrollments)
         track = Track(disease=disease, steps=[
             Step('registered', 'Registered', 'done', date=patient.registration_date),
-            Step('prescreened', 'Pre-screened'), Step('screened', 'Screened'), Step('diagnosed', 'Diagnosed'),
-            Step('enrolled', 'Enrolled'), Step('baseline', 'Baseline visit'), Step('plan', 'Follow-up plan')])
+            Step('prescreened', 'Pre-screened'), Step('screened', 'Screening'), Step('investigations', 'Investigations'),
+            Step('diagnosed', 'Doctor confirmed'),
+            Step('enrolled', 'Enrolled'), Step('plan', 'Follow-up plan')])
         steps = track.steps
 
         pre = _step(steps, 'prescreened')
@@ -95,14 +111,31 @@ def patient_flow(patient):
             pre.state, pre.note = 'skipped', 'Not needed'
 
         scr = _step(steps, 'screened')
-        decided = next((s for s in d_screenings if s.result != Screening.Result.PENDING), None)
-        pending = next((s for s in d_screenings if s.result == Screening.Result.PENDING), None)
+        # The latest screening counts: a re-screening reopens the path after an earlier negative one.
+        latest_screening = d_screenings[0] if d_screenings else None
+        pending = latest_screening if latest_screening and latest_screening.result == Screening.Result.PENDING else None
+        decided = None if pending else latest_screening
         if decided:
             scr.state, scr.date, scr.note = 'done', decided.screening_date, decided.get_result_display()
         elif pending:
-            scr.state, scr.date, scr.note = 'waiting', pending.screening_date, 'Result pending'
+            scr.state, scr.date = 'done', pending.screening_date
+            if not any(d.status == Diagnosis.Status.CONFIRMED for d in d_diagnoses):
+                scr.note = 'Re-screening: awaiting doctor' if pending.rescreen_of_id else 'Awaiting doctor'
+        elif known_ncd:
+            scr.state, scr.note = 'skipped', 'Optional: known NCD'
         elif arrived_diagnosed:
             scr.state, scr.note = 'skipped', 'Arrived diagnosed'
+
+        inv = _step(steps, 'investigations')
+        since = latest_screening.screening_date if latest_screening else None
+        relevant = [o for o in orders if since is None or o[0] >= since]
+        confirmed_or_enrolled = d_enrollments or any(d.status == Diagnosis.Status.CONFIRMED for d in d_diagnoses)
+        if any(waiting for _when, waiting in relevant) and not confirmed_or_enrolled:
+            inv.state, inv.note = 'waiting', 'Results pending'
+        elif relevant:
+            inv.state, inv.date = 'done', max(when for when, _waiting in relevant)
+        elif arrived_diagnosed or (decided and decided.result != Screening.Result.POSITIVE):
+            inv.state, inv.note = 'skipped', 'None requested'
 
         dx = _step(steps, 'diagnosed')
         if d_diagnoses:
@@ -113,19 +146,14 @@ def patient_flow(patient):
         elif disease and disease.pk in ruled_out:
             dx.state, dx.note = 'stopped', 'Ruled out'
         elif decided and decided.result != Screening.Result.POSITIVE and not d_enrollments:
-            dx.state, dx.note = 'stopped', f'Screened {decided.get_result_display().lower()}'
+            dx.state, dx.note = 'stopped', ('Not diagnosed' if decided.result == Screening.Result.NEGATIVE
+                                            else f'Screened {decided.get_result_display().lower()}')
 
         en = _step(steps, 'enrolled')
         if open_enrollment:
             en.state, en.date, en.note = 'done', open_enrollment.enrollment_date, str(open_enrollment.programme)
         elif d_enrollments:
             en.state, en.date, en.note = 'stopped', d_enrollments[0].outcome_date, d_enrollments[0].get_status_display()
-
-        base = _step(steps, 'baseline')
-        if baseline:
-            base.state, base.date = 'done', timezone.localtime(baseline.encounter_date).date()
-        elif follow_up:
-            base.state, base.note = 'skipped', 'Follow-up visits recorded'
 
         pl = _step(steps, 'plan')
         if plan:
@@ -135,12 +163,13 @@ def patient_flow(patient):
         if next_appointment:
             pl.date = next_appointment.scheduled_date
 
-        _next_step(track, pk, pending, d_enrollments, disease, next_appointment)
+        provisional = next((d for d in d_diagnoses if d.status == Diagnosis.Status.PROVISIONAL), None)
+        _next_step(track, pk, pending, d_enrollments, disease, next_appointment, provisional, known_ncd)
         tracks.append(track)
     return tracks
 
 
-def _next_step(track, pk, pending, enrollments, disease, next_appointment):
+def _next_step(track, pk, pending, enrollments, disease, next_appointment, provisional, known_ncd):
     steps = {s.key: s for s in track.steps}
     stopped = next((s for s in track.steps if s.state == 'stopped'), None)
     if stopped and stopped.key == 'enrolled':
@@ -153,28 +182,43 @@ def _next_step(track, pk, pending, enrollments, disease, next_appointment):
     if stopped:
         track.message = {
             'prescreened': f'Pre-screening: {stopped.note.lower()}. No further steps unless the subject comes back.',
-            'diagnosed': f'{stopped.note}. No diagnosis or enrollment needed.',
+            'diagnosed': f'{stopped.note}. No enrollment needed.',
         }[stopped.key]
         return
     if steps['prescreened'].state == 'todo':
         track.next = NextStep('Record pre-screening', reverse('clinical:prescreening_add', args=[pk]),
                               'clinical.add_prescreening', 'Residence and expected stay, before disease screening.')
     elif steps['screened'].state == 'todo':
-        track.next = NextStep('Record disease screening', reverse('clinical:screening_add', args=[pk]),
-                              'clinical.add_screening')
-    elif steps['screened'].state == 'waiting' and steps['diagnosed'].state == 'todo':
-        track.next = NextStep('Record screening result', reverse('clinical:screening_update', args=[pending.pk]),
-                              'clinical.change_screening',
-                              f'{disease} screening of {pending.screening_date:%d %b %Y} is still pending.')
+        track.next = NextStep('Choose what to screen for', reverse('clinical:screening_add', args=[pk]),
+                              'clinical.add_screening', 'Diabetes, cardiac, sickle cell or more than one.')
     elif steps['diagnosed'].state == 'todo':
-        track.next = NextStep('Add diagnosis', reverse('clinical:diagnosis_add', args=[pk]), 'clinical.add_diagnosis',
-                              'Screened positive. It can be provisional while results are pending.')
+        confirm = NextStep('Doctor confirmation',
+                           reverse('clinical:diagnosis_add', args=[pk]) + (f'?disease={disease.pk}' if disease else ''),
+                           'clinical.add_diagnosis')
+        request = NextStep('Request investigations', reverse('investigations:request', args=[pk]),
+                           'laboratory.add_laborder')
+        if steps['investigations'].state == 'todo':
+            track.next, track.also = request, [confirm]
+            request.hint = 'Then the doctor confirms the diagnosis from the results.'
+            if known_ncd and steps['screened'].state == 'skipped':
+                track.also.append(NextStep('Screening (optional)',
+                                           reverse('clinical:screening_add', args=[pk]) + (f'?disease={disease.pk}' if disease else ''),
+                                           'clinical.add_screening'))
+        elif steps['investigations'].state == 'waiting':
+            track.message = 'Waiting for results, then the doctor confirms the diagnosis.'
+            track.also = [request, confirm]
+        else:
+            confirm.hint = 'The doctor decides from the results.'
+            track.next = confirm
+        if pending:
+            track.also.append(NextStep('Not diagnosed', reverse('clinical:screening_not_diagnosed', args=[pending.pk]),
+                                       'clinical.add_diagnosis'))
+    elif steps['enrolled'].state == 'todo' and steps['diagnosed'].state == 'waiting' and provisional:
+        track.next = NextStep('Confirm diagnosis', reverse('clinical:diagnosis_update', args=[provisional.pk]),
+                              'clinical.change_diagnosis', 'Enrolling needs a diagnosis confirmed by the doctor.')
     elif steps['enrolled'].state == 'todo':
         track.next = NextStep('Enroll in programme', reverse('clinical:enrollment_add', args=[pk]),
-                              'clinical.add_programmeenrollment', 'Enrolling puts the subject in the indicators.')
-    elif steps['baseline'].state == 'todo':
-        track.next = NextStep('Record baseline visit', reverse('encounters:encounter_add', args=[pk]) + '?stage=baseline',
-                              'encounters.add_encounter', 'Today\'s visit, with no appointment.')
+                              'clinical.add_programmeenrollment', 'Every disease the doctor confirmed can be enrolled together.')
     elif steps['plan'].state == 'todo':
         track.next = NextStep('Create follow-up plan', reverse('encounters:plan_add', args=[pk]),
                               'encounters.add_followupplan', 'This books the future appointments.')
@@ -192,10 +236,95 @@ def _next_step(track, pk, pending, enrollments, disease, next_appointment):
         track.message = 'Diagnosis is provisional: confirm it when results are back.'
 
 
+# ----- the Baseline, Follow-up and Unscheduled panels of the subject page ------------------------------------
+
+@dataclass
+class ActionStep:
+    label: str
+    url: str
+    perm: str
+    done: bool = False
+    note: str = ''
+
+
+def visit_steps(visit):
+    """What is done inside one visit, each step linked directly to it."""
+    from crf.services import encounter_form_status
+
+    patient, query = visit.patient, f'?encounter={visit.pk}'
+    rows = encounter_form_status(visit)
+    missing = sum(1 for r in rows if r['required'] and not r['submissions'])
+    done = rows and not missing
+    orders = visit.lab_orders.count() + visit.investigations.count()
+    steps = [
+        ActionStep('Vitals', reverse('encounters:vitals_add', args=[visit.pk]), 'encounters.add_vitals', visit.vitals.exists()),
+        ActionStep('Forms', visit.get_absolute_url(), 'encounters.view_encounter', bool(done),
+                   f'{missing} missing' if missing else ''),
+        ActionStep('Investigations', reverse('investigations:request', args=[patient.pk]) + query,
+                   'laboratory.add_laborder', orders > 0, f'{orders} requested' if orders else ''),
+    ]
+    if not patient.is_deceased:
+        steps.append(ActionStep('Prescribe', reverse('pharmacy:prescription_add', args=[patient.pk]) + query,
+                                'pharmacy.add_prescription', visit.prescriptions.exists()))
+    steps.append(ActionStep('Close visit', reverse('encounters:encounter_update', args=[visit.pk]),
+                            'encounters.change_encounter', visit.status == 'completed'))
+    return steps
+
+
+def _baseline_steps(patient, visit):
+    pk, query = patient.pk, f'?encounter={visit.pk}' if visit else ''
+    add = lambda name: reverse(name, args=[pk])
+    pre = patient.prescreenings.order_by('-date', '-pk').first()
+    steps = [
+        ActionStep('Pre-screening', add('clinical:prescreening_add'), 'clinical.add_prescreening', pre is not None),
+        ActionStep('Screening', add('clinical:screening_add') + query, 'clinical.add_screening', patient.screenings.exists(),
+                   'Optional: known NCD' if pre and pre.known_ncd else ''),
+        ActionStep('Investigations', reverse('investigations:request', args=[pk]) + query, 'laboratory.add_laborder',
+                   patient.lab_orders.exists() or patient.investigations.exists()),
+        ActionStep('Doctor confirmation', add('clinical:diagnosis_add') + query, 'clinical.add_diagnosis',
+                   patient.diagnoses.filter(status=Diagnosis.Status.CONFIRMED).exists()),
+        ActionStep('Enroll', add('clinical:enrollment_add'), 'clinical.add_programmeenrollment',
+                   patient.programme_enrollments.exists()),
+    ]
+    if visit:
+        steps.append(ActionStep('Vitals & forms', visit.get_absolute_url(), 'encounters.view_encounter', visit.vitals.exists()))
+    steps.append(ActionStep('Follow-up plan', add('encounters:plan_add'), 'encounters.add_followupplan',
+                            patient.followup_plans.filter(is_active=True).exists()))
+    return steps
+
+
+def patient_pathway(patient):
+    """Everything the Baseline, Follow-up and Unscheduled panels show."""
+    visits = patient.encounters.exclude(status='cancelled').order_by('-encounter_date')
+    enrolled = patient.programme_enrollments.exists()
+    baseline = visits.filter(stage='baseline').first()
+    follow_up = visits.filter(stage='follow_up', status__in=['open', 'in_progress']).first()
+    unscheduled = visits.filter(stage='unscheduled', status__in=['open', 'in_progress']).first()
+    appointment = patient.appointments.filter(status__in=['scheduled', 'confirmed', 'rescheduled'],
+                                              scheduled_date__gte=timezone.localdate()).order_by('scheduled_date').first()
+    start = reverse('encounters:encounter_add', args=[patient.pk])
+    return {
+        'active': ('unscheduled' if unscheduled else
+                   'follow_up' if follow_up or (enrolled and (appointment or patient.followup_plans.filter(is_active=True).exists()))
+                   else 'baseline'),
+        'enrolled': enrolled,
+        'baseline': baseline,
+        'baseline_steps': _baseline_steps(patient, baseline),
+        'follow_up': follow_up,
+        'follow_up_steps': visit_steps(follow_up) if follow_up else [],
+        'unscheduled': unscheduled,
+        'unscheduled_steps': visit_steps(unscheduled) if unscheduled else [],
+        'appointment': appointment,
+        'attend_url': f'{start}?appointment={appointment.pk}' if appointment else '',
+        'start_follow_up_url': f'{start}?stage=follow_up',
+        'start_unscheduled_url': f'{start}?stage=unscheduled',
+    }
+
+
 # ----- patients stuck in the flow ---------------------------------------------------------------------------
 
 GAPS = [
-    ('screening_pending', 'Screening result pending', f'Disease screening still pending after {PENDING_SCREENING_DAYS} days.'),
+    ('screening_pending', 'Waiting for doctor decision', f'Screened over {PENDING_SCREENING_DAYS} days ago, with no decision from the doctor.'),
     ('positive_no_diagnosis', 'Positive, no diagnosis', 'Screened positive but no diagnosis recorded for that disease.'),
     ('diagnosed_not_enrolled', 'Diagnosed, not enrolled', 'A diagnosis but never enrolled in that disease\'s programme.'),
     ('enrolled_no_baseline', 'Enrolled, no baseline visit', 'Active enrollment but no baseline or follow-up visit.'),

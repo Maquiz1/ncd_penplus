@@ -113,7 +113,7 @@ def catalogue(form):
 
 
 def quick_picks(patient, form):
-    """Due monitoring tests first, then the usual requests for the programmes the subject is active in."""
+    """Due monitoring tests first, then the usual requests for the programmes the subject is in, being screened for or known to have."""
     notes = form.notes
     picks, seen = [], set()
 
@@ -122,7 +122,11 @@ def quick_picks(patient, form):
             seen.add(item.key)
             picks.append({'key': item.key, 'label': label or item.name, 'badge': badge})
 
-    diseases = patient.programme_enrollments.filter(status='active').values_list('programme__disease__code', flat=True)
+    diseases = [*patient.programme_enrollments.filter(status='active').values_list('programme__disease__code', flat=True),
+                *patient.screenings.filter(result='pending').values_list('disease__code', flat=True)]
+    pre = patient.prescreenings.order_by('-date', '-pk').first()
+    if pre and pre.known_ncd:
+        diseases += pre.known_diseases.values_list('code', flat=True)
     panels = {p.code: p for p in form.fields['panels'].queryset.prefetch_related('tests')}
     known_tests = {t.code: t for t in form.fields['tests'].queryset}
     types = {t.code: t for t in form.fields['types'].queryset}

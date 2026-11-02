@@ -36,6 +36,7 @@ def dashboard_stats(user):
         'patients_new_month': patients.filter(registration_date__gte=month_start).count(),
         'programme_active': programmes.filter(status='active').count(),
         'study_active': scoped(StudyEnrollment, user).filter(status='active').count(),
+        'enrolled_active': programmes.filter(status='active').values('patient').distinct().count(),
         'appointments_today': appointments.filter(scheduled_date=today).exclude(status='cancelled').count(),
         'appointments_overdue': appointments.filter(scheduled_date__lt=today,
                                                     status__in=['scheduled', 'confirmed', 'rescheduled']).count(),

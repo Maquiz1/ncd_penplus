@@ -7,6 +7,7 @@ from django.core import mail
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import TestCase
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
@@ -118,7 +119,7 @@ class AccessScopeTests(BaseTestCase):
 
     def test_identity_hidden_without_permission(self):
         p = self.make_patient()
-        viewer = self.make_user('pi2', 'PI / Co-Investigator', facility=self.ilala)
+        viewer = self.make_user('pi2', 'Monitor / Auditor', facility=self.ilala)
         self.client.force_login(viewer)
         response = self.client.get(reverse('patients:detail', args=[p.pk]))
         self.assertContains(response, p.patient_number)
@@ -142,8 +143,7 @@ class ClinicalRuleTests(BaseTestCase):
         p = self.make_patient()
         self.client.force_login(self.clinician_ilala)
         response = self.client.post(reverse('clinical:screening_add', args=[p.pk]), {
-            'diseases': [self.diabetes.pk, self.cardiac.pk], 'facility': self.ilala.pk, 'source': 'community',
-            'location_type': 'community', 'screening_date': '2026-10-01', 'result': 'positive'})
+            'diseases': [self.diabetes.pk, self.cardiac.pk], 'facility': self.ilala.pk, 'screening_date': '2026-10-01'})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Screening.objects.filter(patient=p).count(), 2)
         self.assertFalse(Diagnosis.objects.filter(patient=p).exists())
@@ -178,7 +178,7 @@ class ResearchRuleTests(BaseTestCase):
         self.assertIn('eligibility', ctx.exception.message_dict)
         self.assertIn('consent', ctx.exception.message_dict)
 
-    def test_withdrawal_does_not_stop_clinical_care(self):
+    def test_withdrawing_from_the_study_closes_care_here(self):
         programme = ProgrammeEnrollment.objects.create(patient=self.patient, facility=self.ilala,
                                                        programme=ClinicalProgramme.objects.get(code='dm-care'))
         eligible = StudyEligibilityAssessment.objects.create(patient=self.patient, study=self.study, is_eligible=True,
@@ -187,12 +187,16 @@ class ResearchRuleTests(BaseTestCase):
                                                decision='consented', obtained_by=self.admin)
         enrollment = StudyEnrollment.objects.create(patient=self.patient, study=self.study, participant_id='P1',
                                                     facility=self.ilala, eligibility=eligible, consent=consent)
-        enrollment.status, enrollment.outcome_date = 'withdrawn', timezone.localdate()
-        enrollment.full_clean()
-        enrollment.save()
+        consent.decision, consent.withdrawal_date, consent.withdrawal_reason = 'withdrawn', timezone.localdate(), 'Moved away'
+        consent.save()
+        from research.services import apply_consent_withdrawal
+        request = RequestFactory().post('/')
+        request.user = self.admin
+        apply_consent_withdrawal(consent, request)
+        enrollment.refresh_from_db()
         programme.refresh_from_db()
-        self.assertEqual(programme.status, 'active')
-        self.assertEqual(self.patient.status, 'active')
+        self.assertEqual((enrollment.status, programme.status), ('withdrawn', 'withdrawn'))
+        self.assertEqual(programme.events.first().to_status, 'withdrawn')
 
 
 class TransferTests(BaseTestCase):

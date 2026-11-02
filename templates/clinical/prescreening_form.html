@@ -26,10 +26,10 @@
 {% endblock %}
 {% block scripts %}
 <script>
-// Show the consent date only after "Yes", and the lab request date only when a test is requested.
+// Show the consent date, which NCD, and the lab request date only after "Yes".
 (function () {
   function toggle(name, target) {
-    var box = document.getElementById('id_' + target);
+    var box = document.getElementById('id_' + target) || document.getElementById('id_' + target + '_0');
     if (!box) return;
     var col = box.closest('[class*="col-"]');
     function update() {
@@ -40,6 +40,7 @@
     update();
   }
   toggle('consent_obtained', 'consent_date');
+  toggle('known_ncd', 'known_diseases');
   toggle('lab_test_requested', 'lab_request_date');
 })();
 </script>

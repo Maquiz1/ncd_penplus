@@ -18,9 +18,9 @@
   </button>
   <a class="navbar-brand fw-semibold me-auto" href="{% url 'dashboard' %}"><i class="bi bi-heart-pulse-fill me-1"></i> NCD - PENPLUS CLINIC</a>
   {% if perms.patients.view_patient %}
-  <form class="d-none d-md-flex me-3" role="search" action="{% url 'patients:list' %}">
+  {% if perms.patients.view_patient %}<form class="d-none d-md-flex me-3" role="search" action="{% url 'patients:list' %}">
     <input class="form-control form-control-sm" type="search" name="q" placeholder="Find subject (ID{% if can_view_identity %}, name, phone{% endif %})" aria-label="Find subject">
-  </form>
+  </form>{% endif %}
   {% endif %}
   <div class="dropdown">
     <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -52,14 +52,13 @@
         <div class="offcanvas-body p-0">
           {% with path=request.path %}
           <nav class="nav flex-column sidebar-nav py-2 w-100" id="sidebar-nav">
-            <a class="nav-link {% if path == '/' %}active{% endif %}" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a class="nav-link {% if path == '/' %}active{% endif %}" href="{% url 'dashboard' %}"><i class="bi {% if perms.patients.view_patient %}bi-speedometer2{% else %}bi-house{% endif %}"></i> {% if perms.patients.view_patient %}Dashboard{% else %}Home{% endif %}</a>
             {% if perms.patients.view_patient or perms.encounters.view_appointment or perms.encounters.view_encounter %}<div class="sidebar-group-label">Clinic</div>{% endif %}
             {% if perms.patients.view_patient %}
             <div class="sidebar-section">
               <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-patients" aria-expanded="false" aria-controls="nav-patients"><i class="bi bi-people"></i><span>Subjects</span><i class="bi bi-chevron-down ms-auto"></i></button>
               <div class="collapse" id="nav-patients" data-bs-parent="#sidebar-nav">
               <a class="nav-link {% if path == '/patients/' %}active{% endif %}" href="{% url 'patients:list' %}"><i class="bi bi-people"></i> Subject register</a>
-              {% if perms.patients.add_patient and can_view_identity %}<a class="nav-link {% if 'register' in path %}active{% endif %}" href="{% url 'patients:create' %}"><i class="bi bi-person-plus"></i> Register subject</a>{% endif %}
               {% if perms.patients.view_patienttransfer %}<a class="nav-link {% if 'transfers' in path %}active{% endif %}" href="{% url 'patients:transfers' %}"><i class="bi bi-arrow-left-right"></i> Transfers</a>{% endif %}
               {% if perms.patients.view_subject_summary %}<a class="nav-link {% if '/summar' in path %}active{% endif %}" href="{% url 'patients:summaries' %}"><i class="bi bi-file-earmark-medical"></i> Subject summaries</a>{% endif %}
               <a class="nav-link {% if 'flow-gaps' in path %}active{% endif %}" href="{% url 'clinical:flow_gaps' %}"><i class="bi bi-signpost-split"></i> Stuck in the flow</a>
@@ -155,7 +154,7 @@
               </div>
             </div>
             {% endif %}
-            {% if perms.research.view_study or perms.crf.view_formsubmission or perms.issues.view_dataissue or perms.reporting.view_reports or perms.reporting.export_data %}<div class="sidebar-group-label">Research &amp; data</div>{% endif %}
+            {% if perms.research.view_study or perms.crf.view_formsubmission or perms.issues.view_dataissue or perms.reporting.export_data %}<div class="sidebar-group-label">Research &amp; data</div>{% endif %}
             {% if perms.research.view_study or perms.crf.view_formsubmission %}
             <div class="sidebar-section">
               <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-research" aria-expanded="false" aria-controls="nav-research"><i class="bi bi-ui-checks"></i><span>Research &amp; forms</span><i class="bi bi-chevron-down ms-auto"></i></button>
@@ -166,7 +165,7 @@
               </div>
             </div>
             {% endif %}
-            {% if perms.issues.view_dataissue or perms.reporting.view_reports %}
+            {% if perms.issues.view_dataissue %}
             <div class="sidebar-section">
               <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-quality" aria-expanded="false" aria-controls="nav-quality"><i class="bi bi-clipboard-check"></i><span>Data quality</span><i class="bi bi-chevron-down ms-auto"></i></button>
               <div class="collapse" id="nav-quality" data-bs-parent="#sidebar-nav">
@@ -179,16 +178,15 @@
             {% endif %}
             {% if perms.reporting.export_data %}
             <div class="sidebar-section">
-              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-exports" aria-expanded="false" aria-controls="nav-exports"><i class="bi bi-cloud-arrow-down"></i><span>Forms &amp; exports</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-exports" aria-expanded="false" aria-controls="nav-exports"><i class="bi bi-cloud-arrow-down"></i><span>Exports &amp; data dictionary</span><i class="bi bi-chevron-down ms-auto"></i></button>
               <div class="collapse" id="nav-exports" data-bs-parent="#sidebar-nav">
-              <a class="nav-link {% if '/exports/forms' in path %}active{% endif %}" href="{% url 'exports:forms' %}"><i class="bi bi-ui-checks"></i> Forms</a>
+              <a class="nav-link {% if '/exports/forms' in path %}active{% endif %}" href="{% url 'exports:forms' %}"><i class="bi bi-ui-checks"></i> Data by form</a>
               <a class="nav-link {% if path == '/exports/' %}active{% endif %}" href="{% url 'exports:list' %}"><i class="bi bi-cloud-arrow-down"></i> Data exports</a>
-              <a class="nav-link {% if '/exports/codebook' in path %}active{% endif %}" href="{% url 'exports:codebook' %}"><i class="bi bi-journal-code"></i> Codebook</a>
+              <a class="nav-link {% if '/exports/codebook' in path %}active{% endif %}" href="{% url 'exports:codebook' %}"><i class="bi bi-journal-code"></i> Data dictionary</a>
               </div>
             </div>
             {% endif %}
-            {% if perms.reporting.view_reports or perms.audit.view_auditevent or perms.users.view_user %}<div class="sidebar-group-label">System</div>{% endif %}
-            {% if perms.reporting.view_reports or perms.audit.view_auditevent or perms.users.view_user %}
+            {% if perms.patients.view_patient or perms.audit.view_auditevent or perms.users.view_user %}<div class="sidebar-group-label">System</div>
             <div class="sidebar-section">
               <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-admin" aria-expanded="false" aria-controls="nav-admin"><i class="bi bi-gear"></i><span>Administration</span><i class="bi bi-chevron-down ms-auto"></i></button>
               <div class="collapse" id="nav-admin" data-bs-parent="#sidebar-nav">

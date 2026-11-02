@@ -8,7 +8,7 @@
   <div class="d-flex gap-2">
     {% if inv.status != 'reviewed' and inv.status != 'cancelled' and perms.investigations.change_investigationorder %}<a class="btn btn-primary" href="{% url 'investigations:report' inv.pk %}">Enter / edit report</a>{% endif %}
     {% if perms.investigations.delete_investigationorder %}<a class="btn btn-outline-danger" href="{% url 'records:delete' 'investigation' inv.pk %}?next={{ patient.get_absolute_url|urlencode }}%23labs"><i class="bi bi-trash"></i> Delete</a>{% endif %}
-    {% if inv.status == 'completed' and perms.investigations.review_investigationorder %}<form method="post" action="{% url 'investigations:review' inv.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-success">Mark reviewed</button></form>{% endif %}
+    {% if inv.status == 'completed' and perms.investigations.review_investigationorder %}<a class="btn btn-success" href="{% url 'investigations:review' inv.pk %}?next={{ request.path|urlencode }}">Review</a>{% endif %}
   </div>
 </div>
 <div class="row g-3">
@@ -22,6 +22,6 @@
   <div class="col-lg-5"><div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Stock used</div>
     <ul class="list-group list-group-flush">{% for m in consumption %}<li class="list-group-item small d-flex justify-content-between"><span>{{ m.batch.medication }} · batch {{ m.batch.batch_number }}</span><span>{{ m.quantity }}</span></li>{% empty %}<li class="list-group-item small text-body-secondary">No consumables recorded.</li>{% endfor %}</ul>
   </div>
-  <div class="small text-body-secondary mt-2">Reported by {{ inv.reported_by|default:"—" }}{% if inv.reviewed_by %} · reviewed by {{ inv.reviewed_by }} {{ inv.reviewed_at|date:"d M Y" }}{% endif %}</div></div>
+  <div class="small text-body-secondary mt-2">Reported by {{ inv.reported_by|default:"—" }}{% if inv.reviewed_by %} · reviewed by {{ inv.reviewed_by }} {{ inv.reviewed_at|date:"d M Y" }}{% endif %}{% if inv.review_comment %}<div class="text-body mt-1"><strong>Doctor comment:</strong> {{ inv.review_comment|linebreaksbr }}</div>{% endif %}</div></div>
 </div>
 {% endblock %}

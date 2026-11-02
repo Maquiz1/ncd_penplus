@@ -26,6 +26,8 @@ RECORD_CORRECTION = [f'{model.split(".")[0]}.{action}_{model.split(".")[1]}' for
                                    'pharmacy.medicationrecord', 'crf.formsubmission')]
 # Recording that a due monitoring test (HbA1c) was not done, with the reason.
 MONITORING = ['laboratory.add_monitoringgap']
+# People who only read results: reports, indicators, monitoring and de-identified summaries. No clinic screens or forms.
+REPORT_ONLY = REPORTS + ['patients.view_subject_summary', 'laboratory.view_monitoringgap', 'facilities.view_facility']
 STOCK_VIEW = ['pharmacy.view_medication', 'pharmacy.view_stockbatch', 'pharmacy.view_stockshortfall', 'pharmacy.view_consumableuse']
 
 
@@ -114,24 +116,18 @@ ROLES = {
         'users.view_user', 'users.view_position', 'users.add_user', 'users.change_user',
         'facilities.view_staffassignment', 'facilities.add_staffassignment', 'facilities.change_staffassignment',
     ] + RECORD_CORRECTION + MONITORING,
-    'Facility Coordinator': VIEW_CLINICAL + REPORTS + [
-        'patients.view_patienttransfer', 'patients.add_patienttransfer', 'patients.change_patienttransfer',
-        'encounters.add_followupplan', 'encounters.change_followupplan', 'encounters.change_appointment',
-        'reporting.receive_monthly_report', 'encounters.add_clinicsession', 'encounters.change_clinicsession',
-        'notifications.view_smsmessage', 'notifications.add_smsmessage'],
-    'Geographic Coordinator': VIEW_CLINICAL + REPORTS + ['patients.view_patienttransfer',
-                                                         'reporting.receive_monthly_report'],
+    'Facility Coordinator': REPORT_ONLY + ['reporting.receive_monthly_report'],
+    'Geographic Coordinator': REPORT_ONLY + ['reporting.receive_monthly_report'],
     'Research Coordinator': VIEW_CLINICAL + REPORTS + [
         'research.*', 'encounters.add_followupplan', 'encounters.change_followupplan', 'encounters.add_appointment',
         'encounters.change_appointment', 'encounters.add_encounter', 'encounters.change_encounter',
         'crf.add_formsubmission', 'crf.change_formsubmission', 'reporting.receive_monthly_report',
         'reporting.export_data'],
-    'PI / Co-Investigator': VIEW_CLINICAL + REPORTS + ['research.view_*', 'research.change_study',
-                                                       'crf.review_formsubmission', 'reporting.export_data',
-                                                       'reporting.receive_monthly_report'],
+    'PI / Co-Investigator': REPORT_ONLY + ['reporting.receive_monthly_report'],
+    'Statistician': REPORT_ONLY + ['reporting.export_data'],
     'Monitor / Auditor': VIEW_CLINICAL + ['research.view_*', 'audit.view_auditevent', 'patients.view_patienttransfer',
                                           'pharmacy.view_*'],
-    'Report Viewer': REPORTS + ['facilities.view_facility', 'patients.view_subject_summary'],
+    'Report Viewer': REPORT_ONLY,
 }
 
 
@@ -157,6 +153,7 @@ POSITIONS = [
     ('study-coordinator', 'Study Coordinator', 'Research Coordinator', 'national', ''),
     ('principal-investigator', 'Principal Investigator', 'PI / Co-Investigator', 'national', ''),
     ('co-investigator', 'Co-Investigator', 'PI / Co-Investigator', 'national', ''),
+    ('statistician', 'Statistician', 'Statistician', 'national', 'Reports and indicators, plus data exports and the data dictionary.'),
     ('monitor', 'Monitor / Auditor', 'Monitor / Auditor', 'national', ''),
     ('me-officer', 'M&E / Health Officer', 'Report Viewer', 'district', 'District, regional or MoH reporting officer.'),
     ('system-administrator', 'System Administrator', 'System Administrator', 'national', ''),

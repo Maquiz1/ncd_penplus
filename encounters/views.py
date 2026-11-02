@@ -167,6 +167,7 @@ class EncounterDetailView(PermissionRequiredMixin, ScopedQuerysetMixin, DetailVi
         return super().get_context_data(
             patient=enc.patient,
             vitals=enc.vitals.all(),
+            prescreenings=enc.prescreenings.all(),
             screenings=enc.screenings.select_related('disease'),
             diagnoses=enc.diagnoses.select_related('disease'),
             lab_orders=enc.lab_orders.select_related('test'),

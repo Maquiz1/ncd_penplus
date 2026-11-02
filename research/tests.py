@@ -89,3 +89,29 @@ class ResearchFollowsCareTests(BaseTestCase):
         self.study_enrollment.refresh_from_db()
         self.assertEqual((self.study_enrollment.status, self.study_enrollment.outcome_date),
                          ('transferred', datetime.date(2025, 5, 2)))
+
+
+class LeavingTheStudyTests(BaseTestCase):
+    def test_withdrawal_through_the_consent_page_closes_study_and_clinic_enrollment(self):
+        import datetime
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        from django.urls import reverse
+        from research.models import ConsentRecord, Study, StudyEligibilityAssessment, StudyEnrollment
+        patient = self.make_patient()
+        study = Study.objects.create(code='penplus', title='PEN-Plus', status='active')
+        care = ProgrammeEnrollment.objects.create(patient=patient, facility=self.ilala,
+                                                  programme=ClinicalProgramme.objects.get(code='dm-care'))
+        eligible = StudyEligibilityAssessment.objects.create(patient=patient, study=study, is_eligible=True, assessed_by=self.admin)
+        consent = ConsentRecord.objects.create(patient=patient, study=study, consent_version='1', decision='consented',
+                                               obtained_by=self.admin)
+        enrollment = StudyEnrollment.objects.create(patient=patient, study=study, participant_id='P9', facility=self.ilala,
+                                                    eligibility=eligible, consent=consent)
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse('research:consent_update', args=[consent.pk]), {
+            'study': study.pk, 'consent_type': 'Main study consent', 'consent_version': '1', 'decision': 'withdrawn',
+            'consent_date': '2026-01-01T09:00', 'withdrawal_date': '2026-10-01', 'withdrawal_reason': 'Moved away'}, follow=True)
+        self.assertContains(response, 'GoTHOMIS')
+        enrollment.refresh_from_db()
+        care.refresh_from_db()
+        self.assertEqual((enrollment.status, care.status), ('withdrawn', 'withdrawn'))
+        self.assertEqual(care.outcome_date, datetime.date(2026, 10, 1))

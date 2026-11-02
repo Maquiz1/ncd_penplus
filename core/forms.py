@@ -85,6 +85,11 @@ class ReasonForm(BootstrapForm):
     reason = forms.CharField(max_length=255, widget=forms.Textarea(attrs={'rows': 2}))
 
 
+class ReviewForm(BootstrapForm):
+    comment = forms.CharField(label='Doctor comment', required=False, widget=forms.Textarea(attrs={'rows': 3}),
+                              help_text='Optional: your interpretation or what should happen next.')
+
+
 class DateRangeForm(BootstrapForm):
     start = forms.DateField(required=False, label='From')
     end = forms.DateField(required=False, label='To')

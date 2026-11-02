@@ -13,14 +13,17 @@ from audit.models import AuditEvent
 from audit.services import log_event
 from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, PatientChildUpdateMixin,
                          ScopedQuerysetMixin)
-from core.forms import ReasonForm
+from core.forms import ReasonForm, ReviewForm
 from facilities.scope import default_facility, scope_queryset
-from research.services import mirror_programme_status
+from research.services import enroll_in_main_study, mirror_programme_status
 from patients.models import Patient
 from patients.services import register_patient
 
 from issues.detectors import diagnosis_prompts
-from .forms import (DiagnosisCreateForm, FamilyMemberForm, DiagnosisForm, PatientQuickForm, ReturnToCareForm, PreScreeningForm, ProgrammeEnrollmentForm, ScreeningCreateForm,
+from core.models import WorkflowStage
+from encounters.services import baseline_visit, close_baseline, current_visit
+
+from .forms import (CONSENT_RULE, ENROLL_RULE, DiagnosisCreateForm, ProgrammeEnrollmentCreateForm, RescreenForm, FamilyMemberForm, DiagnosisForm, PatientQuickForm, ReturnToCareForm, PreScreeningForm, ProgrammeEnrollmentForm, ScreeningCreateForm,
                     ScreeningSessionForm, ScreeningUpdateForm, SessionScreeningForm)
 from .models import (CLOSED_RETURNABLE, ClinicalProgramme, FamilyMember, Diagnosis, Disease, EnrollmentEvent, PreScreening,
                      ProgrammeEnrollment, Screening, ScreeningSession)
@@ -35,15 +38,19 @@ class PreScreeningCreateView(PatientChildCreateMixin, CreateView):
     success_tab = '#screening'
 
     def get(self, request, *args, **kwargs):
-        today = self.patient.prescreenings.filter(date=timezone.localdate()).first()
-        if today and request.user.has_perm('clinical.change_prescreening'):
-            messages.info(request, 'This subject was already pre-screened today. Edit that pre-screening instead.')
-            return redirect('clinical:prescreening_update', today.pk)
-        if today:
-            messages.warning(request, 'This subject was already pre-screened today. You cannot add another one '
-                                      'for the same day.')
+        existing = self.patient.prescreenings.order_by('-date', '-pk').first()
+        if existing and request.user.has_perm('clinical.change_prescreening'):
+            messages.info(request, 'Pre-screening is done once per subject. Edit the existing one instead.')
+            return redirect('clinical:prescreening_update', existing.pk)
+        if existing:
+            messages.warning(request, 'Pre-screening is done once per subject, and this subject already has one.')
             return redirect(self.patient.get_absolute_url() + '#screening')
         return super().get(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        if form.cleaned_data['screening_type'] == PreScreening.Type.FACILITY:
+            form.instance.encounter = baseline_visit(self.patient, form.cleaned_data['facility'], self.request)
+        return super().form_valid(form)
 
 
 class PreScreeningUpdateView(PatientChildUpdateMixin, UpdateView):
@@ -90,23 +97,41 @@ class ScreeningCreateView(PatientChildCreateMixin, CreateView):
     model = Screening
     form_class = ScreeningCreateForm
     title = 'Disease screening'
+    subtitle = 'Choose what the subject is going to be screened for. Investigations follow, then the doctor decides.'
     success_tab = '#screening'
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        if not response.context_data['form'].fields['diseases'].queryset.exists():
+            messages.info(request, 'This subject is already being screened for every disease.')
+            return redirect(self.get_success_url())
+        return response
 
     def get_initial(self):
         initial = super().get_initial()
-        if self.request.GET.get('encounter'):
-            initial['encounter'] = self.request.GET['encounter']
+        initial['encounter'] = self.request.GET.get('encounter') or getattr(current_visit(self.patient), 'pk', None)
+        pre = self.patient.prescreenings.order_by('-date', '-pk').first()
+        chosen = list(pre.known_diseases.values_list('pk', flat=True)) if pre and pre.known_ncd else []
+        if self.request.GET.get('disease'):
+            chosen = [self.request.GET['disease']]
+        initial['diseases'] = chosen
         return initial
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(subtitle=self.subtitle, **kwargs)
 
     def form_valid(self, form):
         data = {k: v for k, v in form.cleaned_data.items() if k != 'diseases'}
+        pre = self.patient.prescreenings.order_by('-date', '-pk').first()
+        data['consent_obtained'] = bool(pre and pre.consent_obtained)
+        data['encounter'] = data.get('encounter') or baseline_visit(self.patient, data['facility'], self.request)
         created = []
         for disease in form.cleaned_data['diseases']:
             screening = Screening.objects.create(patient=self.patient, disease=disease, screened_by=self.request.user,
                                                  created_by=self.request.user, **data)
             log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=screening)
             created.append(disease.name)
-        messages.success(self.request, f'Screening recorded for: {", ".join(created)}.')
+        messages.success(self.request, f'Screening recorded for: {", ".join(created)}. Next: request the investigations.')
         return redirect(self.get_success_url())
 
 
@@ -118,20 +143,157 @@ class ScreeningUpdateView(PatientChildUpdateMixin, UpdateView):
     success_tab = '#screening'
 
 
+class ScreeningRescreenView(PermissionRequiredMixin, View):
+    """A new screening round for a disease after a negative or unclear one. The earlier record stays as it was."""
+
+    permission_required = 'clinical.add_screening'
+
+    def get_previous(self, request, pk):
+        previous = get_object_or_404(scope_queryset(Screening.objects.select_related('patient', 'disease'), request.user,
+                                                    'patient__current_facility'), pk=pk)
+        if not previous.can_rescreen:
+            raise PermissionDenied('Only the latest screening with a negative or inconclusive result can be repeated.')
+        return previous
+
+    def render_form(self, request, previous, form):
+        return render(request, 'confirm_action.html', {
+            'title': f'Re-screen for {previous.disease}', 'patient': previous.patient, 'form': form,
+            'message': f'Earlier screening: {previous.screening_date:%d %b %Y}, {previous.get_result_display().lower()}. '
+                       'That record is kept. This starts a new round: investigations, then the doctor decides again.',
+            'button': 'Start re-screening', 'cancel_url': previous.patient.get_absolute_url() + '#screening'})
+
+    def get(self, request, pk):
+        previous = self.get_previous(request, pk)
+        return self.render_form(request, previous, RescreenForm(previous=previous))
+
+    def post(self, request, pk):
+        previous = self.get_previous(request, pk)
+        form = RescreenForm(request.POST, previous=previous)
+        if not form.is_valid():
+            return self.render_form(request, previous, form)
+        screening = Screening.objects.create(
+            patient=previous.patient, disease=previous.disease, rescreen_of=previous, facility=previous.patient.current_facility,
+            screening_date=form.cleaned_data['screening_date'], notes=form.cleaned_data['reason'],
+            consent_obtained=previous.consent_obtained, screened_by=request.user, created_by=request.user)
+        log_event(request=request, action=AuditEvent.Action.CREATE, obj=screening, reason='Re-screening')
+        messages.success(request, f'Re-screening started for {previous.disease}. Next: request the investigations.')
+        return redirect(previous.patient.get_absolute_url() + '#screening')
+
+
+class ScreeningDeleteView(PermissionRequiredMixin, View):
+    """Remove a screening entered twice or by mistake; a superuser can restore it."""
+
+    permission_required = 'clinical.delete_screening'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = get_object_or_404(scope_queryset(Screening.objects.select_related('patient', 'disease'), request.user,
+                                                       'patient__current_facility'), pk=kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def render_form(self, form):
+        return render(self.request, 'confirm_action.html', {
+            'title': f'Delete {self.object.disease} screening of {self.object.screening_date:%d %b %Y}',
+            'patient': self.object.patient, 'form': form, 'message': 'Use this for a screening entered twice or by mistake.',
+            'button': 'Delete screening', 'button_class': 'btn-danger',
+            'cancel_url': self.object.patient.get_absolute_url() + '#screening'})
+
+    def get(self, request, pk):
+        return self.render_form(ReasonForm())
+
+    def post(self, request, pk):
+        form = ReasonForm(request.POST)
+        if not form.is_valid():
+            return self.render_form(form)
+        self.object.soft_delete(request.user, form.cleaned_data['reason'])
+        log_event(request=request, action=AuditEvent.Action.DELETE, obj=self.object, reason=form.cleaned_data['reason'])
+        messages.success(request, 'Screening deleted.')
+        return redirect(self.object.patient.get_absolute_url() + '#screening')
+
+
+class ScreeningNotDiagnosedView(PermissionRequiredMixin, View):
+    """The doctor's decision that a subject screened for a disease does not have it."""
+
+    permission_required = 'clinical.add_diagnosis'
+
+    def get_screening(self, request, pk):
+        return get_object_or_404(scope_queryset(Screening.objects.select_related('patient', 'disease'), request.user,
+                                                'patient__current_facility'), pk=pk, result=Screening.Result.PENDING)
+
+    def render_form(self, request, screening, form):
+        return render(request, 'confirm_action.html', {
+            'title': f'Not diagnosed with {screening.disease}', 'patient': screening.patient, 'form': form,
+            'message': f'Screening of {screening.screening_date:%d %b %Y} ends here for this disease.',
+            'button': 'Save: not diagnosed', 'cancel_url': screening.patient.get_absolute_url()})
+
+    def get(self, request, pk):
+        return self.render_form(request, self.get_screening(request, pk), ReviewForm())
+
+    def post(self, request, pk):
+        screening = self.get_screening(request, pk)
+        form = ReviewForm(request.POST)
+        if not form.is_valid():
+            return self.render_form(request, screening, form)
+        screening.result = Screening.Result.NEGATIVE
+        if form.cleaned_data['comment']:
+            screening.notes = f'{screening.notes}\n{form.cleaned_data["comment"]}'.strip()
+        screening.save()
+        log_event(request=request, action=AuditEvent.Action.UPDATE, obj=screening, changes={'result': screening.result})
+        patient = screening.patient
+        if not patient.screenings.exclude(result=Screening.Result.NEGATIVE).exists() and not patient.diagnoses.exists():
+            close_baseline(patient, request, stage=WorkflowStage.SCREENING)
+        messages.success(request, f'{screening.disease}: not diagnosed.')
+        return redirect(screening.patient.get_absolute_url())
+
+
 class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
     permission_required = 'clinical.add_diagnosis'
     model = Diagnosis
     form_class = DiagnosisCreateForm
-    title = 'Record diagnosis'
+    template_name = 'clinical/diagnosis_form.html'
+    title = 'Doctor confirmation'
     success_tab = '#clinical'
 
     def get_initial(self):
         initial = super().get_initial()
-        initial['encounter'] = self.request.GET.get('encounter')
+        initial['encounter'] = self.request.GET.get('encounter') or getattr(current_visit(self.patient), 'pk', None)
+        initial['disease'] = self.request.GET.get('disease')
+        waiting = self.waiting_tests()
+        initial['status'] = Diagnosis.Status.PROVISIONAL if waiting else Diagnosis.Status.CONFIRMED
         return initial
 
+    def waiting_tests(self):
+        labs = self.patient.lab_orders.filter(status__in=['ordered', 'collected']).select_related('test')
+        imaging = self.patient.investigations.filter(status__in=['requested', 'scheduled']).select_related('investigation_type')
+        return [o.test.name for o in labs] + [o.name for o in imaging]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = context['form']
+        recorded = {}
+        for d in self.patient.diagnoses.exclude(condition=None).order_by('diagnosis_date'):
+            recorded[d.condition_id] = f'Already recorded: {d.get_status_display()}, {d.diagnosis_date:%d %b %Y}'
+        conditions = list(form.fields['conditions'].queryset)
+        groups = []
+        for disease in form.fields['disease'].queryset:
+            items = []
+            for main in (c for c in conditions if c.disease_id == disease.pk and not c.parent_id):
+                items.append(main)
+                items += [c for c in conditions if c.parent_id == main.pk]
+            for item in items:
+                item.recorded = recorded.get(item.pk, '')
+            if items:
+                groups.append((disease, items))
+        context.update(
+            groups=groups, selected={int(v) for v in form['conditions'].value() or []}, waiting=self.waiting_tests(),
+            lab_results=self.patient.lab_orders.filter(status__in=['resulted', 'reviewed']).select_related('test')
+            .order_by('-resulted_at')[:12],
+            imaging_results=self.patient.investigations.filter(status__in=['completed', 'reviewed'])
+            .select_related('investigation_type').order_by('-performed_at')[:6])
+        return context
+
     def form_valid(self, form):
-        data = {k: v for k, v in form.cleaned_data.items() if k not in ('conditions', 'description')}
+        data = {k: v for k, v in form.cleaned_data.items() if k not in ('conditions', 'description', 'disease')}
+        data['encounter'] = data.get('encounter') or baseline_visit(self.patient, self.patient.current_facility, self.request)
         details = form.cleaned_data.get('description', '').strip()
         conditions = list(form.cleaned_data.get('conditions') or []) or [None]
         created = []
@@ -139,8 +301,10 @@ class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
             description = condition.label if condition else details
             if condition and details:
                 description = f'{condition.label} – {details}'
-            diagnosis = Diagnosis.objects.create(patient=self.patient, condition=condition, description=description[:255],
-                                                 clinician=self.request.user, created_by=self.request.user, **data)
+            disease = condition.disease if condition else form.cleaned_data['disease']
+            diagnosis = Diagnosis.objects.create(patient=self.patient, disease=disease, condition=condition,
+                                                 description=description[:255], clinician=self.request.user,
+                                                 created_by=self.request.user, **data)
             log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=diagnosis)
             created.append(diagnosis.description)
         messages.success(self.request, f'{len(created)} diagnosis/diagnoses recorded: {"; ".join(created)}.')
@@ -164,9 +328,36 @@ class DiagnosisUpdateView(PatientChildUpdateMixin, UpdateView):
 class ProgrammeEnrollmentCreateView(PatientChildCreateMixin, CreateView):
     permission_required = 'clinical.add_programmeenrollment'
     model = ProgrammeEnrollment
-    form_class = ProgrammeEnrollmentForm
+    form_class = ProgrammeEnrollmentCreateForm
     title = 'Enroll in clinical programme'
     success_tab = '#clinical'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = context['form']
+        if not form.has_consent:
+            context['subtitle'] = f'Cannot enroll yet. {CONSENT_RULE}'
+        elif not form.can_enroll:
+            context['subtitle'] = f'Nothing to enroll in yet. {ENROLL_RULE}'
+        else:
+            context['subtitle'] = 'This also enrolls the subject in the PEN-Plus study, using the pre-screening consent.'
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        data = {k: v for k, v in form.cleaned_data.items() if k != 'programmes'}
+        names = []
+        for programme in form.cleaned_data['programmes']:
+            enrollment = ProgrammeEnrollment.objects.create(patient=self.patient, programme=programme,
+                                                            created_by=self.request.user, **data)
+            log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=enrollment)
+            names.append(programme.name)
+        close_baseline(self.patient, self.request, enrollment=enrollment)
+        study = enroll_in_main_study(self.patient, data['facility'], data['enrollment_date'], self.request)
+        if study:
+            names.append(f'{study.study.code} study')
+        messages.success(self.request, f'Enrolled in: {", ".join(names)}.')
+        return redirect(self.get_success_url())
 
 
 class ProgrammeEnrollmentUpdateView(PatientChildUpdateMixin, UpdateView):
@@ -432,7 +623,12 @@ class SessionScreenView(PermissionRequiredMixin, View):
                 log_event(request=request, action=AuditEvent.Action.CREATE, obj=patient,
                           reason=f'Registered at screening session {self.session.pk}')
             data = sform.cleaned_data
+            screened = set(patient.screenings.values_list('disease_id', flat=True))
+            skipped = []
             for disease, result in sform.results():
+                if disease.pk in screened:
+                    skipped.append(disease.name)
+                    continue
                 screening = Screening.objects.create(
                     patient=patient, disease=disease, session=self.session, facility=self.session.facility,
                     source=self.session.source, location_type=self.session.location_type,
@@ -442,6 +638,9 @@ class SessionScreenView(PermissionRequiredMixin, View):
                     next_action=data['next_action'], notes=data['notes'], screened_by=request.user,
                     created_by=request.user)
                 log_event(request=request, action=AuditEvent.Action.CREATE, obj=screening)
+        if skipped:
+            messages.warning(request, f'{patient.patient_number} was already screened for {", ".join(skipped)}: '
+                                      'that earlier screening was kept.')
         messages.success(request, f'{patient.patient_number} screened. Ready for the next person.')
         return redirect(reverse('clinical:session_screen', args=[self.session.pk]) + f'?saved={patient.pk}')
 

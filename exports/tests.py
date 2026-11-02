@@ -25,7 +25,7 @@ class ExportTests(BaseTestCase):
     def setUp(self):
         self.patient = self.make_patient(first_name='Zuhura')
         self.manager = self.make_user('dm_x', 'Data Manager', facility=self.ilala)
-        self.pi = self.make_user('pi_x', 'PI / Co-Investigator', level='national')
+        self.pi = self.make_user('pi_x', 'Statistician', level='national')
 
     def export(self, user, **data):
         self.client.force_login(user)
@@ -109,7 +109,7 @@ class FormsPageTests(BaseTestCase):
 
         from laboratory.models import LabOrder, LabTest
         self.patient = self.make_patient(first_name='Zuhura')
-        self.pi = self.make_user('pi_f', 'PI / Co-Investigator', level='national')
+        self.pi = self.make_user('pi_f', 'Statistician', level='national')
         when = timezone.now().replace(hour=9)
         for code, raw in (('hb', '9.1'), ('creat', '80'), ('hiv', 'Negative')):
             order = LabOrder(patient=self.patient, facility=self.ilala, test=LabTest.objects.get(code=code),
@@ -161,7 +161,7 @@ class FormsPageTests(BaseTestCase):
         from clinical.models import ClinicalProgramme, ProgrammeEnrollment
         ProgrammeEnrollment.objects.create(patient=self.patient, facility=self.ilala,
                                            programme=ClinicalProgramme.objects.get(code='dm-care'))
-        cardiologist = self.make_user('cardio_f', 'PI / Co-Investigator', level='national')
+        cardiologist = self.make_user('cardio_f', 'Statistician', level='national')
         cardiologist.diseases.add(self.cardiac)
         job = self.download(cardiologist, form='laboratory', dataset='labs')
         self.assertEqual((job.status, job.rows), ('done', 0), job.error)

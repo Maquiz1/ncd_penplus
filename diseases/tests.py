@@ -85,8 +85,10 @@ class MultiDiagnosisTests(BaseTestCase):
         diagnoses = {d.condition.code: d.description for d in Diagnosis.objects.filter(patient=patient)}
         self.assertEqual(set(diagnoses), {'rhd-pure-mitral-regurgitation', 'hf', 'arrhythmia-atrial-fibrillation'})
         self.assertEqual(diagnoses['rhd-pure-mitral-regurgitation'], 'Rheumatic heart disease – Pure mitral regurgitation')
-        # conditions of another disease are refused
-        response = self.client.post(reverse('clinical:diagnosis_add', args=[patient.pk]), {
-            'disease': Disease.objects.get(code='diabetes').pk, 'conditions': [picks[0].pk], 'status': 'confirmed',
-            'diagnosis_date': '2026-10-01'})
-        self.assertContains(response, 'Choose only conditions of Diabetes')
+        # conditions of several diseases can be recorded together, each under its own disease
+        other = self.make_patient()
+        type1 = Condition.objects.filter(disease__code='diabetes', parent=None).first()
+        self.client.post(reverse('clinical:diagnosis_add', args=[other.pk]), {
+            'conditions': [picks[0].pk, type1.pk], 'status': 'confirmed', 'diagnosis_date': '2026-10-01'})
+        self.assertEqual({d.disease.code for d in Diagnosis.objects.filter(patient=other)}, {'cardiac', 'diabetes'})
+        self.assertContains(self.client.get(reverse('clinical:diagnosis_add', args=[other.pk])), 'Already recorded')

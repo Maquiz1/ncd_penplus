@@ -15,10 +15,10 @@
 </ul>
 <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">{{ state_label }} <span class="text-body-secondary fw-normal">({{ rows|length }})</span></div>
 <div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-  <thead class="table-light"><tr><th>Subject</th><th>Name</th><th>Facility</th><th>Last HbA1c</th><th class="text-end">Days since</th><th>Due</th><th>Status</th><th class="text-end d-print-none">Action</th></tr></thead>
+  <thead class="table-light"><tr><th>Subject</th>{% if can_view_identity %}<th>Name</th>{% endif %}<th>Facility</th><th>Last HbA1c</th><th class="text-end">Days since</th><th>Due</th><th>Status</th><th class="text-end d-print-none">{% if perms.patients.view_patient %}Action{% endif %}</th></tr></thead>
   <tbody>{% for p, s in rows %}<tr>
-    <td><a href="{{ p.get_absolute_url }}#labs">{{ p.patient_number }}</a>{% old_patient_id p %}</td>
-    <td>{% patient_name p %}</td>
+    <td><a href="{% if perms.patients.view_patient %}{{ p.get_absolute_url }}#labs{% else %}{% url 'patients:summary' p.pk %}{% endif %}">{{ p.patient_number }}</a>{% old_patient_id p %}</td>
+    {% if can_view_identity %}<td>{% patient_name p %}</td>{% endif %}
     <td>{{ p.current_facility }}</td>
     <td>{% if s.last %}<span class="fw-semibold">{{ s.last.result_value }}{% if s.last.result_unit %} {{ s.last.result_unit }}{% endif %}</span> <span class="small text-body-secondary">{{ s.last_date|date:"d M Y" }}</span>{% else %}<span class="text-body-secondary">none since enrolment</span>{% endif %}</td>
     <td class="text-end">{{ s.days|default_if_none:"—" }}</td>

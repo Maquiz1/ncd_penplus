@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -7,6 +8,7 @@ from facilities.scope import scope_queryset
 
 from .forms import ConsentForm, EligibilityForm, StudyEnrollmentForm, StudyForm
 from .models import ConsentRecord, Study, StudyEligibilityAssessment, StudyEnrollment
+from .services import apply_consent_withdrawal, close_care_with_study
 
 
 class StudyListView(PermissionRequiredMixin, ListView):
@@ -60,6 +62,12 @@ class EligibilityCreateView(PatientChildCreateMixin, CreateView):
         return super().form_valid(form)
 
 
+def _report_closed(request, closed):
+    if closed:
+        messages.info(request, 'PEN-Plus clinic enrollment closed to match: ' + ', '.join(str(e.programme) for e in closed)
+                      + '. The subject continues routine care, recorded in GoTHOMIS.')
+
+
 class ConsentCreateView(PatientChildCreateMixin, CreateView):
     permission_required = 'research.add_consentrecord'
     model = ConsentRecord
@@ -76,7 +84,9 @@ class ConsentCreateView(PatientChildCreateMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.obtained_by = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        _report_closed(self.request, apply_consent_withdrawal(self.object, self.request))
+        return response
 
 
 class ConsentUpdateView(PatientChildUpdateMixin, UpdateView):
@@ -85,6 +95,11 @@ class ConsentUpdateView(PatientChildUpdateMixin, UpdateView):
     form_class = ConsentForm
     title = 'Update consent (e.g. withdrawal)'
     success_tab = '#research'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        _report_closed(self.request, apply_consent_withdrawal(self.object, self.request))
+        return response
 
 
 class StudyEnrollmentCreateView(PatientChildCreateMixin, CreateView):
@@ -111,6 +126,12 @@ class StudyEnrollmentUpdateView(PatientChildUpdateMixin, UpdateView):
     form_class = StudyEnrollmentForm
     title = 'Update study enrollment / outcome'
     success_tab = '#research'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if 'status' in form.changed_data:
+            _report_closed(self.request, close_care_with_study(self.object, self.request))
+        return response
 
     def get_success_url(self):
         return reverse('patients:detail', args=[self.object.patient_id]) + '#research'

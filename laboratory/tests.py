@@ -97,6 +97,16 @@ class LabCatalogueTests(BaseTestCase):
         self.client.post(reverse('laboratory:lab_action', args=[orders[0].pk, 'review']))
         self.assertEqual(set(LabOrder.objects.values_list('status', flat=True)), {'reviewed'})
 
+    def test_review_comment_saved_on_whole_request_and_optional(self):
+        orders = self.order_fbc()
+        url = reverse('laboratory:lab_action', args=[orders[0].pk, 'review'])
+        LabOrder.objects.update(status='resulted', result_value='7')
+        self.assertContains(self.client.get(url), 'Doctor comment')
+        self.client.post(url, {'comment': 'Repeat in 2 weeks'})
+        self.assertEqual(set(LabOrder.objects.values_list('review_comment', flat=True)), {'Repeat in 2 weeks'})
+        self.assertContains(self.client.get(reverse('laboratory:request_detail', args=[orders[0].request_group])),
+                            'Repeat in 2 weeks')
+
     def test_repeat_request_needs_confirmation(self):
         self.order_fbc()
         url = reverse('investigations:request', args=[self.patient.pk])

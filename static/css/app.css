@@ -149,6 +149,14 @@ body { background-color: var(--bs-body-bg); }
 .lab-chip.is-cancelled { text-decoration: line-through; color: var(--bs-secondary-color); }
 .lab-chip.is-abnormal strong { color: var(--bs-danger); }
 
+/* Baseline, Follow-up and Unscheduled panels */
+.pathway-steps { display: flex; flex-wrap: wrap; gap: .5rem; }
+.pathway-step { display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .7rem; font-size: .9rem; border-radius: .375rem; text-decoration: none;
+  color: var(--bs-primary); background: var(--bs-body-bg); border: 1px solid var(--bs-primary-border-subtle); }
+.pathway-step:hover { background: var(--bs-primary-bg-subtle); }
+.pathway-step.is-done { color: var(--bs-success-text-emphasis); background: var(--bs-success-bg-subtle); border-color: var(--bs-success-border-subtle); }
+.pathway-step small { color: var(--bs-secondary-color); }
+
 /* Investigations request page */
 .inv-search { max-width: 16rem; }
 .inv-group { display: block; width: 100%; margin-bottom: .35rem; padding: .5rem .75rem; text-align: left; border-radius: .25rem; font-size: .9rem;
@@ -161,6 +169,8 @@ body { background-color: var(--bs-body-bg); }
 .inv-item:has(input:checked) { background: var(--bs-primary-bg-subtle); }
 .inv-item .form-check-input { flex-shrink: 0; margin-top: .2rem; }
 .inv-pick { margin: 0 .25rem .25rem 0; }
+.inv-sub { padding-left: 1.75rem; }
+.dx-items { max-height: 65vh; overflow-y: auto; }
 .inv-tray .col-md-6 { width: 100%; }
 .inv-tray .btn-close { font-size: .65rem; flex-shrink: 0; margin-top: .3rem; }
 @media (min-width: 992px) { .inv-tray { position: sticky; top: 4.5rem; } }

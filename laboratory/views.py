@@ -10,7 +10,7 @@ from django.views.generic import CreateView, ListView, UpdateView
 
 from audit.models import AuditEvent
 from audit.services import log_event
-from core.forms import ReasonForm
+from core.forms import ReasonForm, ReviewForm
 from core.mixins import AuditedCreateMixin, AuditedUpdateMixin, PatientContextMixin
 from facilities.scope import scope_queryset
 from issues.detectors import diagnosis_prompts, hba1c_overdue
@@ -142,8 +142,10 @@ class LabRequestDetailView(PermissionRequiredMixin, View):
             done = [o for o in orders if getattr(o, attr)]
             if done:
                 last = max(done, key=lambda o: getattr(o, attr))
-                events.append((getattr(last, attr), label, getattr(last, who),
-                               f'{len(done)} of {len(orders)} test(s)' if len(done) < len(orders) else ''))
+                note = f'{len(done)} of {len(orders)} test(s)' if len(done) < len(orders) else ''
+                if attr == 'reviewed_at' and last.review_comment:
+                    note = f'{note} · {last.review_comment}' if note else last.review_comment
+                events.append((getattr(last, attr), label, getattr(last, who), note))
         for o in orders:
             if o.status == 'cancelled':
                 events.append((o.updated_at, f'{o.test.name} cancelled', None, o.cancel_reason))
@@ -192,14 +194,18 @@ class LabOrderActionView(PermissionRequiredMixin, View):
             return GroupResultForm(data, orders=orders)
         if step == 'cancel':
             return ReasonForm(data)
-        return None
+        return ReviewForm(data)
 
     def render_step(self, request, order, orders, step, form):
-        names = ', '.join(o.test.name for o in orders)
+        if step == 'review':
+            names = ', '.join(f'{o.test.name}: {o.result_value} {o.result_unit}'.rstrip() for o in orders)
+        else:
+            names = ', '.join(o.test.name for o in orders)
         return render(request, 'confirm_action.html', {
             'title': self.STEPS[step][1], 'patient': order.patient, 'form': form,
             'message': f'{names} — ordered {timezone.localtime(order.ordered_at):%d %b %Y %H:%M}'
-                       + (f'. Result: {order.result_value} {order.result_unit}' if order.result_value else ''),
+                       + (f'. Result: {order.result_value} {order.result_unit}'
+                          if order.result_value and step != 'review' else ''),
             'button': self.STEPS[step][1], 'button_class': 'btn-danger' if step == 'cancel' else 'btn-primary',
             'cancel_url': back(request, order), 'next': request.GET.get('next', '')})
 
@@ -228,6 +234,7 @@ class LabOrderActionView(PermissionRequiredMixin, View):
         elif step == 'review':
             for o in orders:
                 o.reviewed_by, o.reviewed_at, o.status = request.user, now, LabOrder.Status.REVIEWED
+                o.review_comment = form.cleaned_data['comment']
                 changed.append(o)
         elif step == 'cancel':
             order.cancel_reason, order.status = form.cleaned_data['reason'], LabOrder.Status.CANCELLED

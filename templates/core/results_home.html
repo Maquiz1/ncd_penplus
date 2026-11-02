@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="h3 mb-0">Welcome, {{ user.display_name }}</h1>
+  <div class="text-body-secondary small">{% if user.role_label %}{{ user.role_label }} · {% endif %}{{ today|date:"l, j F Y" }} · Access scope: {{ scope }} · View only</div>
+</div>
+
+{% if scope == 'No assigned scope' %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Your account has no facility or geographic assignment yet, so no data is visible.</div>{% endif %}
+
+{% if stats %}<div class="row g-2 mb-4">
+  <div class="col-6 col-xl-4"><div class="stat-tile" style="border-left-color: var(--bs-primary);"><div class="stat-label">Subjects</div><div class="stat-num">{{ stats.patients_total }}</div></div></div>
+  <div class="col-6 col-xl-4"><div class="stat-tile" style="border-left-color: var(--bs-success);"><div class="stat-label">Enrolled</div><div class="stat-num">{{ stats.enrolled_active }}</div></div></div>
+  <div class="col-6 col-xl-4"><div class="stat-tile" style="border-left-color: var(--bs-danger);"><div class="stat-label">Overdue visits</div><div class="stat-num">{{ stats.appointments_overdue }}</div></div></div>
+</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-md-6 col-xl-4"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-file-earmark-bar-graph"></i> Reports</div>
+    <div class="list-group list-group-flush">
+      <a class="list-group-item list-group-item-action" href="{% url 'reporting:disease' %}">Disease reports</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'reporting:recruitment' %}">Recruitment by site</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'reporting:conditions' %}">Subjects by condition</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'reporting:follow_up' %}">Follow-up &amp; retention</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'reporting:home' %}">All reports</a>
+    </div>
+  </div></div>
+  <div class="col-md-6 col-xl-4"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-speedometer"></i> Indicators</div>
+    <div class="list-group list-group-flush">
+      <a class="list-group-item list-group-item-action" href="{% url 'indicators:quarterly' %}">Quarterly core (PP)</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'indicators:clinical' %}">Clinical</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'indicators:socio' %}">Sociodemographic</a>
+    </div>
+  </div></div>
+  <div class="col-md-6 col-xl-4"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-activity"></i> Monitoring</div>
+    <div class="list-group list-group-flush">
+      <a class="list-group-item list-group-item-action" href="{% url 'laboratory:monitoring' %}">HbA1c due list</a>
+    </div>
+  </div></div>
+  <div class="col-md-6 col-xl-4"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-file-earmark-medical"></i> Subject summaries</div>
+    <div class="card-body">
+      <p class="small text-body-secondary">Subject ID, age, sex, current site and status: active, lost to follow-up, deceased and so on. Open one to see the summary. No names.</p>
+      <a class="btn btn-primary btn-sm" href="{% url 'patients:summaries' %}"><i class="bi bi-list-ul"></i> List of subjects</a>
+    </div>
+  </div></div>
+  {% if perms.reporting.export_data %}<div class="col-md-6 col-xl-4"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-cloud-arrow-down"></i> Exports &amp; data dictionary</div>
+    <div class="list-group list-group-flush">
+      <a class="list-group-item list-group-item-action" href="{% url 'exports:list' %}">Data exports</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'exports:forms' %}">Data by form</a>
+      <a class="list-group-item list-group-item-action" href="{% url 'exports:codebook' %}">Data dictionary</a>
+    </div>
+  </div></div>{% endif %}
+</div>
+{% endblock %}

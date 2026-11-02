@@ -27,6 +27,17 @@ class InvestigationTests(BaseTestCase):
             'types': [self.echo.pk], 'clinical_notes': 'Dyspnoea', 'facility': self.ilala.pk})
         return InvestigationOrder.objects.get(patient=self.patient)
 
+    def test_review_with_comment(self):
+        inv = self.request()
+        InvestigationOrder.objects.filter(pk=inv.pk).update(status='completed', conclusion='Normal')
+        self.client.force_login(self.admin)
+        url = reverse('investigations:review', args=[inv.pk])
+        self.assertContains(self.client.get(url), 'Doctor comment')
+        self.client.post(url, {'comment': 'Review in clinic'})
+        inv.refresh_from_db()
+        self.assertEqual((inv.status, inv.review_comment), ('reviewed', 'Review in clinic'))
+        self.assertContains(self.client.get(reverse('investigations:detail', args=[inv.pk])), 'Review in clinic')
+
     def report(self, inv, **results):
         self.client.force_login(self.imaging)
         data = {'performed_at': timezone.now().strftime('%Y-%m-%dT%H:%M'), 'findings': '', 'conclusion': ''}

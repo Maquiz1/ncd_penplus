@@ -70,6 +70,8 @@ class PreScreening(SoftDeleteModel):
         SCHOOL = 'school', 'School outreach'
 
     patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='prescreenings')
+    encounter = models.ForeignKey('encounters.Encounter', on_delete=models.PROTECT, null=True, blank=True,
+                                  related_name='prescreenings', editable=False)
     facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='+')
     date = models.DateField('Date of screening', default=timezone.localdate)
     screening_type = models.CharField('Type of screening', max_length=20, choices=Type.choices, default=Type.FACILITY)
@@ -79,6 +81,8 @@ class PreScreening(SoftDeleteModel):
     expected_stay_months = models.PositiveSmallIntegerField('Expected stay in area (months)', null=True, blank=True)
     known_ncd = models.BooleanField('Known NCD?', null=True, blank=True,
                                     help_text='Already diagnosed with an NCD before today (e.g. a known diabetic).')
+    known_diseases = models.ManyToManyField('Disease', blank=True, related_name='+', verbose_name='Which NCD?',
+                                            help_text='Tick each one. Screening and investigations focus on these.')
     lab_test_requested = models.BooleanField('Request lab test?', null=True, blank=True)
     lab_request_date = models.DateField('Lab request date', null=True, blank=True)
     disposition = models.CharField(max_length=20, choices=Disposition.choices, default=Disposition.PROCEED)
@@ -93,7 +97,8 @@ class PreScreening(SoftDeleteModel):
 
 
 class Screening(SoftDeleteModel):
-    """One disease-specific screening event. Never creates a diagnosis or enrollment by itself."""
+    """What a subject is being screened for, one record per disease. Investigations follow; the result stays
+    pending until the doctor decides. Never creates a diagnosis or enrollment by itself."""
 
     class Source(models.TextChoices):
         FACILITY = 'facility', 'Facility'
@@ -128,12 +133,22 @@ class Screening(SoftDeleteModel):
     referred_to = models.ForeignKey(Facility, on_delete=models.PROTECT, null=True, blank=True, related_name='+',
                                     help_text='Facility the person was referred to for further management.')
     screened_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    rescreen_of = models.ForeignKey('self', on_delete=models.PROTECT, null=True, blank=True, related_name='+',
+                                    verbose_name='Re-screening of', help_text='The earlier screening this one repeats.')
 
     class Meta:
         ordering = ['-screening_date', '-pk']
 
     def __str__(self):
         return f'{self.disease} screening {self.screening_date}'
+
+    @property
+    def can_rescreen(self):
+        """The doctor found nothing (or nothing clear), and this is the subject's latest screening for the disease."""
+        if self.result not in (self.Result.NEGATIVE, self.Result.INCONCLUSIVE):
+            return False
+        latest = Screening.objects.filter(patient_id=self.patient_id, disease_id=self.disease_id).first()
+        return latest is not None and latest.pk == self.pk
 
 
 class ScreeningSession(TimeStampedModel):
@@ -203,6 +218,11 @@ class Diagnosis(SoftDeleteModel):
             from diseases.models import match_condition
             self.condition, _matched = match_condition(self.description, self.disease)
         super().save(*args, **kwargs)
+        # The doctor's decision settles a screening that was waiting for it.
+        outcome = {self.Status.CONFIRMED: Screening.Result.POSITIVE, self.Status.RULED_OUT: Screening.Result.NEGATIVE}
+        if self.status in outcome:
+            Screening.objects.filter(patient_id=self.patient_id, disease_id=self.disease_id,
+                                     result=Screening.Result.PENDING).update(result=outcome[self.status])
 
 
 class EnrollmentStatus(models.TextChoices):

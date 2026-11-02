@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db import transaction
 from django.http import FileResponse, Http404
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.utils import timezone
@@ -13,9 +13,10 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Upd
 
 from audit.models import AuditEvent
 from audit.services import log_event
+from core.forms import ReviewForm
 from core.mixins import (AuditedCreateMixin, AuditedUpdateMixin, PatientChildUpdateMixin, PatientContextMixin,
                          ScopedQuerysetMixin)
-from encounters.services import todays_encounter
+from encounters.services import baseline_visit, current_visit
 from facilities.scope import scope_queryset
 from issues.detectors import diagnosis_prompts
 from laboratory.models import LabOrder
@@ -37,7 +38,7 @@ class InvestigationRequestView(PermissionRequiredMixin, PatientContextMixin, For
         return user.has_perm('laboratory.add_laborder') or user.has_perm('investigations.add_investigationorder')
 
     def get_initial(self):
-        visit = self.request.GET.get('encounter') or todays_encounter(self.patient)
+        visit = self.request.GET.get('encounter') or current_visit(self.patient)
         return {'facility': self.patient.current_facility_id, 'encounter': getattr(visit, 'pk', visit),
                 **preselected(self.request.GET)}
 
@@ -56,8 +57,8 @@ class InvestigationRequestView(PermissionRequiredMixin, PatientContextMixin, For
     @transaction.atomic
     def form_valid(self, form):
         data, user = form.cleaned_data, self.request.user
-        common = {'patient': self.patient, 'facility': data['facility'], 'encounter': data.get('encounter'),
-                  'created_by': user}
+        visit = data.get('encounter') or baseline_visit(self.patient, data['facility'], self.request)
+        common = {'patient': self.patient, 'facility': data['facility'], 'encounter': visit, 'created_by': user}
         notes, group = data.get('clinical_notes', ''), uuid.uuid4()
         tests, types = form.requested_tests(), data['types']
         for test, panel in tests:
@@ -71,8 +72,9 @@ class InvestigationRequestView(PermissionRequiredMixin, PatientContextMixin, For
         sent = [f'{len(tests)} laboratory test{pluralize(len(tests))}'] if tests else []
         sent += [f'{len(types)} radiology request{pluralize(len(types))}'] if types else []
         messages.success(self.request, f'Sent: {" and ".join(sent)}.')
-        visit = data.get('encounter')
-        return redirect(visit.get_absolute_url() if visit else self.patient.get_absolute_url() + '#labs')
+        if visit and visit.stage != 'baseline':
+            return redirect(visit.get_absolute_url())
+        return redirect(self.patient.get_absolute_url())
 
 
 class InvestigationWorklistView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
@@ -143,14 +145,33 @@ class InvestigationReportView(PatientChildUpdateMixin, UpdateView):
 class InvestigationReviewView(PermissionRequiredMixin, View):
     permission_required = 'investigations.review_investigationorder'
 
+    def get_order(self, request, pk):
+        return get_object_or_404(scope_queryset(InvestigationOrder.objects.select_related('patient'), request.user,
+                                                'patient__current_facility'), pk=pk, status='completed')
+
+    def next_url(self, request, inv):
+        return request.POST.get('next') or request.GET.get('next') or inv.patient.get_absolute_url() + '#labs'
+
+    def render_form(self, request, inv, form):
+        return render(request, 'confirm_action.html', {
+            'title': f'Review {inv.name}', 'patient': inv.patient, 'form': form, 'button': 'Mark reviewed',
+            'button_class': 'btn-success', 'message': f'Conclusion: {inv.conclusion}' if inv.conclusion else '',
+            'cancel_url': self.next_url(request, inv), 'next': self.next_url(request, inv)})
+
+    def get(self, request, pk):
+        return self.render_form(request, self.get_order(request, pk), ReviewForm())
+
     def post(self, request, pk):
-        inv = get_object_or_404(scope_queryset(InvestigationOrder.objects.all(), request.user,
-                                               'patient__current_facility'), pk=pk, status='completed')
+        inv = self.get_order(request, pk)
+        form = ReviewForm(request.POST)
+        if not form.is_valid():
+            return self.render_form(request, inv, form)
         inv.status, inv.reviewed_by, inv.reviewed_at = 'reviewed', request.user, timezone.now()
+        inv.review_comment = form.cleaned_data['comment']
         inv.save()
         log_event(request=request, action=AuditEvent.Action.REVIEW, obj=inv)
         messages.success(request, 'Investigation reviewed.')
-        return redirect(request.POST.get('next') or inv.patient.get_absolute_url() + '#labs')
+        return redirect(self.next_url(request, inv))
 
 
 class InvestigationAttachmentView(PermissionRequiredMixin, View):

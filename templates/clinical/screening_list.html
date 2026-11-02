@@ -10,7 +10,7 @@
 </form>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0">
   <thead class="table-light"><tr><th>Date</th><th>Subject</th><th>Disease</th><th>Source</th><th>Location</th><th>Facility</th><th>Result</th><th>Next action</th></tr></thead>
-  <tbody>{% for s in object_list %}<tr><td>{{ s.screening_date|date:"d M Y" }}</td><td><a href="{{ s.patient.get_absolute_url }}#screening">{{ s.patient }}</a></td><td>{{ s.disease }}</td><td>{{ s.get_source_display }}</td><td>{{ s.get_location_type_display }}</td><td>{{ s.facility }}</td><td>{% status_badge s.result %}</td><td class="small">{{ s.next_action }}</td></tr>
+  <tbody>{% for s in object_list %}<tr><td>{{ s.screening_date|date:"d M Y" }}</td><td><a href="{{ s.patient.get_absolute_url }}#screening">{{ s.patient }}</a></td><td>{{ s.disease }}{% if s.rescreen_of_id %} <span class="badge text-bg-info">Re-screening</span>{% endif %}</td><td>{{ s.get_source_display }}</td><td>{{ s.get_location_type_display }}</td><td>{{ s.facility }}</td><td>{% status_badge s.result %}</td><td class="small">{{ s.next_action }}</td></tr>
   {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No screenings.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% include "_pagination.html" %}

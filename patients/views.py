@@ -83,7 +83,7 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             'current_facility', 'registration_facility', 'residence_district__region', 'residence_ward', 'residence_street')
 
     def get_context_data(self, **kwargs):
-        from clinical.flow import patient_flow
+        from clinical.flow import patient_flow, patient_pathway
         from crf.services import applicable_versions
 
         p = self.object
@@ -116,6 +116,7 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             available_forms=applicable_versions(p),
             open_transfer=p.transfers.filter(status__in=['requested', 'approved', 'sent']).first(),
             flow=patient_flow(p),
+            pathway=patient_pathway(p),
         )
         return ctx
 
@@ -348,7 +349,7 @@ class SummaryListView(PermissionRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        from django.db.models import OuterRef, Subquery
+        from django.db.models import OuterRef, Q, Subquery
         from django.utils import timezone
 
         from clinical.models import ClinicalProgramme
@@ -362,8 +363,13 @@ class SummaryListView(PermissionRequiredMixin, ListView):
             qs = qs.filter(current_facility_id=params['facility'])
         if params.get('programme'):
             qs = qs.filter(programme_enrollments__programme_id=params['programme'])
-        if params.get('status'):
-            qs = qs.filter(programme_enrollments__status=params['status'])
+        status = params.get('status')
+        if status == 'deceased':
+            qs = qs.filter(Q(vital_status='deceased') | Q(programme_enrollments__status='deceased'))
+        elif status == 'not_enrolled':
+            qs = qs.filter(programme_enrollments__isnull=True, vital_status='alive')
+        elif status:
+            qs = qs.filter(programme_enrollments__status=status).exclude(vital_status='deceased')
         self.programmes = ClinicalProgramme.objects.select_related('disease')
         today = timezone.localdate()
         last_visit = Encounter.objects.filter(patient=OuterRef('pk')).exclude(status='cancelled') \
@@ -377,8 +383,23 @@ class SummaryListView(PermissionRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         from clinical.models import EnrollmentStatus
-        return super().get_context_data(facilities=facilities_for_user(self.request.user), programmes=self.programmes,
-                                        statuses=EnrollmentStatus.choices, **kwargs)
+        context = super().get_context_data(facilities=facilities_for_user(self.request.user), programmes=self.programmes,
+                                           statuses=[*EnrollmentStatus.choices, ('not_enrolled', 'Not enrolled')], **kwargs)
+        context['object_list'] = list(context['object_list'])
+        for patient in context['object_list']:
+            patient.overall_status = self.overall_status(patient)
+        return context
+
+    @staticmethod
+    def overall_status(patient):
+        """One status per subject: deceased first, then active in any programme, then the latest programme's status."""
+        if patient.is_deceased:
+            return 'deceased', 'Deceased'
+        enrollments = list(patient.programme_enrollments.all())
+        if not enrollments:
+            return 'not_enrolled', 'Not enrolled'
+        latest = next((e for e in enrollments if e.status == 'active'), enrollments[0])
+        return latest.status, latest.get_status_display()
 
 
 class SubjectSummaryView(PermissionRequiredMixin, DetailView):

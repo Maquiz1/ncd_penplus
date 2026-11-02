@@ -1,10 +1,12 @@
 from django import forms
+from django.utils import timezone
 
 from core.forms import BootstrapForm, BootstrapModelForm, PatientChildForm, apply_bootstrap
 from facilities.forms import LocationFieldsMixin
 from facilities.models import Facility
 from facilities.scope import facilities_for_user
 from patients.forms import PatientForm
+from research.services import research_consent_given
 
 from .models import (ClinicalProgramme, FamilyMember, Diagnosis, Disease, PreScreening, ProgrammeEnrollment, Screening,
                      ScreeningSession)
@@ -20,21 +22,23 @@ class PreScreeningForm(PatientChildForm):
         ('Screening', 'bi-clipboard2-check', ['date', 'screening_type', 'facility']),
         ('Consent', 'bi-pen', ['consent_obtained', 'consent_date']),
         ('Residence', 'bi-house', ['resides_in_area', 'expected_stay_months']),
-        ('NCD and tests', 'bi-droplet-half', ['known_ncd', 'lab_test_requested', 'lab_request_date']),
+        ('NCD and tests', 'bi-droplet-half', ['known_ncd', 'known_diseases', 'lab_test_requested', 'lab_request_date']),
         ('Outcome', 'bi-signpost-split', ['disposition', 'notes']),
     ]
 
     class Meta:
         model = PreScreening
         fields = ['date', 'screening_type', 'facility', 'consent_obtained', 'consent_date', 'resides_in_area',
-                  'expected_stay_months', 'known_ncd', 'lab_test_requested', 'lab_request_date', 'disposition', 'notes']
+                  'expected_stay_months', 'known_ncd', 'known_diseases', 'lab_test_requested', 'lab_request_date', 'disposition', 'notes']
         widgets = {'consent_obtained': forms.RadioSelect(choices=YES_NO), 'known_ncd': forms.RadioSelect(choices=YES_NO),
+                   'known_diseases': forms.CheckboxSelectMultiple,
                    'lab_test_requested': forms.RadioSelect(choices=YES_NO),
                    'resides_in_area': forms.RadioSelect(choices=YES_NO), 'notes': forms.Textarea(attrs={'rows': 2})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['consent_obtained'].required = True
+        self.fields['known_diseases'].queryset = Disease.objects.filter(is_active=True)
         self.fields['resides_in_area'].required = False
         self.fields['consent_date'].help_text = 'Required when the person consented.'
         self.fields['lab_request_date'].help_text = 'When a lab test was requested.'
@@ -50,28 +54,48 @@ class PreScreeningForm(PatientChildForm):
             self.add_error('consent_date', 'Enter the date of consent.')
         if data.get('consent_obtained') is False and data.get('disposition') == PreScreening.Disposition.PROCEED:
             self.add_error('disposition', 'Without consent the person cannot proceed to disease screening.')
+        if data.get('known_ncd') and not data.get('known_diseases'):
+            self.add_error('known_diseases', 'Tick the known NCD: one or more.')
+        if not data.get('known_ncd'):
+            data['known_diseases'] = Disease.objects.none()
         if data.get('lab_test_requested') and not data.get('lab_request_date'):
             data['lab_request_date'] = data.get('date')
-        patient = self.patient or getattr(self.instance, 'patient', None)
-        if patient and data.get('date'):
-            same_day = PreScreening.objects.filter(patient=patient, date=data['date']).exclude(pk=self.instance.pk)
-            if same_day.exists():
-                raise forms.ValidationError(f'This subject already has a pre-screening on {data["date"]:%d %b %Y}. '
-                                            'Edit that one instead of adding another.')
+        if not self.instance.pk and self.patient and self.patient.prescreenings.exists():
+            raise forms.ValidationError('Pre-screening is done once per subject. Edit the existing one instead.')
         return data
 
 
 class ScreeningCreateForm(PatientChildForm):
-    """Screen for several diseases at once; one Screening record is created per disease."""
+    """What the subject is going to be screened for; one record per disease. The doctor's decision gives the result."""
 
     diseases = forms.ModelMultipleChoiceField(queryset=Disease.objects.filter(is_active=True),
-                                              widget=forms.CheckboxSelectMultiple)
+                                              widget=forms.CheckboxSelectMultiple, label='Screen for')
 
     class Meta:
         model = Screening
-        fields = ['diseases', 'facility', 'encounter', 'source', 'location_type', 'screening_date', 'result',
-                  'risk_factors', 'consent_obtained', 'referred', 'referred_to', 'next_action', 'notes']
-        help_texts = {'result': 'Applied to every selected disease; edit individual screenings afterwards if results differ.'}
+        fields = ['diseases', 'screening_date', 'facility', 'encounter', 'notes']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Screening is done once per disease: a result is added by editing the existing screening.
+        self.fields['diseases'].queryset = Disease.objects.filter(is_active=True).exclude(
+            pk__in=self.patient.screenings.values('disease'))
+
+
+class RescreenForm(BootstrapForm):
+    screening_date = forms.DateField(label='Date of re-screening', initial=timezone.localdate)
+    reason = forms.CharField(label='Why is the subject being re-screened?', max_length=255,
+                             widget=forms.Textarea(attrs={'rows': 2}))
+
+    def __init__(self, *args, previous=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.previous = previous
+
+    def clean_screening_date(self):
+        date = self.cleaned_data['screening_date']
+        if date < self.previous.screening_date:
+            raise forms.ValidationError(f'Must not be before the earlier screening ({self.previous.screening_date:%d %b %Y}).')
+        return date
 
 
 class ScreeningUpdateForm(PatientChildForm):
@@ -80,6 +104,11 @@ class ScreeningUpdateForm(PatientChildForm):
         fields = ['facility', 'encounter', 'source', 'location_type', 'screening_date', 'result',
                   'risk_factors', 'consent_obtained', 'assent_obtained', 'guardian_name', 'referred', 'referred_to',
                   'next_action', 'notes']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.user is not None and not self.user.has_perm('clinical.add_diagnosis'):
+            del self.fields['result']  # the result is the doctor's decision
 
 
 class DiagnosisForm(PatientChildForm):
@@ -97,6 +126,40 @@ class DiagnosisForm(PatientChildForm):
         self.fields['condition'].label_from_instance = lambda obj: obj.label
         self.fields['condition'].required = False
         self.fields['condition'].help_text = 'Leave empty to set it from the description.'
+
+
+ENROLL_RULE = 'Enrolling needs a diagnosis of that disease confirmed by the doctor.'
+CONSENT_RULE = 'Enrolling also joins the PEN-Plus study, so it needs research consent, recorded at pre-screening.'
+
+
+class ProgrammeEnrollmentCreateForm(PatientChildForm):
+    """Enroll in the programme of every disease the doctor confirmed, one enrollment each."""
+
+    programmes = forms.ModelMultipleChoiceField(queryset=None, widget=forms.CheckboxSelectMultiple, label='Programmes',
+                                                help_text=ENROLL_RULE)
+
+    class Meta:
+        model = ProgrammeEnrollment
+        fields = ['programmes', 'facility', 'enrollment_date', 'responsible_team', 'care_plan']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        confirmed = self.patient.diagnoses.filter(status=Diagnosis.Status.CONFIRMED).values('disease')
+        enrolled = self.patient.programme_enrollments.filter(status__in=['pending', 'active']).values('programme')
+        programmes = ClinicalProgramme.objects.filter(is_active=True, disease__is_active=True, disease__in=confirmed) \
+            .exclude(pk__in=enrolled)
+        self.fields['programmes'].queryset = programmes
+        self.fields['programmes'].error_messages['invalid_choice'] = ENROLL_RULE
+        self.initial.setdefault('programmes', list(programmes))
+        self.has_consent = research_consent_given(self.patient)
+        self.can_enroll = programmes.exists() and self.has_consent
+        self.instance.patient = self.patient
+
+    def clean(self):
+        cleaned = super().clean()
+        if not self.has_consent:
+            raise forms.ValidationError(CONSENT_RULE)
+        return cleaned
 
 
 class ProgrammeEnrollmentForm(PatientChildForm):
@@ -236,41 +299,39 @@ class ReturnToCareForm(BootstrapForm):
         return date
 
 
-class ConditionChoiceField(forms.ModelMultipleChoiceField):
-    def label_from_instance(self, obj):
-        return f'{obj.disease.name}: {obj.label}'
-
-
 class DiagnosisCreateForm(PatientChildForm):
-    """Record one or more diagnoses at once: tick every condition / sub-type the patient has."""
+    """Record one or more diagnoses at once: tick every condition / sub-type the patient has, in any disease."""
 
-    conditions = ConditionChoiceField(queryset=None, widget=forms.CheckboxSelectMultiple, required=False,
-                                      label='Conditions (tick all that apply)',
-                                      help_text='Choose a sub-type when known, e.g. Rheumatic heart disease – Mixed mitral '
-                                                'valve disease. One diagnosis is recorded for each ticked condition.')
+    conditions = forms.ModelMultipleChoiceField(queryset=None, widget=forms.CheckboxSelectMultiple, required=False)
 
     class Meta:
         model = Diagnosis
         fields = ['disease', 'conditions', 'description', 'code', 'status', 'onset_date', 'diagnosis_date', 'encounter',
                   'complications', 'notes']
-        labels = {'description': 'Description / details (optional)'}
+        labels = {'description': 'Description / details', 'encounter': 'Visit'}
+        widgets = {'disease': forms.HiddenInput}
+        help_texts = {'description': 'Added to each ticked condition. If the condition is not listed, write the '
+                                     'diagnosis here; it is recorded under the disease you have open.'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from diseases.models import Condition
         self.fields['disease'].queryset = Disease.objects.filter(is_active=True)
+        self.fields['disease'].required = False
+        # "Cardiac, diagnosis not yet recorded" only holds imported EDCS records.
         self.fields['conditions'].queryset = (Condition.objects.filter(is_active=True, disease__is_active=True)
-                                              .select_related('disease', 'parent')
+                                              .exclude(code='cardiac-unspecified').select_related('disease', 'parent')
                                               .order_by('disease__order', 'parent__order', 'parent_id', 'order'))
         self.fields['description'].required = False
+        self.fields['status'].help_text = 'Confirm when the results support it. Only a confirmed diagnosis allows enrolling.'
 
     def clean(self):
         cleaned = super().clean()
-        disease, conditions = cleaned.get('disease'), cleaned.get('conditions') or []
-        if disease and any(c.disease_id != disease.pk for c in conditions):
-            self.add_error('conditions', f'Choose only conditions of {disease}.')
+        conditions = cleaned.get('conditions') or []
         if not conditions and not cleaned.get('description'):
             self.add_error('conditions', 'Tick at least one condition, or write the diagnosis in the description.')
+        elif not conditions and not cleaned.get('disease'):
+            self.add_error('disease', 'Choose the disease for this diagnosis.')
         return cleaned
 
 

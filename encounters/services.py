@@ -8,6 +8,45 @@ from core.utils import add_months
 from .models import Appointment
 
 
+def was_enrolled(patient):
+    return patient.programme_enrollments.exists()
+
+
+def baseline_visit(patient, facility, request):
+    """The one baseline visit holding everything from pre-screening to enrollment, opened the first time it is needed.
+    None once the subject has been enrolled: later records belong to follow-up visits."""
+    from .models import Encounter
+
+    if was_enrolled(patient):
+        return None
+    visit = patient.encounters.filter(stage='baseline').exclude(status='cancelled').first()
+    if visit is None:
+        visit = Encounter.objects.create(patient=patient, facility=facility, stage='baseline', staff=request.user,
+                                         created_by=request.user)
+        log_event(request=request, action=AuditEvent.Action.CREATE, obj=visit, reason='Baseline visit opened')
+    return visit
+
+
+def current_visit(patient):
+    """The visit new records belong to: the open baseline before enrollment, otherwise today's visit."""
+    baseline = None
+    if not was_enrolled(patient):
+        baseline = patient.encounters.filter(stage='baseline').exclude(status='cancelled').first()
+    return baseline or todays_encounter(patient)
+
+
+def close_baseline(patient, request, enrollment=None, stage=None):
+    """End the baseline visit at enrollment, or as screening only when no disease was diagnosed."""
+    visit = patient.encounters.filter(stage='baseline', status__in=['open', 'in_progress']).first()
+    if visit is None:
+        return
+    visit.status = 'completed'
+    visit.programme_enrollment = visit.programme_enrollment or enrollment
+    visit.stage = stage or visit.stage
+    visit.save()
+    log_event(request=request, action=AuditEvent.Action.STATUS, obj=visit, changes={'status': 'completed', 'stage': visit.stage})
+
+
 def planned_dates(plan):
     """Visit dates from the anchor at the plan interval, bounded by count and end date."""
     today = timezone.localdate()

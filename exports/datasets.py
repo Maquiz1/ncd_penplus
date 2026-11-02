@@ -17,7 +17,7 @@ from patients.models import IDENTITY_FIELDS
 SKIP_FIELDS = {'created_at', 'updated_at', 'created_by', 'is_deleted', 'deleted_at', 'deleted_by', 'deletion_reason',
                'request_group', 'attachment'}
 # Removed from de-identified exports in addition to IDENTITY_FIELDS (free text may name people).
-FREE_TEXT = {'notes', 'clinical_notes', 'plan_notes', 'result_notes', 'discharge_summary', 'chief_complaint',
+FREE_TEXT = {'notes', 'clinical_notes', 'plan_notes', 'result_notes', 'review_comment', 'discharge_summary', 'chief_complaint',
              'counselling_notes', 'instructions', 'cancel_reason', 'reason_for_change', 'comments'}
 STAFF_FKS = {'created_by', 'clinician', 'staff', 'requested_by', 'reported_by', 'reviewed_by', 'ordered_by',
              'collected_by', 'resulted_by', 'prescriber', 'dispensed_by', 'screened_by', 'submitted_by', 'recorded_by',

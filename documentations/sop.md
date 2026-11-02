@@ -29,22 +29,26 @@ You don't need to create an appointment first. Appointments are only for future 
 Order for a new subject seen today:
 
 1. Register the patient.
-2. Pre-screening, then disease screening, both today. Skip these for a subject who arrives already diagnosed, such as a known diabetic, a referral or a transfer-in.
-3. Order tests if needed (HbA1c, echo, ECG and so on).
-4. Diagnosis. It can be provisional while results are pending.
-5. Enroll the subject in the disease programme.
-6. Record today's visit as an encounter with visit type **Baseline**. Leave the appointment field empty.
+2. Pre-screening. For a known NCD (a known diabetic, a referral or a transfer-in), tick which disease or diseases. Disease screening is then optional, and screening and quick picks focus on those diseases.
+3. Disease screening: tick what the subject is going to be screened for (diabetes, cardiac, sickle cell, or more than one). No result is entered here.
+4. Request the investigations under **Investigations** (HbA1c, echo, ECG and so on) and wait for the results.
+5. Doctor confirmation: from the results, the doctor records each disease diagnosed, or marks **Not diagnosed** for a disease screened. This gives the screening its result: confirmed counts as positive, not diagnosed as negative.
+6. Enroll the subject. The page lists the programme of every disease the doctor confirmed, ticked together. A provisional diagnosis or a known NCD alone isn't enough. Everyone here is in research, so one save also enrolls the subject in the PEN-Plus study; the pre-screening consent is the research consent, and it must be Yes. Patients who are only in care are recorded in GoTHOMIS.
 7. Create a follow-up plan. This generates the subject's future appointments. Enrolling does not do this by itself.
 
-The subject page shows these steps as a progress bar, one row per disease, with a **Next step** button for whatever is still missing. Pre-screening and screening show as "not needed" for a subject who arrived diagnosed. A negative screening ends the path. Only one pre-screening per subject per day is allowed: edit the existing one instead of adding another.
+Steps 2 to 6 are one **baseline visit**. The system opens it at the first of these steps, links each record to it, and closes it at enrollment. If the doctor finds no disease, it closes as screening only and doesn't count as baseline. A community or school pre-screening doesn't open it. Vitals and baseline forms are in that same visit.
 
-**Subjects → Stuck in the flow** lists the subjects waiting between two steps: screening result pending for more than 14 days, positive but no diagnosis, diagnosed but never enrolled, enrolled without a baseline visit, and enrolled with no follow-up plan or upcoming appointment.
+The subject page has three buttons, each showing its steps with direct links: **Baseline**, **Follow-up** (attend the next appointment) and **Unscheduled** (no appointment; it doesn't change the next appointment). Follow-up and unscheduled visits have the same steps: vitals, forms, investigations, prescribe, close the visit.
+
+The subject page shows these steps as a progress bar, one row per disease, with a **Next step** button for whatever is still missing. Pre-screening and screening show as skipped for a subject who arrived diagnosed. "Not diagnosed" ends the path for that disease. Pre-screening is done once per subject, and disease screening once per disease. To correct a record, edit it; to remove one entered twice, delete it. To screen again after a negative or inconclusive result, press **Re-screen** on that row in the Screening tab and give the reason. This keeps the earlier record, shows the new one as "Re-screening", and starts again from investigations.
+
+**Subjects → Stuck in the flow** lists the subjects waiting between two steps: screened more than 14 days ago with no decision from the doctor, positive but no diagnosis, diagnosed but never enrolled, enrolled without a baseline visit, and enrolled with no follow-up plan or upcoming appointment.
 
 Pre-screening and disease screening do not need an encounter. In the screening form, the encounter field can stay at "Not linked to a visit".
 
 ### Should a same-day subject be enrolled the same day?
 
-- **Yes**, if the clinician decides that day to take them into care, even with a provisional diagnosis. If confirming results haven't come back within 60 days, the system flags a data issue saying the diagnosis is still provisional. When results do arrive, it flags "results available: confirm the diagnosis".
+- **Yes**, if the doctor confirms the diagnosis that day. A provisional diagnosis or a known NCD alone isn't enough. If confirming results haven't come back within 60 days, the system flags a data issue saying the diagnosis is still provisional. When results do arrive, it flags "results available: confirm the diagnosis".
 - **No**, if they were screened positive but only sent for tests and a review, for example echo next week. Book an appointment for that review and enroll them then.
 
 Enrolling is what puts a subject into the indicators and the HbA1c due list, and it is how disease-assigned staff see them. A registered subject who is never enrolled doesn't count in any of these.
@@ -97,3 +101,11 @@ Admissions, screening and other visit types are not counted in this check.
 - **Follow-up & retention** shows, per month: visits due, attended, missed, attendance %, **unscheduled visits**, LTFU, returns and deaths.
 - Attendance counts appointments only. Unscheduled visits are shown separately and do not raise or lower attendance.
 - Visits migrated from EDCS as UV (unscheduled visit) are imported as **Unscheduled**.
+
+## Roles that only read results
+
+PIs and co-investigators, facility and geographic coordinators, statisticians and M&E officers get their own home page instead of the clinic dashboard. It shows reports, indicators, monitoring and subject summaries, view only, with subject IDs and no names. They don't see the subject register, forms or data entry. Statisticians also get data exports and the data dictionary.
+
+## Leaving the study
+
+Withdrawing consent, or closing the study enrollment, also closes the care enrollment here, and the subject continues care in GoTHOMIS. Closing care for one disease closes the study only if the subject has no other active programme.
