@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 from clinical.services import LTFU_REASON
@@ -203,6 +204,33 @@ def option_label(table, column, code):
     return text(code)
 
 
+
+def confirmed_by_tests(patient_ids):
+    """(patient id, disease code) pairs with a test that supports the diagnosis: echo for cardiac, HbA1c or glucose
+    for diabetes, a confirmatory test or genotype (Hb electrophoresis) for sickle cell. Screening-only sickling or
+    a presumptive result does not count."""
+    labs = LabOrder.objects.filter(patient_id__in=patient_ids)
+    pairs = {(p, 'diabetes') for p in labs.filter(test__code__in=['hba1c', 'fbg', 'rbg']).values_list('patient_id', flat=True)}
+    pairs |= {(p, 'scd') for p in labs.filter(test__code__in=['scd-confirm', 'hb-electro']).values_list('patient_id', flat=True)}
+    for patient_id, value in labs.filter(test__code='scd-result').values_list('patient_id', 'result_value'):
+        value = (value or '').lower()
+        if value in ('ss', 'sa', 'sbthal', 'sc') or 'elec' in value:
+            pairs.add((patient_id, 'scd'))
+    echo = InvestigationOrder.objects.filter(patient_id__in=patient_ids).filter(
+        Q(modality='echo') | Q(investigation_type__code='echo'))
+    pairs |= {(p, 'cardiac') for p in echo.values_list('patient_id', flat=True)}
+    return pairs
+
+
+def grade_imported_diagnoses(diagnoses):
+    """Make confirmed diagnoses without a supporting test suspected. Returns how many changed."""
+    diagnoses = diagnoses.filter(status='confirmed', disease__code__in=['cardiac', 'diabetes', 'scd'])
+    supported = confirmed_by_tests(diagnoses.values('patient_id'))
+    unsupported = [pk for pk, patient_id, code in diagnoses.values_list('pk', 'patient_id', 'disease__code')
+                   if (patient_id, code) not in supported]
+    # update(), not save(): grading an old record must not change its screenings.
+    return Diagnosis.objects.filter(pk__in=unsupported).update(status='provisional')
+
 class MySQLReader:
     """Read-only access to the EDCS database."""
 
@@ -280,6 +308,8 @@ class Importer:
                 steps = ['lab_catalogue'] + list(steps)
             for step in steps:
                 getattr(self, f'import_{step}')()
+            if {'diagnoses', 'labs', 'investigations'} & set(steps):
+                self.grade_diagnoses()
             return self.counts, self.issues
         self.import_staff()
         self.import_patients()
@@ -291,6 +321,7 @@ class Importer:
         self.import_labs()
         self.import_investigations()
         self.flag_echo_findings()
+        self.grade_diagnoses()
         self.import_medications()
         self.import_lab_catalogue()
         self.import_lab_requests()
@@ -539,6 +570,12 @@ class Importer:
                     self.add_diagnosis(f'main_diagnosis.{column}', row, patient, disease,
                                        f'{self.diseases[disease].name} (category recorded in EDCS)')
                     diagnosed.add((patient.pk, disease))
+
+    def grade_diagnoses(self):
+        """EDCS recorded every diagnosis as final. Keep it confirmed only when a supporting test was imported;
+        otherwise it is suspected (e.g. a known NCD taken on trust) and the doctor confirms it later."""
+        demoted = grade_imported_diagnoses(Diagnosis.objects.filter(created_by=self.import_user))
+        self.counts['diagnoses suspected (no supporting test)'] += demoted
 
     # ------------------------------------------------------------ enrollments and outcomes
     def latest_outcomes(self):

@@ -156,6 +156,7 @@ body { background-color: var(--bs-body-bg); }
 .pathway-step:hover { background: var(--bs-primary-bg-subtle); }
 .pathway-step.is-done { color: var(--bs-success-text-emphasis); background: var(--bs-success-bg-subtle); border-color: var(--bs-success-border-subtle); }
 .pathway-step small { color: var(--bs-secondary-color); }
+.pathway-step.disabled { color: var(--bs-secondary-color); background: var(--bs-tertiary-bg); border-style: dashed; pointer-events: none; cursor: default; }
 
 /* Investigations request page */
 .inv-search { max-width: 16rem; }

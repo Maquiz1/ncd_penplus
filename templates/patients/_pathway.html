@@ -1,4 +1,4 @@
-{# Baseline, Follow-up and Unscheduled: every step of each, with direct links. #}
+{% load ncd %}{# Baseline: its steps with direct links. Follow-up and Unscheduled: their visits; the work is done inside each visit. #}
 <div class="card shadow-sm mb-3">
   <div class="card-header bg-body">
     <ul class="nav nav-pills" role="tablist">
@@ -14,36 +14,47 @@
     </div>
 
     <div class="tab-pane fade{% if pathway.active == 'follow_up' %} show active{% endif %}" id="path-follow-up" role="tabpanel"><div class="card-body">
-      {% if pathway.follow_up %}
-        <p class="small text-body-secondary mb-2">Visit of {{ pathway.follow_up.encounter_date|date:"d M Y" }} is open.</p>
-        {% include "patients/_steps.html" with steps=pathway.follow_up_steps %}
-      {% elif not pathway.enrolled %}
+      {% if not pathway.enrolled %}
         <p class="text-body-secondary mb-0">Follow-up visits start after enrollment.</p>
-      {% elif patient.is_deceased %}
-        <p class="text-body-secondary mb-0">The subject is recorded as deceased.</p>
       {% else %}
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          {% if perms.encounters.add_encounter %}{% if pathway.appointment %}<a class="btn btn-primary btn-sm" href="{{ pathway.attend_url }}"><i class="bi bi-box-arrow-in-right"></i> Attend {% if pathway.appointment_overdue %}overdue {% endif %}appointment of {{ pathway.appointment.scheduled_date|date:"d M Y" }}</a>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          {% if pathway.follow_up %}<a class="btn btn-primary btn-sm" href="{{ pathway.follow_up.get_absolute_url }}"><i class="bi bi-box-arrow-in-right"></i> Open visit of {{ pathway.follow_up.encounter_date|date:"d M Y" }}</a>
+          {% elif patient.is_deceased %}<span class="text-body-secondary">The subject is recorded as deceased.</span>
+          {% elif perms.encounters.add_encounter %}{% if pathway.appointment %}<a class="btn btn-primary btn-sm" href="{{ pathway.attend_url }}"><i class="bi bi-box-arrow-in-right"></i> Attend {% if pathway.appointment_overdue %}overdue {% endif %}appointment of {{ pathway.appointment.scheduled_date|date:"d M Y" }}</a>
           {% else %}<a class="btn btn-primary btn-sm" href="{{ pathway.start_follow_up_url }}"><i class="bi bi-plus-circle"></i> Start follow-up visit</a>{% endif %}{% endif %}
-          {% if perms.encounters.add_appointment %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'encounters:appointment_add' patient.pk %}"><i class="bi bi-calendar-plus"></i> Book appointment</a>{% endif %}
-          <span class="small text-body-secondary">Then: vitals, forms, investigations, prescribe, close the visit.</span>
+          {% if perms.encounters.add_appointment and not patient.is_deceased %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'encounters:appointment_add' patient.pk %}"><i class="bi bi-calendar-plus"></i> Book appointment</a>{% endif %}
+          <span class="small text-body-secondary">Forms, investigations and prescribing are done inside the visit.</span>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="small fw-semibold text-body-secondary mb-1">Visits</div>
+            {% include "patients/_visit_list.html" with visits=pathway.follow_up_visits empty="No follow-up visit yet." %}
+          </div>
+          <div class="col-md-6">
+            <div class="small fw-semibold text-body-secondary mb-1">Next appointments</div>
+            <ul class="list-group list-group-flush small">
+              {% if pathway.appointment and pathway.appointment_overdue %}<li class="list-group-item px-0 d-flex justify-content-between"><span>{{ pathway.appointment.scheduled_date|date:"d M Y" }}</span><span class="badge text-bg-danger">Overdue</span></li>{% endif %}
+              {% for a in pathway.upcoming %}<li class="list-group-item px-0 d-flex justify-content-between"><span>{{ a.scheduled_date|date:"d M Y" }}</span>{% status_badge a.status a.get_status_display %}</li>
+              {% empty %}{% if not pathway.appointment %}<li class="list-group-item px-0 text-body-secondary">None booked.</li>{% endif %}{% endfor %}
+            </ul>
+            <div class="small text-body-secondary mt-1">{% if pathway.plan %}Schedule: {{ pathway.plan.get_interval_months_display|lower }}.{% else %}No follow-up schedule yet.{% endif %} <a href="#visits" data-open-tab="#visits">All visits &amp; appointments</a></div>
+          </div>
         </div>
       {% endif %}
     </div></div>
 
     <div class="tab-pane fade{% if pathway.active == 'unscheduled' %} show active{% endif %}" id="path-unscheduled" role="tabpanel"><div class="card-body">
-      {% if pathway.unscheduled %}
-        <p class="small text-body-secondary mb-2">Unscheduled visit of {{ pathway.unscheduled.encounter_date|date:"d M Y" }} is open.</p>
-        {% include "patients/_steps.html" with steps=pathway.unscheduled_steps %}
-      {% elif not pathway.enrolled %}
+      {% if not pathway.enrolled %}
         <p class="text-body-secondary mb-0">Unscheduled visits start after enrollment.</p>
-      {% elif patient.is_deceased %}
-        <p class="text-body-secondary mb-0">The subject is recorded as deceased.</p>
       {% else %}
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          {% if perms.encounters.add_encounter %}<a class="btn btn-primary btn-sm" href="{{ pathway.start_unscheduled_url }}"><i class="bi bi-plus-circle"></i> Start unscheduled visit</a>{% endif %}
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          {% if pathway.unscheduled %}<a class="btn btn-primary btn-sm" href="{{ pathway.unscheduled.get_absolute_url }}"><i class="bi bi-box-arrow-in-right"></i> Open visit of {{ pathway.unscheduled.encounter_date|date:"d M Y" }}</a>
+          {% elif patient.is_deceased %}<span class="text-body-secondary">The subject is recorded as deceased.</span>
+          {% elif perms.encounters.add_encounter %}<a class="btn btn-primary btn-sm" href="{{ pathway.start_unscheduled_url }}"><i class="bi bi-plus-circle"></i> Start unscheduled visit</a>{% endif %}
           <span class="small text-body-secondary">For a subject who comes without an appointment. Their next appointment stays as it is.</span>
         </div>
+        <div class="small fw-semibold text-body-secondary mb-1">Visits</div>
+        {% include "patients/_visit_list.html" with visits=pathway.unscheduled_visits empty="No unscheduled visit yet." %}
       {% endif %}
     </div></div>
   </div>

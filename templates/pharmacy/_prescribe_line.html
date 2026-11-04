@@ -1,0 +1,18 @@
+{# One medicine row on the prescribing page; hints go in placeholders to keep the row short. #}
+<div class="rx-line border rounded p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="rx-number fw-semibold">Medicine</span>
+    <button type="button" class="btn-close rx-remove" aria-label="Remove this medicine"></button>
+  </div>
+  <div class="d-none">{{ line.DELETE }}</div>
+  {% for e in line.non_field_errors %}<div class="alert alert-warning py-2">{{ e }}</div>{% endfor %}
+  <div class="row g-2">
+    {% for field, width in line.layout %}
+    <div class="col-md-6 {{ width }}">
+      <label class="form-label small mb-1" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+      {{ field }}
+      {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

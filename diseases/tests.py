@@ -80,7 +80,7 @@ class MultiDiagnosisTests(BaseTestCase):
         picks = Condition.objects.filter(code__in=['rhd-pure-mitral-regurgitation', 'hf', 'arrhythmia-atrial-fibrillation'])
         self.client.force_login(self.clinician_ilala)
         self.client.post(reverse('clinical:diagnosis_add', args=[patient.pk]), {
-            'disease': cardiac.pk, 'conditions': [c.pk for c in picks], 'status': 'confirmed',
+            'disease': cardiac.pk, 'conditions': [c.pk for c in picks], f'status_{cardiac.pk}': 'confirmed',
             'diagnosis_date': '2026-10-01'})
         diagnoses = {d.condition.code: d.description for d in Diagnosis.objects.filter(patient=patient)}
         self.assertEqual(set(diagnoses), {'rhd-pure-mitral-regurgitation', 'hf', 'arrhythmia-atrial-fibrillation'})
@@ -88,7 +88,12 @@ class MultiDiagnosisTests(BaseTestCase):
         # conditions of several diseases can be recorded together, each under its own disease
         other = self.make_patient()
         type1 = Condition.objects.filter(disease__code='diabetes', parent=None).first()
-        self.client.post(reverse('clinical:diagnosis_add', args=[other.pk]), {
-            'conditions': [picks[0].pk, type1.pk], 'status': 'confirmed', 'diagnosis_date': '2026-10-01'})
-        self.assertEqual({d.disease.code for d in Diagnosis.objects.filter(patient=other)}, {'cardiac', 'diabetes'})
+        both = {'conditions': [picks[0].pk, type1.pk], 'diagnosis_date': '2026-10-01', f'status_{cardiac.pk}': 'confirmed'}
+        # Each disease needs its own status; none is chosen in advance.
+        response = self.client.post(reverse('clinical:diagnosis_add', args=[other.pk]), both)
+        self.assertContains(response, 'Choose whether the diabetes diagnosis is confirmed, suspected or ruled out')
+        self.assertFalse(Diagnosis.objects.filter(patient=other).exists())
+        self.client.post(reverse('clinical:diagnosis_add', args=[other.pk]), {**both, f'status_{type1.disease_id}': 'provisional'})
+        self.assertEqual({(d.disease.code, d.status) for d in Diagnosis.objects.filter(patient=other)},
+                         {('cardiac', 'confirmed'), ('diabetes', 'provisional')})
         self.assertContains(self.client.get(reverse('clinical:diagnosis_add', args=[other.pk])), 'Already recorded')

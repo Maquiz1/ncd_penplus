@@ -1,6 +1,7 @@
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import ProtectedError
 
 from clinical.models import ClinicalProgramme, Disease
 from facilities.models import District, Facility, Region, Ward, Zone
@@ -103,16 +104,31 @@ Registry: all new and existing patients with type 1 diabetes, SCD and RHD (and o
 PEN-Plus clinics are enrolled and followed up for 2–3 years."""
 
 
+def remove_demo_facilities():
+    """Delete the DEMO-* placeholders. One that records still point to is only made inactive."""
+    removed = kept = 0
+    for facility in Facility.objects.filter(code__startswith='DEMO-'):
+        try:
+            with transaction.atomic():
+                facility.delete()
+            removed += 1
+        except ProtectedError:
+            Facility.objects.filter(pk=facility.pk).update(is_active=False)
+            kept += 1
+    return removed, kept
+
+
 class Command(BaseCommand):
     help = 'Configure the Tanzania PEN-Plus project: sites, wards, referral hospitals, study, diseases and medicines.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--deactivate-demo', action='store_true', help='Mark DEMO-* placeholder facilities inactive.')
+        parser.add_argument('--remove-demo', '--deactivate-demo', dest='remove_demo', action='store_true',
+                            help='Delete the DEMO-* placeholder facilities (any with records are made inactive instead).')
         parser.add_argument('--reset-lab-catalogue', action='store_true',
                             help='Overwrite units/ranges of catalogue tests with the defaults (only before go-live).')
 
     @transaction.atomic
-    def handle(self, *args, deactivate_demo=False, reset_lab_catalogue=False, **options):
+    def handle(self, *args, remove_demo=False, reset_lab_catalogue=False, **options):
         call_command('seed_reference_data', stdout=self.stdout)
         call_command('setup_diseases', stdout=self.stdout)
         districts = {}
@@ -164,9 +180,9 @@ class Command(BaseCommand):
                            'Karatu district hospitals. Chief Investigator: Dr Mary Theodory Mayige (NIMR).'})
         study.sites.set(sites)
         study.diseases.set(Disease.objects.filter(code__in=['diabetes', 'cardiac', 'scd']))
-        if deactivate_demo:
-            count = Facility.objects.filter(code__startswith='DEMO-').update(is_active=False)
-            self.stdout.write(f'Deactivated {count} demo facilities.')
+        if remove_demo:
+            removed, kept = remove_demo_facilities()
+            self.stdout.write(f'Removed {removed} demo facilities.' + (f' Kept {kept} with records, inactive.' if kept else ''))
         self.stdout.write(self.style.SUCCESS(
             f'PEN-Plus configured: {len(sites)} sites, {Ward.objects.count()} wards, study {study.code} '
             f'({"created" if created else "updated"}).'))

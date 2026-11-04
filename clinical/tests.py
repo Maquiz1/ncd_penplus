@@ -326,7 +326,7 @@ class PatientFlowTests(BaseTestCase):
         from encounters.models import FollowUpPlan
         from laboratory.models import LabOrder, LabTest
         p = self.make_patient()
-        self.assertEqual(self.states(p), (['done'] + ['todo'] * 6, 'Record pre-screening'))
+        self.assertEqual(self.states(p), (['done'] + ['todo'] * 6, 'Record screening'))
         PreScreening.objects.create(patient=p, facility=self.ilala)
         self.assertEqual(self.states(p)[1], 'Choose what to screen for')
         diabetes = Disease.objects.get(code='diabetes')
@@ -338,7 +338,7 @@ class PatientFlowTests(BaseTestCase):
         self.assertEqual((states[3], next_step), ('waiting', None))
         order.status = 'resulted'
         order.save()
-        self.assertEqual(self.states(p)[1], 'Doctor confirmation')
+        self.assertEqual(self.states(p)[1], 'Diagnosis')
         diagnosis = Diagnosis.objects.create(patient=p, disease=diabetes, description='T2DM', clinician=self.admin)
         self.assertEqual(self.states(p)[1], 'Confirm diagnosis')
         diagnosis.status = 'confirmed'
@@ -438,7 +438,7 @@ class PatientFlowTests(BaseTestCase):
         PreScreening.objects.create(patient=p, facility=self.ilala, known_ncd=True)
         track = patient_flow(p)[0]
         self.assertEqual((track.steps[2].state, track.next.label), ('skipped', 'Request investigations'))
-        self.assertEqual({a.label for a in track.also}, {'Doctor confirmation', 'Screening (optional)'})
+        self.assertEqual({a.label for a in track.also}, {'Diagnosis', 'Screening (optional)'})
 
     def test_screening_only_says_what_to_screen_for(self):
         from clinical.models import Disease
@@ -524,18 +524,18 @@ class PatientFlowTests(BaseTestCase):
         diabetes = Disease.objects.get(code='diabetes')
         self.client.force_login(self.clinician_ilala)
         today = timezone.localdate().isoformat()
-        self.client.post(reverse('clinical:prescreening_add', args=[p.pk]), {
+        response = self.client.post(reverse('clinical:prescreening_add', args=[p.pk]), {
             'facility': self.ilala.pk, 'date': today, 'screening_type': 'facility', 'consent_obtained': 'True',
-            'consent_date': today, 'resides_in_area': 'True', 'known_ncd': 'False', 'disposition': 'proceed'})
+            'consent_date': today, 'resides_in_area': 'True', 'known_ncd': 'False', 'disposition': 'proceed',
+            'lab_test_requested': 'True', 'screen_for': [diabetes.pk]})
+        self.assertRedirects(response, reverse('investigations:request', args=[p.pk]), fetch_redirect_response=False)
         visit = Encounter.objects.get(patient=p)
         self.assertEqual((visit.stage, visit.status), ('baseline', 'open'))
-        self.client.post(reverse('clinical:screening_add', args=[p.pk]), {
-            'diseases': [diabetes.pk], 'facility': self.ilala.pk, 'screening_date': today})
         self.client.post(reverse('investigations:request', args=[p.pk]), {
             'types': [InvestigationType.objects.get(code='echo').pk], 'facility': self.ilala.pk})
         condition = diabetes.conditions.filter(parent=None).first()
         self.client.post(reverse('clinical:diagnosis_add', args=[p.pk]), {
-            'conditions': [condition.pk], 'status': 'confirmed', 'diagnosis_date': today})
+            'conditions': [condition.pk], f'status_{diabetes.pk}': 'confirmed', 'diagnosis_date': today})
         self.assertEqual(Encounter.objects.filter(patient=p).count(), 1)
         self.assertEqual(PreScreening.objects.get(patient=p).encounter, visit)
         self.assertEqual(Screening.objects.get(patient=p).encounter, visit)
@@ -569,17 +569,48 @@ class PatientFlowTests(BaseTestCase):
         self.client.force_login(self.clinician_ilala)
         response = self.client.get(reverse('patients:detail', args=[p.pk]))
         self.assertEqual(response.context['pathway']['active'], 'baseline')
-        for text in ('Baseline', 'Follow-up', 'Unscheduled', 'Doctor confirmation', 'start after enrollment'):
+        for text in ('Baseline', 'Follow-up', 'Unscheduled', 'Diagnosis', 'start after enrollment'):
             self.assertContains(response, text)
         ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'))
         visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='follow_up', staff=self.admin)
         response = self.client.get(reverse('patients:detail', args=[p.pk]))
         self.assertEqual(response.context['pathway']['active'], 'follow_up')
         self.assertContains(response, f'?encounter={visit.pk}')
-        self.assertContains(response, 'class="nav-item d-none" data-baseline-only', count=4)
+        self.assertContains(response, 'class="row g-3 mt-0 d-none" data-baseline-only', count=1)
         page = self.client.get(visit.get_absolute_url())
         self.assertNotContains(page, reverse('clinical:screening_add', args=[p.pk]))
         self.assertNotContains(page, reverse('clinical:diagnosis_add', args=[p.pk]))
+
+    def test_follow_up_panel_lists_visits_and_the_visit_holds_the_steps(self):
+        from encounters.models import Encounter
+        p = self.make_patient()
+        ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'))
+        visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='unscheduled', staff=self.admin)
+        self.client.force_login(self.clinician_ilala)
+        page = self.client.get(reverse('patients:detail', args=[p.pk]))
+        self.assertContains(page, f'Open visit of {timezone.localtime(visit.encounter_date):%d %b %Y}')
+        self.assertIn(visit, page.context['pathway']['unscheduled_visits'])
+        self.assertNotContains(page, '?stage=unscheduled"><i class="bi bi-plus"></i> Unscheduled visit')
+        visit_page = self.client.get(visit.get_absolute_url())
+        self.assertEqual([s.label for s in visit_page.context['steps']], ['Forms', 'Investigations', 'Prescribe', 'Close visit'])
+        self.assertContains(visit_page, 'Everything done from here belongs to this visit.')
+        self.assertContains(visit_page, reverse('pharmacy:prescription_add', args=[p.pk]) + f'?encounter={visit.pk}')
+
+    def test_subject_page_has_five_tabs_and_baseline_cards_on_overview(self):
+        import re
+        self.make_main_study()
+        p = self.confirmed_subject()
+        self.client.force_login(self.clinician_ilala)
+        self.enroll(p, 'dm-care')
+        page = self.client.get(reverse('patients:detail', args=[p.pk])).content.decode()
+        tabs = re.findall(r'data-bs-toggle="tab" data-bs-target="#\w+" type="button">([^<]+)', page)
+        self.assertEqual(tabs, ['Overview', 'Visits &amp; appointments', 'Investigations', 'Medications', 'Forms '])
+        for anchor in ('id="screening"', 'id="clinical"', 'id="research"', 'id="transfers"'):
+            self.assertIn(anchor, page)
+        enrollment = p.programme_enrollments.get()
+        self.assertIn(reverse('clinical:enrollment_update', args=[enrollment.pk]), page)
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse('patients:detail', args=[p.pk])), 'Withdraw / leave the study')
 
     def test_forms_tab_splits_baseline_and_follow_up_forms(self):
         from crf.models import FormDefinition, FormField, FormSection, FormVersion
@@ -596,9 +627,26 @@ class PatientFlowTests(BaseTestCase):
         visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='follow_up', staff=self.admin)
         self.client.force_login(self.clinician_ilala)
         sets = dict((key, rows) for key, _visit, rows in self.client.get(reverse('patients:detail', args=[p.pk])).context['form_sets'])
-        names = {key: {r['version'].definition.code for r in rows} & {'demo-x', 'symptoms-x', 'hosp-x'} for key, rows in sets.items()}
+        names = {key: {r['name'] for r in rows} & {'demo-x', 'symptoms-x', 'hosp-x'} for key, rows in sets.items()}
         self.assertEqual(names, {'baseline': {'demo-x', 'symptoms-x'}, 'visits': {'symptoms-x', 'hosp-x'}})
-        self.assertTrue(all(r['url'].endswith(f'?encounter={visit.pk}') for r in sets['visits']))
+        vitals, *forms = sets['visits']
+        self.assertEqual((vitals['name'], vitals['url'], vitals['done']),
+                         ('Vital signs', reverse('encounters:vitals_add', args=[visit.pk]), False))
+        self.assertTrue(all(r['url'].endswith(f'?encounter={visit.pk}') for r in forms))
+        self.assertEqual(sets['baseline'][0]['name'], 'Vital signs')
+
+    def test_vitals_count_as_a_visit_form(self):
+        from clinical.flow import visit_steps
+        from encounters.models import Encounter, Vitals
+        p = self.make_patient()
+        visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='unscheduled', staff=self.admin)
+        forms = lambda: next(s for s in visit_steps(visit) if s.label == 'Forms')
+        self.assertNotIn('Vitals', [s.label for s in visit_steps(visit)])
+        missing = lambda: int(forms().note.split()[0]) if forms().note else 0
+        before = missing()
+        self.assertFalse(forms().done)
+        Vitals.objects.create(encounter=visit, weight_kg=70)
+        self.assertEqual(missing(), before - 1)
 
     def test_every_step_link_opens(self):
         from clinical.flow import patient_pathway, visit_steps
@@ -697,7 +745,7 @@ class PatientFlowTests(BaseTestCase):
         p = self.make_patient()
         self.client.force_login(self.clinician_ilala)
         response = self.client.get(reverse('patients:detail', args=[p.pk]))
-        self.assertContains(response, 'Next step: Record pre-screening')
+        self.assertContains(response, 'Next step: Record screening')
 
     def test_prescreening_done_once(self):
         from clinical.models import PreScreening
@@ -711,6 +759,63 @@ class PatientFlowTests(BaseTestCase):
                                           'resides_in_area': 'on', 'disposition': 'proceed'})
         self.assertContains(response, 'done once per subject')
         self.assertEqual(PreScreening.objects.filter(patient=p).count(), 1)
+
+    def test_screening_form_screens_for_diseases_when_lab_requested(self):
+        from clinical.models import Disease, PreScreening
+        p = self.make_patient()
+        diabetes, cardiac = Disease.objects.get(code='diabetes'), Disease.objects.get(code='cardiac')
+        self.client.force_login(self.clinician_ilala)
+        today = timezone.localdate().isoformat()
+        known = {'facility': self.ilala.pk, 'date': today, 'screening_type': 'facility', 'consent_obtained': 'True',
+                 'consent_date': today, 'resides_in_area': 'True', 'known_ncd': 'True', 'known_diseases': [diabetes.pk],
+                 'disposition': 'proceed'}
+        url = reverse('clinical:prescreening_add', args=[p.pk])
+        # A known NCD still asks what to screen for once a lab test is requested.
+        response = self.client.post(url, {**known, 'lab_test_requested': 'True'})
+        self.assertContains(response, 'Tick what the subject is screened for')
+        # With no lab test, nothing is screened, even if diseases were ticked before "No" was chosen.
+        self.client.post(url, {**known, 'lab_test_requested': 'False', 'screen_for': [diabetes.pk]})
+        self.assertFalse(Screening.objects.filter(patient=p).exists())
+        # Editing the form later adds screening for more diseases; diseases already screened are not offered.
+        pre = PreScreening.objects.get(patient=p)
+        update = reverse('clinical:prescreening_update', args=[pre.pk])
+        self.client.post(update, {**known, 'lab_test_requested': 'True', 'screen_for': [diabetes.pk, cardiac.pk]})
+        self.assertEqual(set(Screening.objects.filter(patient=p).values_list('disease__code', flat=True)),
+                         {'diabetes', 'cardiac'})
+        self.assertNotIn(diabetes, self.client.get(update).context['form'].fields['screen_for'].queryset)
+
+    def test_no_investigations_requested_goes_to_doctor_confirmation(self):
+        from clinical.flow import investigations, patient_flow
+        from clinical.models import Disease
+        p = self.make_patient()
+        diabetes = Disease.objects.get(code='diabetes')
+        self.client.force_login(self.clinician_ilala)
+        today = timezone.localdate().isoformat()
+        response = self.client.post(reverse('clinical:prescreening_add', args=[p.pk]), {
+            'facility': self.ilala.pk, 'date': today, 'screening_type': 'facility', 'consent_obtained': 'True',
+            'consent_date': today, 'resides_in_area': 'True', 'known_ncd': 'True', 'known_diseases': [diabetes.pk],
+            'lab_test_requested': 'False', 'disposition': 'proceed'})
+        self.assertRedirects(response, reverse('clinical:diagnosis_add', args=[p.pk]), fetch_redirect_response=False)
+        step = investigations(p, '')
+        self.assertEqual((step.disabled, step.note), (True, 'Not requested'))
+        track = patient_flow(p)[0]
+        self.assertEqual((track.steps[3].state, track.next.label), ('skipped', 'Diagnosis'))
+        self.assertContains(self.client.get(reverse('patients:detail', args=[p.pk])), 'aria-disabled="true" title="No investigations')
+
+    def test_baseline_prescribe_comes_after_doctor_confirmation(self):
+        from clinical.flow import patient_pathway
+        from encounters.models import Encounter
+        from pharmacy.models import Medication, Prescription
+        p = self.make_patient()
+        visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='baseline', staff=self.admin)
+        steps = lambda: {s.label: s for s in patient_pathway(p)['baseline_steps']}
+        labels = list(steps())
+        self.assertEqual(labels[labels.index('Diagnosis') + 1:labels.index('Enroll')], ['Prescribe'])
+        self.assertEqual((steps()['Prescribe'].done, steps()['Prescribe'].note), (False, 'Optional'))
+        self.assertTrue(steps()['Prescribe'].url.endswith(f'?encounter={visit.pk}'))
+        Prescription.objects.create(patient=p, encounter=visit, facility=self.ilala, prescriber=self.admin,
+                                    medication=Medication.objects.first(), dose='500 mg', frequency='BD', quantity=60)
+        self.assertTrue(steps()['Prescribe'].done)
 
     def test_disease_screening_done_once_per_disease(self):
         from clinical.models import Disease
@@ -782,21 +887,27 @@ class SubjectSummaryTests(BaseTestCase):
         self.assertEqual(self.client.get(reverse('patients:summary', args=[p.pk])).status_code, 404)
 
     def test_prescreening_consent_rules(self):
-        from clinical.models import PreScreening
+        from clinical.models import Disease, PreScreening
         p = self.make_patient()
         self.client.force_login(self.clinician_ilala)
         url = reverse('clinical:prescreening_add', args=[p.pk])
         base = {'facility': self.ilala.pk, 'date': timezone.localdate().isoformat(), 'screening_type': 'facility',
                 'resides_in_area': 'True', 'disposition': 'proceed'}
         self.assertContains(self.client.post(url, {**base, 'consent_obtained': 'True'}), 'Enter the date of consent')
-        self.assertContains(self.client.post(url, {**base, 'consent_obtained': 'False'}),
-                            'Without consent the person cannot proceed')
         response = self.client.post(url, {**base, 'consent_obtained': 'True', 'consent_date': base['date'],
-                                          'known_ncd': 'False', 'lab_test_requested': 'True'})
+                                          'known_ncd': 'False', 'lab_test_requested': 'True',
+                                          'screen_for': [Disease.objects.get(code='diabetes').pk]})
         self.assertEqual(response.status_code, 302)
         record = PreScreening.objects.get(patient=p)
         self.assertEqual((record.consent_obtained, record.known_ncd, record.lab_request_date),
                          (True, False, timezone.localdate()))
+        self.assertEqual(record.disposition, 'proceed')
+        # Without consent the outcome becomes "does not proceed", whatever was chosen; a referral is kept.
+        for chosen, expected in (('proceed', 'not_now'), ('', 'not_now'), ('referred', 'referred')):
+            other = self.make_patient()
+            self.client.post(reverse('clinical:prescreening_add', args=[other.pk]),
+                             {**base, 'consent_obtained': 'False', 'disposition': chosen})
+            self.assertEqual(PreScreening.objects.get(patient=other).disposition, expected)
 
     def test_report_viewer_sees_summaries_not_register(self):
         p = self.make_patient(first_name='Neema', last_name='Kileo')

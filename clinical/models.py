@@ -60,7 +60,7 @@ class PreScreening(SoftDeleteModel):
     """General pre-screening, before any disease-specific screening."""
 
     class Disposition(models.TextChoices):
-        PROCEED = 'proceed', 'Proceed to disease screening'
+        PROCEED = 'proceed', 'Continues in PEN-Plus'
         NOT_NOW = 'not_now', 'Does not proceed at this time'
         REFERRED = 'referred', 'Referred elsewhere'
 
@@ -83,9 +83,10 @@ class PreScreening(SoftDeleteModel):
                                     help_text='Already diagnosed with an NCD before today (e.g. a known diabetic).')
     known_diseases = models.ManyToManyField('Disease', blank=True, related_name='+', verbose_name='Which NCD?',
                                             help_text='Tick each one. Screening and investigations focus on these.')
-    lab_test_requested = models.BooleanField('Request lab test?', null=True, blank=True)
-    lab_request_date = models.DateField('Lab request date', null=True, blank=True)
-    disposition = models.CharField(max_length=20, choices=Disposition.choices, default=Disposition.PROCEED)
+    lab_test_requested = models.BooleanField('Investigations requested?', null=True, blank=True)
+    lab_request_date = models.DateField('Investigations request date', null=True, blank=True)
+    disposition = models.CharField('Outcome', max_length=20, choices=Disposition.choices, default=Disposition.PROCEED,
+                                   help_text='Set from consent. Change it only for a referral.')
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -185,8 +186,8 @@ class ScreeningSession(TimeStampedModel):
 
 class Diagnosis(SoftDeleteModel):
     class Status(models.TextChoices):
-        PROVISIONAL = 'provisional', 'Provisional / suspected'
         CONFIRMED = 'confirmed', 'Confirmed'
+        PROVISIONAL = 'provisional', 'Suspected'
         RULED_OUT = 'ruled_out', 'Ruled out'
 
     patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='diagnoses')

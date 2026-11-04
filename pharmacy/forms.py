@@ -48,14 +48,49 @@ class AdjustStockForm(BootstrapForm):
 
 
 class PrescriptionForm(PatientChildForm):
+    """What all medicines on one prescribing page share; each medicine is a PrescriptionLineForm."""
+
     class Meta:
         model = Prescription
-        fields = ['medication', 'dose', 'route', 'frequency', 'duration_days', 'quantity', 'instructions',
-                  'facility', 'encounter']
+        fields = ['facility', 'encounter']
+
+
+class PrescriptionLineForm(BootstrapModelForm):
+    class Meta:
+        model = Prescription
+        fields = ['medication', 'dose', 'route', 'frequency', 'duration_days', 'quantity', 'instructions']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['medication'].queryset = Medication.objects.filter(is_active=True, item_type='medicine')
+        for name in ('dose', 'frequency', 'quantity'):
+            self.fields[name].widget.attrs['placeholder'] = {
+                'dose': 'e.g. 500 mg', 'frequency': 'e.g. BD', 'quantity': 'e.g. 60'}[name]
+        self.fields['quantity'].label = 'Quantity'
+        self.fields['duration_days'].label = 'Days'
+
+    LAYOUT = [('medication', 'col-lg-4'), ('dose', 'col-lg-2'), ('route', 'col-lg-2'), ('frequency', 'col-lg-2'),
+              ('duration_days', 'col-lg-1'), ('quantity', 'col-lg-1'), ('instructions', 'col-lg-12')]
+
+    def layout(self):
+        return [(self[name], width) for name, width in self.LAYOUT]
+
+
+class BasePrescriptionLineFormSet(forms.BaseFormSet):
+    def clean(self):
+        if any(self.errors):
+            return
+        chosen = [f.cleaned_data['medication'] for f in self.forms
+                  if f.cleaned_data and not f.cleaned_data.get('DELETE') and f.cleaned_data.get('medication')]
+        if not chosen:
+            raise forms.ValidationError('Add at least one medicine.')
+        repeated = {m for m in chosen if chosen.count(m) > 1}
+        if repeated:
+            raise forms.ValidationError(f'{", ".join(map(str, repeated))} is listed more than once. Use one row per medicine.')
+
+
+PrescriptionLineFormSet = forms.formset_factory(PrescriptionLineForm, formset=BasePrescriptionLineFormSet, extra=1,
+                                                can_delete=True)
 
 
 class DispenseForm(BootstrapForm):

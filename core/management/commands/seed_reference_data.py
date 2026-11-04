@@ -16,7 +16,8 @@ GEOGRAPHY = {
     'Lake Zone': {'Mwanza': ['Nyamagana', 'Ilemela']},
     'Northern Zone': {'Kilimanjaro': ['Moshi Municipal']},
 }
-FACILITIES = [
+# Placeholder facilities, created only for tests and local demos (--demo-facilities); never on a real server.
+DEMO_FACILITIES = [
     ('DEMO-ILA-HC', 'Demo Ilala Health Centre', 'Ilala', 'health_centre', True),
     ('DEMO-KIN-HOSP', 'Demo Kinondoni District Hospital', 'Kinondoni', 'hospital', True),
     ('DEMO-TEM-DISP', 'Demo Temeke Dispensary', 'Temeke', 'dispensary', False),
@@ -101,15 +102,17 @@ FORMS = [
 
 class Command(BaseCommand):
     help = ('Load reference data: roles, demo geography and facilities, diseases, programmes, lab tests, medicines and '
-            'starter forms. Facilities are DEMO placeholders: replace with the validated official list.')
+            'starter forms. Real facilities come from setup_penplus.')
 
     def add_arguments(self, parser):
+        parser.add_argument('--demo-facilities', action='store_true',
+                            help='Also create the DEMO-* placeholder facilities (tests and local demos only).')
         parser.add_argument('--demo-users', action='store_true',
                             help='Also create one demo account per role (development only).')
         parser.add_argument('--password', default='', help='Password for demo accounts.')
 
     @transaction.atomic
-    def handle(self, *args, demo_users=False, password='', **options):
+    def handle(self, *args, demo_users=False, demo_facilities=False, password='', **options):
         call_command('setup_roles', stdout=self.stdout)
         districts = {}
         for zone_name, regions in GEOGRAPHY.items():
@@ -118,7 +121,7 @@ class Command(BaseCommand):
                 region, _ = Region.objects.get_or_create(name=region_name, defaults={'zone': zone})
                 for name in district_names:
                     districts[name], _ = District.objects.get_or_create(region=region, name=name)
-        for code, name, district, kind, research in FACILITIES:
+        for code, name, district, kind, research in (DEMO_FACILITIES if demo_facilities else []):
             Facility.objects.get_or_create(code=code, defaults={
                 'name': name, 'district': districts[district], 'facility_type': kind, 'is_research_site': research})
         diseases = {}
@@ -155,7 +158,7 @@ class Command(BaseCommand):
             self.stderr.write('Demo users need --password of at least 10 characters; skipped.')
             return
         User = get_user_model()
-        facility = Facility.objects.get(code='DEMO-ILA-HC')
+        facility = Facility.objects.filter(is_active=True).order_by('code').first()
         for group in Group.objects.all():
             username = group.name.lower().replace(' / ', '_').replace(' ', '_').replace('/', '_')
             user, created = User.objects.get_or_create(username=username, defaults={

@@ -55,7 +55,7 @@ docker compose exec -T penplus-web python manage.py setup_periodic_tasks
 if [ "${1:-}" = "--first" ]; then
     echo "First deployment: loading Tanzania locations and the PEN-Plus setup..."
     docker compose exec -T penplus-web python manage.py import_tz_locations
-    docker compose exec -T penplus-web python manage.py setup_penplus --deactivate-demo
+    docker compose exec -T penplus-web python manage.py setup_penplus --remove-demo
     echo "Create the first administrator account:"
     docker compose exec penplus-web python manage.py createsuperuser
 fi

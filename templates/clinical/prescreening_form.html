@@ -5,8 +5,7 @@
   {% csrf_token %}
   <div class="card shadow-sm">
     <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <div><h1 class="h5 mb-0">{{ title }}</h1><div class="small text-body-secondary">Before any disease screening: consent, residence, known NCD and lab request.</div></div>
-      <span class="badge text-bg-light">Step 2 of the pathway</span>
+      <div><h1 class="h5 mb-0">{{ title }}</h1><div class="small text-body-secondary">Consent, residence, known NCD and investigations. When investigations are requested, tick what the subject is screened for; if not, the doctor confirms directly.</div></div>
     </div>
     <div class="card-body">
       {% if form.non_field_errors %}<div class="alert alert-danger">{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
@@ -19,14 +18,15 @@
     </div>
     <div class="card-footer bg-body d-flex gap-2 justify-content-end">
       <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Close</a>
-      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save pre-screening</button>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save screening</button>
     </div>
   </div>
 </form>
 {% endblock %}
 {% block scripts %}
 <script>
-// Show the consent date, which NCD, and the lab request date only after "Yes".
+// Show the consent date, which NCD, the lab request date and "Screen for" only after "Yes".
+// A known NCD is ticked under "Screen for" too, so its lab tests can be requested.
 (function () {
   function toggle(name, target) {
     var box = document.getElementById('id_' + target) || document.getElementById('id_' + target + '_0');
@@ -42,6 +42,29 @@
   toggle('consent_obtained', 'consent_date');
   toggle('known_ncd', 'known_diseases');
   toggle('lab_test_requested', 'lab_request_date');
+  toggle('lab_test_requested', 'screen_for');
+  // Consent sets the outcome; staff change it only for a referral.
+  var outcome = document.getElementById('id_disposition');
+  document.querySelectorAll('input[name="consent_obtained"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (!outcome || outcome.value === 'referred') return;
+      outcome.value = r.value === 'True' ? 'proceed' : 'not_now';
+    });
+  });
+  var labYes = document.querySelector('input[name="lab_test_requested"][value="True"]');
+  if (labYes) labYes.addEventListener('change', function () {
+    if (document.querySelector('input[name="screen_for"]:checked')) return;
+    document.querySelectorAll('input[name="known_diseases"]:checked').forEach(function (known) {
+      var target = document.querySelector('input[name="screen_for"][value="' + known.value + '"]');
+      if (target) target.checked = true;
+    });
+  });
+  document.querySelectorAll('input[name="known_diseases"]').forEach(function (known) {
+    known.addEventListener('change', function () {
+      var target = document.querySelector('input[name="screen_for"][value="' + known.value + '"]');
+      if (target) target.checked = known.checked;
+    });
+  });
 })();
 </script>
 {% endblock %}

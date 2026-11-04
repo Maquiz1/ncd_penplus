@@ -138,11 +138,37 @@ class PrescribingTests(PharmacyTestCase):
         self.client.force_login(self.clinician_ilala)
         response = self.client.post(
             reverse('pharmacy:prescription_add', args=[self.patient.pk]) + f'?encounter={encounter.pk}',
-            {'medication': self.metformin.pk, 'dose': '500 mg', 'route': 'oral', 'frequency': 'BD',
-             'duration_days': 30, 'quantity': 60, 'facility': self.ilala.pk, 'encounter': encounter.pk})
+            {**self.lines({'medication': self.metformin.pk, 'dose': '500 mg', 'route': 'oral', 'frequency': 'BD',
+                           'duration_days': 30, 'quantity': 60}),
+             'facility': self.ilala.pk, 'encounter': encounter.pk})
         self.assertRedirects(response, encounter.get_absolute_url(), fetch_redirect_response=False)
         rx = Prescription.objects.get(patient=self.patient)
         self.assertEqual((rx.prescriber, rx.encounter, rx.status), (self.clinician_ilala, encounter, 'prescribed'))
+
+    @staticmethod
+    def lines(*rows):
+        data = {'med-TOTAL_FORMS': len(rows), 'med-INITIAL_FORMS': 0}
+        for i, row in enumerate(rows):
+            data.update({f'med-{i}-{k}': v for k, v in row.items()})
+        return data
+
+    def test_several_medicines_in_one_go(self):
+        from pharmacy.models import Medication
+        amlo = Medication.objects.create(name='Amlodipine', strength='5 mg')
+        url = reverse('pharmacy:prescription_add', args=[self.patient.pk])
+        self.client.force_login(self.clinician_ilala)
+        metformin = {'medication': self.metformin.pk, 'dose': '500 mg', 'route': 'oral', 'frequency': 'BD', 'quantity': 60}
+        removed = {'medication': amlo.pk, 'dose': '10 mg', 'route': 'oral', 'frequency': 'OD', 'quantity': 30, 'DELETE': 'on'}
+        response = self.client.post(url, {**self.lines(metformin, metformin), 'facility': self.ilala.pk})
+        self.assertContains(response, 'listed more than once')
+        response = self.client.post(url, {**self.lines(removed), 'facility': self.ilala.pk})
+        self.assertContains(response, 'Add at least one medicine')
+        amlo_row = {**removed, 'DELETE': ''}
+        response = self.client.post(url, {**self.lines(metformin, amlo_row, removed | {'medication': ''}),
+                                          'facility': self.ilala.pk})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(sorted(Prescription.objects.filter(patient=self.patient).values_list('medication__name', flat=True)),
+                         ['Amlodipine', 'Metformin'])
 
     def test_clinician_cannot_dispense_or_adjust(self):
         batch = self.receive('B1', 10)

@@ -29,21 +29,50 @@ from .models import (CLOSED_RETURNABLE, ClinicalProgramme, FamilyMember, Diagnos
                      ProgrammeEnrollment, Screening, ScreeningSession)
 
 
-class PreScreeningCreateView(PatientChildCreateMixin, CreateView):
+class ScreenForMixin:
+    """Saving the screening form also starts screening for each disease ticked under "Screen for"."""
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        pre, diseases = self.object, form.cleaned_data.get('screen_for') or []
+        if diseases and self.request.user.has_perm('clinical.add_screening'):
+            visit = pre.encounter or baseline_visit(pre.patient, pre.facility, self.request)
+            for disease in diseases:
+                screening = Screening.objects.create(
+                    patient=pre.patient, disease=disease, facility=pre.facility, encounter=visit,
+                    screening_date=pre.date, consent_obtained=bool(pre.consent_obtained),
+                    screened_by=self.request.user, created_by=self.request.user)
+                log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=screening)
+            messages.success(self.request, f'Screening for {", ".join(d.name for d in diseases)}. '
+                                           'Next: request the investigations.')
+        return response
+
+    def get_success_url(self):
+        pre = self.object
+        if pre.disposition == PreScreening.Disposition.PROCEED and not pre.patient.programme_enrollments.exists():
+            # Investigations requested: order them. None requested: the doctor confirms directly.
+            if pre.lab_test_requested:
+                return reverse('investigations:request', args=[pre.patient_id])
+            if pre.lab_test_requested is False and self.request.user.has_perm('clinical.add_diagnosis'):
+                return reverse('clinical:diagnosis_add', args=[pre.patient_id])
+        return super().get_success_url()
+
+
+class PreScreeningCreateView(ScreenForMixin, PatientChildCreateMixin, CreateView):
     permission_required = 'clinical.add_prescreening'
     model = PreScreening
     form_class = PreScreeningForm
     template_name = 'clinical/prescreening_form.html'
-    title = 'Pre-screening'
+    title = 'Screening'
     success_tab = '#screening'
 
     def get(self, request, *args, **kwargs):
         existing = self.patient.prescreenings.order_by('-date', '-pk').first()
         if existing and request.user.has_perm('clinical.change_prescreening'):
-            messages.info(request, 'Pre-screening is done once per subject. Edit the existing one instead.')
+            messages.info(request, 'Screening is done once per subject. Edit the existing one instead.')
             return redirect('clinical:prescreening_update', existing.pk)
         if existing:
-            messages.warning(request, 'Pre-screening is done once per subject, and this subject already has one.')
+            messages.warning(request, 'Screening is done once per subject, and this subject already has one.')
             return redirect(self.patient.get_absolute_url() + '#screening')
         return super().get(request, *args, **kwargs)
 
@@ -53,12 +82,12 @@ class PreScreeningCreateView(PatientChildCreateMixin, CreateView):
         return super().form_valid(form)
 
 
-class PreScreeningUpdateView(PatientChildUpdateMixin, UpdateView):
+class PreScreeningUpdateView(ScreenForMixin, PatientChildUpdateMixin, UpdateView):
     permission_required = 'clinical.change_prescreening'
     model = PreScreening
     form_class = PreScreeningForm
     template_name = 'clinical/prescreening_form.html'
-    title = 'Edit pre-screening'
+    title = 'Edit screening'
     success_tab = '#screening'
 
 
@@ -250,15 +279,13 @@ class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
     model = Diagnosis
     form_class = DiagnosisCreateForm
     template_name = 'clinical/diagnosis_form.html'
-    title = 'Doctor confirmation'
+    title = 'Diagnosis'
     success_tab = '#clinical'
 
     def get_initial(self):
         initial = super().get_initial()
         initial['encounter'] = self.request.GET.get('encounter') or getattr(current_visit(self.patient), 'pk', None)
         initial['disease'] = self.request.GET.get('disease')
-        waiting = self.waiting_tests()
-        initial['status'] = Diagnosis.Status.PROVISIONAL if waiting else Diagnosis.Status.CONFIRMED
         return initial
 
     def waiting_tests(self):
@@ -284,6 +311,7 @@ class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
             if items:
                 groups.append((disease, items))
         context.update(
+            status_choices=Diagnosis.Status.choices, chosen_statuses=form.chosen_statuses(),
             groups=groups, selected={int(v) for v in form['conditions'].value() or []}, waiting=self.waiting_tests(),
             lab_results=self.patient.lab_orders.filter(status__in=['resulted', 'reviewed']).select_related('test')
             .order_by('-resulted_at')[:12],
@@ -304,7 +332,7 @@ class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
             disease = condition.disease if condition else form.cleaned_data['disease']
             diagnosis = Diagnosis.objects.create(patient=self.patient, disease=disease, condition=condition,
                                                  description=description[:255], clinician=self.request.user,
-                                                 created_by=self.request.user, **data)
+                                                 status=form.statuses[disease.pk], created_by=self.request.user, **data)
             log_event(request=self.request, action=AuditEvent.Action.CREATE, obj=diagnosis)
             created.append(diagnosis.description)
         messages.success(self.request, f'{len(created)} diagnosis/diagnoses recorded: {"; ".join(created)}.')

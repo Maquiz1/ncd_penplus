@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Doctor confirmation · {{ patient.patient_number }}{% endblock %}
+{% block title %}Diagnosis · {{ patient.patient_number }}{% endblock %}
 {% block content %}
 <form method="post" novalidate id="dx-form">
   {% csrf_token %}
   {{ form.disease }}
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div><h1 class="h4 mb-0">Doctor confirmation</h1><div class="small text-body-secondary">Look at the results, then tick every condition you diagnose, in any disease. One diagnosis is recorded for each.</div></div>
+    <div><h1 class="h4 mb-0">Diagnosis</h1><div class="small text-body-secondary">Look at the results, tick every condition you diagnose, in any disease, then say for each disease whether it is confirmed, suspected or ruled out.</div></div>
   </div>
 
   {% if form.non_field_errors or form.conditions.errors or form.disease.errors %}<div class="alert alert-danger">
     {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}{% for e in form.conditions.errors %}<div>{{ e }}</div>{% endfor %}{% for e in form.disease.errors %}<div>{{ e }}</div>{% endfor %}
   </div>{% endif %}
 
-  {% if waiting %}<div class="alert alert-warning py-2"><i class="bi bi-hourglass-split"></i> Still waiting for: {{ waiting|join:", " }}. Keep the diagnosis provisional until the results are back.</div>{% endif %}
+  {% if waiting %}<div class="alert alert-warning py-2"><i class="bi bi-hourglass-split"></i> Still waiting for: {{ waiting|join:", " }}. Mark it suspected until the results are back.</div>{% endif %}
   {% if lab_results or imaging_results %}<div class="card shadow-sm mb-3">
     <div class="card-header bg-body fw-semibold">Latest results</div>
     <div class="card-body py-2">
@@ -53,7 +53,7 @@
         <div class="card-body">
           <p class="small text-body-secondary" id="inv-empty">Tick the conditions on the left.</p>
           <div class="row g-2">
-            {% include "_form_field.html" with field=form.status %}
+            <div class="col-12" id="dx-status"></div>
             {% include "_form_field.html" with field=form.diagnosis_date %}
             {% include "_form_field.html" with field=form.encounter %}
           </div>
@@ -78,6 +78,8 @@
 </form>
 {% endblock %}
 {% block scripts %}
+{{ status_choices|json_script:"dx-status-choices" }}
+{{ chosen_statuses|json_script:"dx-chosen" }}
 <script>
 // Diseases show their conditions; search looks through all of them; the tray lists what is ticked.
 (function () {
@@ -106,6 +108,51 @@
     none.hidden = shown > 0;
   }
 
+  // One status per disease ticked, empty until the doctor chooses; only "Confirmed" allows enrolling.
+  var statusChoices = JSON.parse(document.getElementById('dx-status-choices').textContent);
+  var chosen = JSON.parse(document.getElementById('dx-chosen').textContent);
+  function renderStatus(checked) {
+    var box = document.getElementById('dx-status');
+    box.querySelectorAll('select').forEach(function (s) { chosen[s.dataset.disease] = s.value; });
+    var seen = {}, diseases = [];
+    checked.forEach(function (i) { if (!seen[i.dataset.group]) { seen[i.dataset.group] = 1; diseases.push([i.dataset.group, i.dataset.disease]); } });
+    if (!diseases.length && description.value.trim() && current) {
+      var g = groups.filter(function (x) { return x.dataset.group === current; })[0];
+      diseases.push([current, g ? g.textContent : '']);
+    }
+    box.textContent = '';
+    if (!diseases.length) return;
+    var title = document.createElement('div');
+    title.className = 'form-label mb-1';
+    title.innerHTML = 'Status <span class="text-danger">*</span>';
+    box.appendChild(title);
+    diseases.forEach(function (d) {
+      var row = document.createElement('div');
+      row.className = 'd-flex align-items-center gap-2 mb-2';
+      var label = document.createElement('label');
+      label.className = 'small flex-grow-1';
+      label.textContent = d[1];
+      label.htmlFor = 'status_' + d[0];
+      var select = document.createElement('select');
+      select.className = 'form-select form-select-sm w-auto';
+      select.name = select.id = 'status_' + d[0];
+      select.dataset.disease = d[0];
+      [['', 'Choose…']].concat(statusChoices).forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = c[0]; o.textContent = c[1];
+        select.appendChild(o);
+      });
+      select.value = chosen[d[0]] || '';
+      row.appendChild(label);
+      row.appendChild(select);
+      box.appendChild(row);
+    });
+    var help = document.createElement('div');
+    help.className = 'form-text';
+    help.textContent = 'Confirmed when the results support it. Only a confirmed diagnosis allows enrolling.';
+    box.appendChild(help);
+  }
+
   function renderTray() {
     var list = document.getElementById('inv-selected');
     var checked = items.filter(function (i) { return i.querySelector('input').checked; });
@@ -131,9 +178,10 @@
     document.getElementById('inv-count').textContent = checked.length;
     document.getElementById('inv-empty').hidden = checked.length > 0;
     document.getElementById('inv-send').disabled = checked.length === 0 && !description.value.trim();
+    renderStatus(checked);
   }
 
-  groups.forEach(function (g) { g.addEventListener('click', function () { current = g.dataset.group; show(); }); });
+  groups.forEach(function (g) { g.addEventListener('click', function () { current = g.dataset.group; show(); renderTray(); }); });
   search.addEventListener('input', show);
   search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
   description.addEventListener('input', renderTray);

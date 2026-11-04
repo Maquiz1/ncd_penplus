@@ -1,0 +1,7 @@
+{% load ncd %}{# Visits of one kind, newest first; each opens its visit page, where the work is done. #}
+<ul class="list-group list-group-flush small">
+  {% for v in visits %}<li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+    <a href="{{ v.get_absolute_url }}">{{ v.encounter_date|date:"d M Y" }}{% if v.appointment %} <span class="text-body-secondary">(appointment {{ v.appointment.scheduled_date|date:"d M" }})</span>{% endif %}</a>
+    {% status_badge v.status v.get_status_display %}
+  </li>{% empty %}<li class="list-group-item px-0 text-body-secondary">{{ empty }}</li>{% endfor %}
+</ul>

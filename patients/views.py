@@ -129,14 +129,16 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
         sets = []
         for key, stages, visit in (('baseline', {'baseline'}, pathway['baseline']),
                                    ('visits', {'follow_up', 'unscheduled'}, pathway['follow_up'] or pathway['unscheduled'])):
-            rows = []
+            # Vital signs are taken at every visit, so they head each list.
+            rows = [{'name': 'Vital signs', 'number': None, 'done': bool(visit and visit.vitals.exists()),
+                     'url': reverse('encounters:vitals_add', args=[visit.pk]) if visit else ''}]
             for version in applicable_versions(patient):
                 definition = version.definition
                 if definition.stages and not stages & set(definition.stages):
                     continue
                 url = reverse('crf:submission_add', args=[patient.pk, version.pk]) + (f'?encounter={visit.pk}' if visit else '')
                 done = any(d == definition.pk and (key == 'baseline' or (visit and e == visit.pk)) for d, e in filled)
-                rows.append({'version': version, 'url': url, 'done': done})
+                rows.append({'name': definition.name, 'number': version.number, 'url': url, 'done': done})
             sets.append((key, visit, rows))
         return sets
 

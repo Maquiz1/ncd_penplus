@@ -161,11 +161,13 @@ class EncounterDetailView(PermissionRequiredMixin, ScopedQuerysetMixin, DetailVi
     template_name = 'encounters/encounter_detail.html'
 
     def get_context_data(self, **kwargs):
+        from clinical.flow import visit_steps
         from crf.services import encounter_form_status
 
         enc = self.object
         return super().get_context_data(
             patient=enc.patient,
+            steps=visit_steps(enc) if enc.stage != 'baseline' else [],
             vitals=enc.vitals.all(),
             prescreenings=enc.prescreenings.all(),
             screenings=enc.screenings.select_related('disease'),

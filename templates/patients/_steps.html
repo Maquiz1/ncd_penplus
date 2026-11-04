@@ -1,4 +1,4 @@
 {# Steps of a visit, each linked directly to where it is done. #}
 <div class="pathway-steps">
-  {% for s in steps %}{% if s.perm in perms %}<a class="pathway-step{% if s.done %} is-done{% endif %}" href="{{ s.url }}"><i class="bi {% if s.done %}bi-check-circle-fill{% else %}bi-circle{% endif %}"></i> {{ s.label }}{% if s.note %} <small>{{ s.note }}</small>{% endif %}</a>{% endif %}{% endfor %}
+  {% for s in steps %}{% if s.perm in perms %}<a class="pathway-step{% if s.done %} is-done{% endif %}{% if s.disabled %} disabled{% endif %}"{% if s.disabled %} aria-disabled="true" title="No investigations requested in the screening form"{% else %} href="{{ s.url }}"{% endif %}><i class="bi {% if s.done %}bi-check-circle-fill{% else %}bi-circle{% endif %}"></i> {{ s.label }}{% if s.note %} <small>{{ s.note }}</small>{% endif %}</a>{% endif %}{% endfor %}
 </div>

@@ -16,15 +16,21 @@ YES_NO = [(True, 'Yes'), (False, 'No')]
 
 
 class PreScreeningForm(PatientChildForm):
-    """General pre-screening, laid out like the old EDCS screening form."""
+    """The one screening form, laid out like the old EDCS screening form. When a lab test is requested it also
+    records what the subject is screened for (one Screening per disease), known NCD or not."""
 
     SECTIONS = [
         ('Screening', 'bi-clipboard2-check', ['date', 'screening_type', 'facility']),
         ('Consent', 'bi-pen', ['consent_obtained', 'consent_date']),
         ('Residence', 'bi-house', ['resides_in_area', 'expected_stay_months']),
-        ('NCD and tests', 'bi-droplet-half', ['known_ncd', 'known_diseases', 'lab_test_requested', 'lab_request_date']),
+        ('NCD and tests', 'bi-droplet-half', ['known_ncd', 'known_diseases', 'lab_test_requested', 'lab_request_date',
+                                              'screen_for']),
         ('Outcome', 'bi-signpost-split', ['disposition', 'notes']),
     ]
+
+    screen_for = forms.ModelMultipleChoiceField(queryset=Disease.objects.none(), widget=forms.CheckboxSelectMultiple,
+                                                required=False, label='Screen for',
+                                                help_text='What the investigations will look for. The doctor decides after the results.')
 
     class Meta:
         model = PreScreening
@@ -38,13 +44,24 @@ class PreScreeningForm(PatientChildForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['consent_obtained'].required = True
+        self.fields['disposition'].required = False
         self.fields['known_diseases'].queryset = Disease.objects.filter(is_active=True)
         self.fields['resides_in_area'].required = False
         self.fields['consent_date'].help_text = 'Required when the person consented.'
-        self.fields['lab_request_date'].help_text = 'When a lab test was requested.'
+        self.fields['lab_request_date'].help_text = 'When the investigations were requested.'
+        # Screening is done once per disease; a negative one is repeated with Re-screen on the Screening tab.
+        screen_for = self.fields['screen_for']
+        screen_for.queryset = Disease.objects.filter(is_active=True)
+        if self.patient is not None:
+            already = Disease.objects.filter(pk__in=self.patient.screenings.values('disease'))
+            screen_for.queryset = screen_for.queryset.exclude(pk__in=already)
+            if already:
+                screen_for.help_text += f' Already screened for: {", ".join(d.name for d in already)}.'
+            if not screen_for.queryset.exists():
+                del self.fields['screen_for']
 
     def sections(self):
-        return [(title, icon, [self[name] for name in names]) for title, icon, names in self.SECTIONS]
+        return [(title, icon, [self[name] for name in names if name in self.fields]) for title, icon, names in self.SECTIONS]
 
     def clean(self):
         data = super().clean()
@@ -52,16 +69,25 @@ class PreScreeningForm(PatientChildForm):
             self.add_error('consent_obtained', 'Answer Yes or No.')
         if data.get('consent_obtained') and not data.get('consent_date'):
             self.add_error('consent_date', 'Enter the date of consent.')
-        if data.get('consent_obtained') is False and data.get('disposition') == PreScreening.Disposition.PROCEED:
-            self.add_error('disposition', 'Without consent the person cannot proceed to disease screening.')
+        # The outcome follows consent: without it the person stops here; a referral is the one choice made by hand.
+        if data.get('consent_obtained') is False and data.get('disposition') in ('', None, PreScreening.Disposition.PROCEED):
+            data['disposition'] = PreScreening.Disposition.NOT_NOW
+        elif not data.get('disposition'):
+            data['disposition'] = PreScreening.Disposition.PROCEED
         if data.get('known_ncd') and not data.get('known_diseases'):
             self.add_error('known_diseases', 'Tick the known NCD: one or more.')
         if not data.get('known_ncd'):
             data['known_diseases'] = Disease.objects.none()
         if data.get('lab_test_requested') and not data.get('lab_request_date'):
             data['lab_request_date'] = data.get('date')
+        if not data.get('lab_test_requested'):
+            data['screen_for'] = Disease.objects.none()
+        elif 'screen_for' in self.fields and not self.patient.screenings.exists() and not data.get('screen_for'):
+            self.add_error('screen_for', 'Tick what the subject is screened for: one or more.')
+        if data.get('screen_for') and data.get('consent_obtained') is False:
+            self.add_error('screen_for', 'Without consent the subject cannot be screened.')
         if not self.instance.pk and self.patient and self.patient.prescreenings.exists():
-            raise forms.ValidationError('Pre-screening is done once per subject. Edit the existing one instead.')
+            raise forms.ValidationError('Screening is done once per subject. Edit the existing one instead.')
         return data
 
 
@@ -306,7 +332,7 @@ class DiagnosisCreateForm(PatientChildForm):
 
     class Meta:
         model = Diagnosis
-        fields = ['disease', 'conditions', 'description', 'code', 'status', 'onset_date', 'diagnosis_date', 'encounter',
+        fields = ['disease', 'conditions', 'description', 'code', 'onset_date', 'diagnosis_date', 'encounter',
                   'complications', 'notes']
         labels = {'description': 'Description / details', 'encounter': 'Visit'}
         widgets = {'disease': forms.HiddenInput}
@@ -323,7 +349,12 @@ class DiagnosisCreateForm(PatientChildForm):
                                               .exclude(code='cardiac-unspecified').select_related('disease', 'parent')
                                               .order_by('disease__order', 'parent__order', 'parent_id', 'order'))
         self.fields['description'].required = False
-        self.fields['status'].help_text = 'Confirm when the results support it. Only a confirmed diagnosis allows enrolling.'
+        self.statuses = {}
+
+    def chosen_statuses(self):
+        """The status picked for each disease, posted as status_<disease id>; nothing is picked in advance."""
+        return {key[len('status_'):]: value for key, value in self.data.items()
+                if key.startswith('status_') and value in Diagnosis.Status.values}
 
     def clean(self):
         cleaned = super().clean()
@@ -332,6 +363,13 @@ class DiagnosisCreateForm(PatientChildForm):
             self.add_error('conditions', 'Tick at least one condition, or write the diagnosis in the description.')
         elif not conditions and not cleaned.get('disease'):
             self.add_error('disease', 'Choose the disease for this diagnosis.')
+        diseases = {c.disease for c in conditions} or ({cleaned['disease']} if cleaned.get('disease') else set())
+        chosen = self.chosen_statuses()
+        for disease in sorted(diseases, key=lambda d: d.name):
+            if str(disease.pk) in chosen:
+                self.statuses[disease.pk] = chosen[str(disease.pk)]
+            else:
+                self.add_error(None, f'Choose whether the {disease.name.lower()} diagnosis is confirmed, suspected or ruled out.')
         return cleaned
 
 

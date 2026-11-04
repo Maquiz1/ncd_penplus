@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Prescribe · {{ patient.patient_number }}{% endblock %}
+{% block content %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="card shadow-sm">
+    <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div><h1 class="h5 mb-0">Prescribe medication</h1><div class="small text-body-secondary">Add every medicine for this visit. Each one goes to the pharmacy as its own item.</div></div>
+    </div>
+    <div class="card-body">
+      {% for e in form.non_field_errors %}<div class="alert alert-warning">{{ e }}</div>{% endfor %}
+      {% for e in lines.non_form_errors %}<div class="alert alert-warning">{{ e }}</div>{% endfor %}
+      <div class="row g-3 mb-3">
+        {% include "_form_field.html" with field=form.facility %}
+        {% include "_form_field.html" with field=form.encounter %}
+      </div>
+
+      {{ lines.management_form }}
+      <div id="rx-lines">
+        {% for line in lines %}{% include "pharmacy/_prescribe_line.html" with line=line %}{% endfor %}
+      </div>
+      <template id="rx-empty">{% include "pharmacy/_prescribe_line.html" with line=lines.empty_form %}</template>
+      <button type="button" class="btn btn-outline-primary" id="rx-add"><i class="bi bi-plus-lg"></i> Add another medicine</button>
+    </div>
+    <div class="card-footer bg-body d-flex gap-2 justify-content-end">
+      <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Prescribe <span id="rx-count"></span></button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+// "Add another medicine" copies a blank row; the × marks a row as removed so it is not saved.
+(function () {
+  var box = document.getElementById('rx-lines');
+  var total = document.getElementById('id_med-TOTAL_FORMS');
+  var count = document.getElementById('rx-count');
+
+  function rows() { return Array.prototype.slice.call(box.querySelectorAll('.rx-line')).filter(function (r) { return !r.hidden; }); }
+  function refresh() {
+    var shown = rows();
+    shown.forEach(function (r, i) { r.querySelector('.rx-number').textContent = 'Medicine ' + (i + 1); });
+    count.textContent = shown.length > 1 ? '(' + shown.length + ')' : '';
+  }
+  function wire(row) {
+    row.querySelector('.rx-remove').addEventListener('click', function () {
+      if (rows().length === 1) return;
+      row.querySelector('input[name$="-DELETE"]').checked = true;
+      row.hidden = true;
+      refresh();
+    });
+  }
+
+  document.getElementById('rx-add').addEventListener('click', function () {
+    var html = document.getElementById('rx-empty').innerHTML.replace(/__prefix__/g, total.value);
+    box.insertAdjacentHTML('beforeend', html);
+    total.value = parseInt(total.value, 10) + 1;
+    var row = box.lastElementChild;
+    wire(row);
+    refresh();
+    row.querySelector('select').focus();
+  });
+  box.querySelectorAll('.rx-line').forEach(function (r) {
+    if (r.querySelector('input[name$="-DELETE"]').checked) r.hidden = true;
+    wire(r);
+  });
+  refresh();
+})();
+</script>
+{% endblock %}

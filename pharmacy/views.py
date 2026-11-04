@@ -2,6 +2,7 @@ import datetime
 
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -11,10 +12,11 @@ from django.views.generic import CreateView, ListView, UpdateView
 from audit.models import AuditEvent
 from audit.services import log_event
 from core.forms import ReasonForm
-from core.mixins import AuditedCreateMixin, AuditedUpdateMixin, PatientChildCreateMixin, ScopedQuerysetMixin
+from core.mixins import AuditedCreateMixin, AuditedUpdateMixin, PatientContextMixin, ScopedQuerysetMixin
 from facilities.scope import facilities_for_user, scope_queryset
 
-from .forms import AdjustStockForm, ConsumableUseForm, DispenseForm, MedicationForm, PrescriptionForm, ReceiveStockForm
+from .forms import (AdjustStockForm, ConsumableUseForm, DispenseForm, MedicationForm, PrescriptionForm,
+                    PrescriptionLineFormSet, ReceiveStockForm)
 from .models import (EXPIRY_WARNING_DAYS, ConsumableUse, Medication, Prescription, StockBatch, StockMovement,
                      StockShortfall)
 from .services import (StockError, adjust_stock, available_batches, cancel_prescription, dispense,
@@ -186,30 +188,48 @@ class MovementListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
                                         facilities=facilities_for_user(self.request.user), **kwargs)
 
 
-class PrescriptionCreateView(PatientChildCreateMixin, CreateView):
+class PrescriptionCreateView(PermissionRequiredMixin, PatientContextMixin, View):
+    """Prescribe one or more medicines at once; each medicine is its own prescription so it is dispensed on its own."""
+
     permission_required = 'pharmacy.add_prescription'
-    model = Prescription
-    form_class = PrescriptionForm
-    title = 'Prescribe medication'
-    success_tab = '#medications'
 
-    def get_initial(self):
-        initial = super().get_initial()
-        initial['encounter'] = self.request.GET.get('encounter')
-        return initial
+    def forms(self, data=None):
+        initial = {'facility': self.patient.current_facility_id, 'encounter': self.request.GET.get('encounter')}
+        return (PrescriptionForm(data, initial=initial, patient=self.patient, user=self.request.user),
+                PrescriptionLineFormSet(data, prefix='med'))
 
-    def form_valid(self, form):
+    def render(self, form, lines):
+        cancel = form.initial.get('encounter') and form.fields['encounter'].queryset.filter(pk=form.initial['encounter']).first()
+        return render(self.request, 'pharmacy/prescribe.html', {
+            'patient': self.patient, 'form': form, 'lines': lines,
+            'cancel_url': cancel.get_absolute_url() if cancel else self.patient.get_absolute_url() + '#medications'})
+
+    def get(self, request, patient_pk):
+        return self.render(*self.forms())
+
+    def post(self, request, patient_pk):
+        form, lines = self.forms(request.POST)
+        if not (form.is_valid() & lines.is_valid()):
+            return self.render(form, lines)
         if self.patient.is_deceased:
             form.add_error(None, 'Cannot prescribe for a deceased subject.')
-            return self.form_invalid(form)
-        form.instance.prescriber = self.request.user
-        response = super().form_valid(form)
-        if not available_batches(self.object.medication, self.object.facility).exists():
-            messages.warning(self.request, f'{self.object.medication} is currently out of stock at {self.object.facility}.')
-        return response
-
-    def get_success_url(self):
-        return self.object.encounter.get_absolute_url() if self.object.encounter else super().get_success_url()
+            return self.render(form, lines)
+        facility, encounter = form.cleaned_data['facility'], form.cleaned_data['encounter']
+        created = []
+        with transaction.atomic():
+            for line in lines.forms:
+                if not line.cleaned_data or line.cleaned_data.get('DELETE'):
+                    continue
+                rx = line.save(commit=False)
+                rx.patient, rx.facility, rx.encounter, rx.prescriber = self.patient, facility, encounter, request.user
+                rx.save()
+                log_event(request=request, action=AuditEvent.Action.CREATE, obj=rx)
+                created.append(rx)
+        messages.success(request, f'{len(created)} medicine{"s" if len(created) != 1 else ""} prescribed.')
+        for rx in created:
+            if not available_batches(rx.medication, facility).exists():
+                messages.warning(request, f'{rx.medication} is currently out of stock at {facility}.')
+        return redirect(encounter.get_absolute_url() if encounter else self.patient.get_absolute_url() + '#medications')
 
 
 class PrescriptionListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):

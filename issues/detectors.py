@@ -153,9 +153,9 @@ DX_CODES = ('diagnosis_to_confirm_after_results', 'diagnosis_still_provisional')
 
 
 def diagnosis_prompts(patient_ids=None):
-    """Enrolled patients whose diagnosis is missing or still provisional:
+    """Enrolled patients whose diagnosis is missing or still suspected:
     - results are available (echo/ECG, HbA1c/glucose, SCD tests) -> "confirm the diagnosis";
-    - no results 60 days after enrolment -> "still provisional".
+    - no results 60 days after enrolment -> "still suspected".
     Prompts close by themselves once a confirmed (or ruled-out) diagnosis is recorded."""
     from clinical.models import Diagnosis, ProgrammeEnrollment
     from investigations.models import InvestigationOrder
@@ -184,7 +184,7 @@ def diagnosis_prompts(patient_ids=None):
             for lab in LabOrder.objects.filter(patient=patient, test__code__in=evidence['labs'],
                                                status__in=['resulted', 'reviewed']).select_related('test').order_by('-resulted_at')[:3]:
                 results.append(f'{lab.test.name} {lab.resulted_at:%d %b %Y}: {lab.result_value} {lab.result_unit}'.strip())
-        state = 'provisional' if diagnoses.exists() else 'not recorded'
+        state = 'suspected' if diagnoses.exists() else 'not recorded'
         if results:
             code, key = DX_CODES[0], f'dx-results:{patient.pk}:{disease.code}'
             title = f'Results available: confirm the {disease.name.lower()} diagnosis'

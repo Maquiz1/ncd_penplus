@@ -30,7 +30,7 @@ User = get_user_model()
 class BaseTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command('seed_reference_data', verbosity=0, stdout=open('/dev/null', 'w'))
+        call_command('seed_reference_data', demo_facilities=True, verbosity=0, stdout=open('/dev/null', 'w'))
         cls.ilala = Facility.objects.get(code='DEMO-ILA-HC')
         cls.kinondoni = Facility.objects.get(code='DEMO-KIN-HOSP')
         cls.mwanza = Facility.objects.get(code='DEMO-NYA-HOSP')
