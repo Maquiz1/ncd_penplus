@@ -48,11 +48,6 @@ def _step(steps, key):
     return next(s for s in steps if s.key == key)
 
 
-def may_enroll(patient, disease):
-    """A subject enters a programme once a doctor has confirmed the diagnosis of its disease."""
-    return patient.diagnoses.filter(disease=disease, status=Diagnosis.Status.CONFIRMED).exists()
-
-
 def _orders(patient):
     """(date, still waiting for a result) of every laboratory and radiology request."""
     rows = [(timezone.localtime(when).date(), status in ('ordered', 'collected'))
@@ -300,8 +295,11 @@ def patient_pathway(patient):
     baseline = visits.filter(stage='baseline').first()
     follow_up = visits.filter(stage='follow_up', status__in=['open', 'in_progress']).first()
     unscheduled = visits.filter(stage='unscheduled', status__in=['open', 'in_progress']).first()
-    appointment = patient.appointments.filter(status__in=['scheduled', 'confirmed', 'rescheduled'],
-                                              scheduled_date__gte=timezone.localdate()).order_by('scheduled_date').first()
+    # A subject who comes late still attends the booked appointment: the latest one missed, otherwise the next.
+    today = timezone.localdate()
+    booked = patient.appointments.filter(status__in=['scheduled', 'confirmed', 'rescheduled'])
+    appointment = (booked.filter(scheduled_date__lt=today).order_by('-scheduled_date').first()
+                   or booked.filter(scheduled_date__gte=today).order_by('scheduled_date').first())
     start = reverse('encounters:encounter_add', args=[patient.pk])
     return {
         'active': ('unscheduled' if unscheduled else
@@ -315,6 +313,7 @@ def patient_pathway(patient):
         'unscheduled': unscheduled,
         'unscheduled_steps': visit_steps(unscheduled) if unscheduled else [],
         'appointment': appointment,
+        'appointment_overdue': bool(appointment and appointment.scheduled_date < today),
         'attend_url': f'{start}?appointment={appointment.pk}' if appointment else '',
         'start_follow_up_url': f'{start}?stage=follow_up',
         'start_unscheduled_url': f'{start}?stage=unscheduled',

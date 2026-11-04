@@ -10,7 +10,7 @@
   <div class="d-flex flex-wrap gap-2">
     {% if perms.encounters.add_vitals %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:vitals_add' object.pk %}"><i class="bi bi-heart-pulse"></i> Vitals</a>{% endif %}
     {% if perms.clinical.add_screening and object.stage == 'baseline' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:screening_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-search-heart"></i> Screening</a>{% endif %}
-    {% if perms.clinical.add_diagnosis %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:diagnosis_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-clipboard2-plus"></i> Diagnosis</a>{% endif %}
+    {% if perms.clinical.add_diagnosis and object.stage == 'baseline' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:diagnosis_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-clipboard2-plus"></i> Diagnosis</a>{% endif %}
     {% if perms.laboratory.add_laborder or perms.investigations.add_investigationorder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'investigations:request' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-droplet-half"></i> Investigations</a>{% endif %}
     {% if perms.pharmacy.add_prescription %}<a class="btn btn-sm btn-outline-primary" href="{% url 'pharmacy:prescription_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-capsule"></i> Prescribe</a>{% endif %}
     {% if perms.encounters.delete_encounter %}<a class="btn btn-sm btn-outline-danger" href="{% url 'records:delete' 'encounter' object.pk %}?next={{ patient.get_absolute_url|urlencode }}%23visits"><i class="bi bi-trash"></i> Delete</a>{% endif %}

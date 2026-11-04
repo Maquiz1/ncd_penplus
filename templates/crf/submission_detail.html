@@ -18,7 +18,7 @@
   {% endfor %}</tbody>
 </table></div></div>
 {% endif %}
-{% if perms.crf.review_formsubmission and object.status == 'submitted' or perms.crf.review_formsubmission and object.status == 'under_review' %}
+{% if perms.crf.review_formsubmission and object.status == 'submitted' or perms.crf.review_formsubmission and object.status == 'under_review' or perms.crf.review_formsubmission and object.status == 'verified' %}
 <div class="card shadow-sm" style="max-width: 640px;"><div class="card-header bg-body fw-semibold">Review</div><div class="card-body">
   <form method="post" action="{% url 'crf:submission_review' object.pk %}">{% csrf_token %}
     <div class="mb-2">{{ review_form.decision.label_tag }}<select class="form-select" name="decision">{% for v, l in review_form.fields.decision.choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>

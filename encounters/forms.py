@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 
 from core.forms import PatientChildForm
 
@@ -58,13 +59,30 @@ class VitalsForm(PatientChildForm):
 
 
 class FollowUpPlanForm(PatientChildForm):
+    # The programmes were set at enrollment from the doctor's confirmation, so a schedule follows the one
+    # PEN-Plus study enrollment and covers all of them.
     class Meta:
         model = FollowUpPlan
-        fields = ['facility', 'programme_enrollment', 'study_enrollment', 'interval_months', 'anchor_type',
+        fields = ['facility', 'study_enrollment', 'interval_months', 'anchor_type',
                   'anchor_date', 'visit_count', 'end_date', 'generation', 'is_active', 'change_reason']
+        labels = {'study_enrollment': 'Study'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.patient is not None:
+            from research.services import MAIN_STUDY_CODE
+            study = self.fields['study_enrollment']
+            study.queryset = self.patient.study_enrollments.filter(study__code=MAIN_STUDY_CODE).filter(
+                Q(status__in=['pending', 'active']) | Q(pk=self.instance.study_enrollment_id)).select_related('study')
+            current = study.queryset.first()
+            if current is not None:
+                study.required = True
+                study.empty_label = None
+                study.help_text = 'Covers every programme the subject was enrolled in.'
+                study.label_from_instance = lambda e: f'PEN-Plus · {e.participant_id}'
+                if not self.instance.pk:
+                    self.initial.setdefault('study_enrollment', current.pk)
+                    self.initial.setdefault('anchor_date', current.enrollment_date)
         if not self.instance.pk:
             del self.fields['change_reason']
             del self.fields['is_active']

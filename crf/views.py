@@ -276,7 +276,7 @@ class SubmissionReviewView(PermissionRequiredMixin, View):
     def post(self, request, pk):
         submission = get_object_or_404(scoped_submissions(request.user), pk=pk)
         form = SubmissionReviewForm(request.POST)
-        if not form.is_valid() or submission.status not in ('submitted', 'under_review'):
+        if not form.is_valid() or submission.status not in ('submitted', 'under_review', 'verified'):
             messages.error(request, 'This submission cannot be reviewed now.')
             return redirect(submission.get_absolute_url())
         if form.cleaned_data['decision'] == 'returned' and not form.cleaned_data['comment']:

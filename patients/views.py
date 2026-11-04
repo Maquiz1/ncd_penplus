@@ -84,7 +84,6 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         from clinical.flow import patient_flow, patient_pathway
-        from crf.services import applicable_versions
 
         p = self.object
         ctx = super().get_context_data(**kwargs)
@@ -113,12 +112,33 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             .prefetch_related('dispensings__batch'),
             transfers=p.transfers.select_related('from_facility', 'to_facility'),
             assignments=p.facility_assignments.select_related('facility'),
-            available_forms=applicable_versions(p),
             open_transfer=p.transfers.filter(status__in=['requested', 'approved', 'sent']).first(),
             flow=patient_flow(p),
             pathway=patient_pathway(p),
         )
+        ctx['form_sets'] = self.form_sets(p, ctx['pathway'])
         return ctx
+
+    @staticmethod
+    def form_sets(patient, pathway):
+        """Forms for Baseline (filled once, e.g. demographics) and for follow-up visits, each opening in its visit."""
+        from crf.services import applicable_versions
+        from django.urls import reverse
+
+        filled = set(patient.form_submissions.values_list('version__definition_id', 'encounter_id'))
+        sets = []
+        for key, stages, visit in (('baseline', {'baseline'}, pathway['baseline']),
+                                   ('visits', {'follow_up', 'unscheduled'}, pathway['follow_up'] or pathway['unscheduled'])):
+            rows = []
+            for version in applicable_versions(patient):
+                definition = version.definition
+                if definition.stages and not stages & set(definition.stages):
+                    continue
+                url = reverse('crf:submission_add', args=[patient.pk, version.pk]) + (f'?encounter={visit.pk}' if visit else '')
+                done = any(d == definition.pk and (key == 'baseline' or (visit and e == visit.pk)) for d, e in filled)
+                rows.append({'version': version, 'url': url, 'done': done})
+            sets.append((key, visit, rows))
+        return sets
 
 
 class PatientUpdateView(PermissionRequiredMixin, AuditedUpdateMixin, UpdateView):

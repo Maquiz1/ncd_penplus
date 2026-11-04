@@ -78,6 +78,14 @@ def enroll_in_main_study(patient, facility, enrollment_date, request):
     if study is None or patient.study_enrollments.filter(study=study, status__in=['pending', 'active']).exists():
         return None
     user = request.user
+    earlier = patient.study_enrollments.filter(study=study).first()
+    if earlier is not None:  # one participant ID per subject: coming back reopens the same study record
+        old = earlier.status
+        earlier.status, earlier.outcome_date, earlier.outcome_reason = StudyEnrollment.Status.ACTIVE, None, ''
+        earlier.save(update_fields=['status', 'outcome_date', 'outcome_reason', 'updated_at'])
+        log_event(request=request, action=AuditEvent.Action.STATUS, obj=earlier, changes={'status': [old, 'active']},
+                  reason='Enrolled again')
+        return earlier
     consent = patient.consents.filter(study=study, decision='consented').order_by('-consent_date', '-pk').first()
     if consent is None:
         pre = patient.prescreenings.order_by('-date', '-pk').first()

@@ -866,10 +866,11 @@ class Importer:
         data = {column: text(row.get(column)) for column in columns if text(row.get(column))}
         if not data:
             return
+        when = at_nine(self.row_date(row, 'visit_date', 'created_on') or patient.registration_date)
+        by = self.staff(row.get('staff_id'))
         submission = FormSubmission.objects.create(
-            version=version, patient=patient, encounter=self.encounter_for(row), status='submitted', data=data,
-            submitted_by=self.staff(row.get('staff_id')), submitted_at=at_nine(self.row_date(row, 'visit_date', 'created_on', 'clinic_date')
-                                                                              or patient.registration_date),
+            version=version, patient=patient, encounter=self.encounter_for(row), status='verified', data=data,
+            reviewed_by=by, reviewed_at=when, submitted_by=by, submitted_at=when,
             created_by=self.import_user)
         self.remember(table, row['id'], submission)
         self.counts['legacy form entries created'] += 1

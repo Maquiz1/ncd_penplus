@@ -576,8 +576,77 @@ class PatientFlowTests(BaseTestCase):
         response = self.client.get(reverse('patients:detail', args=[p.pk]))
         self.assertEqual(response.context['pathway']['active'], 'follow_up')
         self.assertContains(response, f'?encounter={visit.pk}')
-        self.assertContains(response, 'class="nav-item d-none" data-baseline-only')
-        self.assertNotContains(self.client.get(visit.get_absolute_url()), reverse('clinical:screening_add', args=[p.pk]))
+        self.assertContains(response, 'class="nav-item d-none" data-baseline-only', count=4)
+        page = self.client.get(visit.get_absolute_url())
+        self.assertNotContains(page, reverse('clinical:screening_add', args=[p.pk]))
+        self.assertNotContains(page, reverse('clinical:diagnosis_add', args=[p.pk]))
+
+    def test_forms_tab_splits_baseline_and_follow_up_forms(self):
+        from crf.models import FormDefinition, FormField, FormSection, FormVersion
+        from crf.services import publish_version
+        from encounters.models import Encounter
+        p = self.make_patient()
+        for code, stages in (('demo-x', ['baseline']), ('symptoms-x', ['baseline', 'follow_up']), ('hosp-x', ['follow_up'])):
+            definition = FormDefinition.objects.create(code=code, name=code, applicability='universal', stages=stages,
+                                                       is_active=True)
+            version = FormVersion.objects.create(definition=definition, number=1)
+            FormField.objects.create(section=FormSection.objects.create(version=version, title='A'), key='a', label='A')
+            publish_version(version, None)
+        ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'))
+        visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='follow_up', staff=self.admin)
+        self.client.force_login(self.clinician_ilala)
+        sets = dict((key, rows) for key, _visit, rows in self.client.get(reverse('patients:detail', args=[p.pk])).context['form_sets'])
+        names = {key: {r['version'].definition.code for r in rows} & {'demo-x', 'symptoms-x', 'hosp-x'} for key, rows in sets.items()}
+        self.assertEqual(names, {'baseline': {'demo-x', 'symptoms-x'}, 'visits': {'symptoms-x', 'hosp-x'}})
+        self.assertTrue(all(r['url'].endswith(f'?encounter={visit.pk}') for r in sets['visits']))
+
+    def test_every_step_link_opens(self):
+        from clinical.flow import patient_pathway, visit_steps
+        from encounters.models import Encounter
+        p = self.make_patient()
+        visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='baseline', staff=self.admin)
+        self.client.force_login(self.admin)
+        pathway = patient_pathway(p)
+        urls = [s.url for s in [*pathway['baseline_steps'], *visit_steps(visit)]]
+        urls += [pathway['start_follow_up_url'], pathway['start_unscheduled_url']]
+        for url in urls:
+            self.assertIn(self.client.get(url).status_code, (200, 302), url)
+
+    def test_late_subject_attends_the_appointment_they_missed(self):
+        from clinical.flow import patient_pathway
+        from encounters.models import Appointment
+        p = self.make_patient()
+        ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala, programme=ClinicalProgramme.objects.get(code='dm-care'))
+        today = timezone.localdate()
+        Appointment.objects.create(patient=p, facility=self.ilala, scheduled_date=today + datetime.timedelta(days=60))
+        missed = Appointment.objects.create(patient=p, facility=self.ilala, scheduled_date=today - datetime.timedelta(days=5))
+        pathway = patient_pathway(p)
+        self.assertEqual((pathway['appointment'], pathway['appointment_overdue']), (missed, True))
+
+    def test_enrolling_again_reopens_the_study_record(self):
+        from research.models import StudyEnrollment
+        self.make_main_study()
+        p = self.confirmed_subject()
+        self.client.force_login(self.clinician_ilala)
+        self.enroll(p, 'dm-care')
+        record = StudyEnrollment.objects.get(patient=p)
+        StudyEnrollment.objects.filter(pk=record.pk).update(status='completed', outcome_date=timezone.localdate())
+        self.assertEqual(self.enroll(p, 'cardiac-care').status_code, 302)
+        record.refresh_from_db()
+        self.assertEqual((record.status, StudyEnrollment.objects.filter(patient=p).count()), ('active', 1))
+
+    def test_follow_up_schedule_defaults_to_the_study(self):
+        from research.models import StudyEnrollment
+        self.make_main_study()
+        p = self.confirmed_subject()
+        self.client.force_login(self.clinician_ilala)
+        self.enroll(p, 'dm-care')
+        record = StudyEnrollment.objects.get(patient=p)
+        form = self.client.get(reverse('encounters:plan_add', args=[p.pk])).context['form']
+        self.assertNotIn('programme_enrollment', form.fields)
+        self.assertEqual(list(form.fields['study_enrollment'].queryset), [record])
+        self.assertEqual((form.initial['study_enrollment'], form.initial['anchor_date']),
+                         (record.pk, record.enrollment_date))
 
     def test_confirmed_diagnosis_hides_awaiting_doctor(self):
         from clinical.flow import patient_flow

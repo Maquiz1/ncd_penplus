@@ -22,13 +22,13 @@
 <ul class="nav nav-tabs tab-scroll mb-3" role="tablist">
   <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li>
   <li class="nav-item{% if pathway.active != 'baseline' %} d-none{% endif %}" data-baseline-only><button class="nav-link" data-bs-toggle="tab" data-bs-target="#screening" type="button">Screening <span class="badge text-bg-light">{{ screenings|length }}</span></button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#clinical" type="button">Diagnoses &amp; programmes</button></li>
+  <li class="nav-item{% if pathway.active != 'baseline' %} d-none{% endif %}" data-baseline-only><button class="nav-link" data-bs-toggle="tab" data-bs-target="#clinical" type="button">Diagnoses &amp; programmes</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#visits" type="button">Visits &amp; appointments</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#labs" type="button">Labs &amp; investigations</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#medications" type="button">Medications</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#forms" type="button">Forms <span class="badge text-bg-light">{{ submissions|length }}</span></button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#research" type="button">Research <span class="badge text-bg-light">{{ study_enrollments|length }}</span></button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#transfers" type="button">Facility history</button></li>
+  <li class="nav-item{% if pathway.active != 'baseline' %} d-none{% endif %}" data-baseline-only><button class="nav-link" data-bs-toggle="tab" data-bs-target="#research" type="button">Research <span class="badge text-bg-light">{{ study_enrollments|length }}</span></button></li>
+  <li class="nav-item{% if pathway.active != 'baseline' %} d-none{% endif %}" data-baseline-only><button class="nav-link" data-bs-toggle="tab" data-bs-target="#transfers" type="button">Facility history</button></li>
 </ul>
 
 <div class="tab-content">
@@ -236,10 +236,16 @@
   {# ---------------- forms ---------------- #}
   <div class="tab-pane fade" id="forms" role="tabpanel">
     {% if perms.crf.add_formsubmission %}
-    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Forms that apply to this subject</div><div class="card-body d-flex flex-wrap gap-2">
-      {% for v in available_forms %}<a class="btn btn-sm btn-outline-primary" href="{% url 'crf:submission_add' patient.pk v.pk %}"><i class="bi bi-ui-checks"></i> {{ v.definition.name }} <span class="badge text-bg-light">v{{ v.number }}</span></a>
-      {% empty %}<span class="text-body-secondary">No published forms apply yet. Disease-specific forms appear after screening, diagnosis or programme enrollment for that disease.</span>{% endfor %}
-    </div><div class="card-footer bg-body small text-body-secondary">To link a form to a visit, open it from the encounter page instead.</div></div>
+    {% for key, visit, rows in form_sets %}
+    <div class="card shadow-sm mb-3{% if key == 'baseline' and pathway.active != 'baseline' or key == 'visits' and pathway.active == 'baseline' %} d-none{% endif %}" {% if key == 'baseline' %}data-baseline-only{% else %}data-visits-only{% endif %}>
+      <div class="card-header bg-body fw-semibold">{% if key == 'baseline' %}Baseline forms <span class="small fw-normal text-body-secondary">· filled once, at enrollment</span>{% else %}Follow-up visit forms{% endif %}</div>
+      <div class="card-body d-flex flex-wrap gap-2">
+        {% for r in rows %}<a class="pathway-step{% if r.done %} is-done{% endif %}" href="{{ r.url }}"><i class="bi {% if r.done %}bi-check-circle-fill{% else %}bi-ui-checks{% endif %}"></i> {{ r.version.definition.name }} <small>v{{ r.version.number }}</small></a>
+        {% empty %}<span class="text-body-secondary">No published forms apply yet. Disease-specific forms appear after the doctor confirms that disease.</span>{% endfor %}
+      </div>
+      <div class="card-footer bg-body small text-body-secondary">{% if visit %}Forms open in the {{ visit.get_stage_display|lower }} visit of {{ visit.encounter_date|date:"d M Y" }}.{% elif key == 'visits' %}Start the follow-up visit first, so the forms are linked to it.{% else %}Not linked to a visit: the baseline visit opens at pre-screening.{% endif %}</div>
+    </div>
+    {% endfor %}
     {% endif %}
     <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
       <thead><tr><th>Date</th><th>Form</th><th>Version</th><th>Encounter</th><th>Status</th></tr></thead>
@@ -264,22 +270,24 @@
 {% endblock %}
 {% block scripts %}
 <script>
-// Screening and enrolling belong to Baseline: they are hidden under Follow-up and Unscheduled.
+// Screening, diagnosis, enrollment, research and facility history are done once, at baseline: they are hidden
+// under Follow-up and Unscheduled.
 document.addEventListener('DOMContentLoaded', function () {
-  var pills = document.querySelectorAll('[data-bs-toggle="pill"]');
   var baselinePill = document.querySelector('[data-bs-target="#path-baseline"]');
   function apply(isBaseline) {
     document.querySelectorAll('[data-baseline-only]').forEach(function (el) { el.classList.toggle('d-none', !isBaseline); });
-    var screeningTab = document.querySelector('[data-bs-target="#screening"]');
-    if (!isBaseline && screeningTab.classList.contains('active')) {
+    document.querySelectorAll('[data-visits-only]').forEach(function (el) { el.classList.toggle('d-none', isBaseline); });
+    var active = document.querySelector('.tab-scroll .nav-link.active');
+    if (!isBaseline && active && active.parentElement.hasAttribute('data-baseline-only')) {
       bootstrap.Tab.getOrCreateInstance(document.querySelector('[data-bs-target="#overview"]')).show();
     }
   }
-  pills.forEach(function (pill) {
+  document.querySelectorAll('[data-bs-toggle="pill"]').forEach(function (pill) {
     pill.addEventListener('shown.bs.tab', function () { apply(pill === baselinePill); });
   });
-  // Coming back from a screening page opens Baseline, so the Screening tab is there.
-  if (window.location.hash === '#screening' && !baselinePill.classList.contains('active')) {
+  // Coming back from one of those pages opens Baseline, so its tab is there.
+  var tab = window.location.hash && document.querySelector('.tab-scroll [data-bs-target="' + window.location.hash + '"]');
+  if (tab && tab.parentElement.hasAttribute('data-baseline-only') && !baselinePill.classList.contains('active')) {
     bootstrap.Tab.getOrCreateInstance(baselinePill).show();
   }
 });
