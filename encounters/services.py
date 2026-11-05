@@ -5,7 +5,7 @@ from audit.models import AuditEvent
 from audit.services import log_event
 from core.utils import add_months
 
-from .models import Appointment
+from .models import Appointment, FollowUpPlan
 
 
 def was_enrolled(patient):
@@ -73,6 +73,8 @@ def generate_visits(plan, user):
     Past dates become 'expected' visits for staff to reconcile against source
     records; they are never automatically marked missed.
     """
+    if not plan.is_active:
+        return 0
     today = timezone.localdate()
     existing = set(Appointment.objects.filter(plan=plan, plan_version=plan.version).values_list('sequence', flat=True))
     kept_dates = set(Appointment.objects.filter(plan=plan).exclude(status='cancelled').values_list('scheduled_date', flat=True))
@@ -103,7 +105,8 @@ def revise_plan(plan, user, reason, request=None):
         plan=plan, scheduled_date__gte=today, status__in=['scheduled', 'confirmed', 'rescheduled'],
         encounters__isnull=True,
     ).update(status=Appointment.Status.CANCELLED, reason_for_change=f'Superseded by schedule v{plan.version}: {reason}'[:255])
-    created = generate_visits(plan, user) if plan.generation == 'automatic' else 0
+    # A stopped schedule only cancels its future visits.
+    created = generate_visits(plan, user) if plan.generation == 'automatic' and plan.is_active else 0
     log_event(actor=user, request=request, action=AuditEvent.Action.UPDATE, obj=plan, reason=reason,
               changes={'version': plan.version, 'future_visits_cancelled': cancelled, 'visits_created': created})
     return cancelled, created
@@ -116,3 +119,25 @@ def todays_encounter(patient):
     return (patient.encounters.exclude(status='cancelled')
             .filter(encounter_date__gte=start, encounter_date__lt=start + datetime.timedelta(days=1))
             .order_by('-encounter_date').first())
+
+
+@transaction.atomic
+def retire_other_plans(plan, user, request=None):
+    """A subject follows one schedule at a time: the others stop, and their future visits not yet started are
+    cancelled. Returns how many visits were cancelled."""
+    if not plan.is_active:
+        return 0
+    others = list(FollowUpPlan.objects.filter(patient=plan.patient, is_active=True).exclude(pk=plan.pk))
+    if not others:
+        return 0
+    FollowUpPlan.objects.filter(pk__in=[o.pk for o in others]).update(is_active=False)
+    cancelled = Appointment.objects.filter(
+        plan__in=others, scheduled_date__gte=timezone.localdate(), status__in=['scheduled', 'confirmed', 'rescheduled'],
+        encounters__isnull=True,
+    ).update(status=Appointment.Status.CANCELLED, reason_for_change=f'Replaced by the schedule "{plan}"'[:255])
+    for other in others:
+        log_event(actor=user, request=request, action=AuditEvent.Action.UPDATE, obj=other,
+                  reason=f'Replaced by the schedule "{plan}"', changes={'is_active': [True, False],
+                                                                        'future_visits_cancelled': cancelled})
+    return cancelled
+

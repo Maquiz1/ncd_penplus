@@ -1,7 +1,7 @@
 {% load ncd %}{# Baseline: its steps with direct links. Follow-up and Unscheduled: their visits; the work is done inside each visit. #}
 <div class="card shadow-sm mb-3">
   <div class="card-header bg-body">
-    <ul class="nav nav-pills" role="tablist">
+    <ul class="nav nav-pills nav-fill path-pills" role="tablist">
       <li class="nav-item"><button class="nav-link{% if pathway.active == 'baseline' %} active{% endif %}" data-bs-toggle="pill" data-bs-target="#path-baseline" type="button"><i class="bi bi-clipboard2-pulse"></i> Baseline</button></li>
       <li class="nav-item"><button class="nav-link{% if pathway.active == 'follow_up' %} active{% endif %}" data-bs-toggle="pill" data-bs-target="#path-follow-up" type="button"{% if not pathway.enrolled %} disabled title="Starts after enrollment"{% endif %}><i class="bi bi-calendar-check"></i> Follow-up</button></li>
       <li class="nav-item"><button class="nav-link{% if pathway.active == 'unscheduled' %} active{% endif %}" data-bs-toggle="pill" data-bs-target="#path-unscheduled" type="button"{% if not pathway.enrolled %} disabled title="Starts after enrollment"{% endif %}><i class="bi bi-lightning"></i> Unscheduled</button></li>
@@ -22,12 +22,10 @@
           {% if patient.is_deceased %}<span class="text-body-secondary small">The subject is recorded as deceased.</span>
           {% elif perms.encounters.add_encounter and pathway.can_start_follow_up %}{% if pathway.appointment %}<a class="btn btn-primary btn-sm" href="{{ pathway.attend_url }}"><i class="bi bi-box-arrow-in-right"></i> Attend {% if pathway.appointment_overdue %}overdue {% endif %}appointment of {{ pathway.appointment.scheduled_date|date:"d M Y" }}</a>
           {% else %}<a class="btn btn-primary btn-sm" href="{{ pathway.start_follow_up_url }}"><i class="bi bi-plus-circle"></i> Start follow-up visit</a>{% endif %}{% endif %}
-          {% if perms.encounters.add_appointment and not patient.is_deceased %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'encounters:appointment_add' patient.pk %}"><i class="bi bi-calendar-plus"></i> Book appointment</a>{% endif %}
-          {% if perms.encounters.add_followupplan %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'encounters:plan_add' patient.pk %}"><i class="bi bi-calendar-range"></i> Follow-up schedule</a>{% endif %}
         </div>
-        <p class="small text-body-secondary mb-2">{% if pathway.follow_up_stale %}The visit of {{ pathway.follow_up.encounter_date|date:"d M Y" }} is still open: close it once its work is done. {% endif %}Press View to work in a visit: forms, investigations, prescribing and admission.</p>
+        <p class="small text-body-secondary mb-2">{% if pathway.follow_up_stale %}The visit of {{ pathway.follow_up.encounter_date|date:"d M Y" }} is still open: close it once its work is done. {% endif %}Press View to work in a visit: forms, investigations, prescribing and admission. The schedule and extra appointments are set under Baseline → Follow-up plan.</p>
         {% include "patients/_visit_list.html" with visits=pathway.follow_up_visits scheduled=True empty="No follow-up visit yet." %}
-        <div class="mt-3">{% include "patients/_appointments.html" %}</div>
+        <div class="mt-3">{% include "patients/_appointments.html" with back_anchor="" hide_plans=True %}</div>
       {% endif %}
     </div></div>
 

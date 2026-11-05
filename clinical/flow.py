@@ -306,10 +306,7 @@ def _baseline_steps(patient, visit):
         ActionStep('Enroll', add('clinical:enrollment_add'), 'clinical.add_programmeenrollment',
                    patient.programme_enrollments.exists()),
     ]
-    if visit:
-        steps.append(ActionStep('Forms', visit.get_absolute_url(), 'encounters.view_encounter', visit.vitals.exists()))
-    steps.append(ActionStep('Follow-up plan', add('encounters:plan_add'), 'encounters.add_followupplan',
-                            patient.followup_plans.filter(is_active=True).exists()))
+    # Forms and the follow-up plan are tabs below the steps.
     return steps
 
 

@@ -19,7 +19,7 @@ from facilities.scope import facilities_for_user, scope_queryset
 from .forms import (AdmissionForm, AppointmentForm, AppointmentStatusForm, ClinicSessionForm, DischargeForm,
                     EncounterForm, FollowUpPlanForm, VitalsForm)
 from .models import Admission, Appointment, ClinicSession, Encounter, FollowUpPlan, Vitals
-from .services import generate_visits, revise_plan
+from .services import generate_visits, retire_other_plans, revise_plan
 
 
 class AppointmentListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
@@ -58,7 +58,7 @@ class AppointmentCreateView(PatientChildCreateMixin, CreateView):
     model = Appointment
     form_class = AppointmentForm
     title = 'Schedule appointment'
-    success_tab = '#visits'
+    success_tab = '#plan'
 
 
 class AppointmentUpdateView(PatientChildUpdateMixin, UpdateView):
@@ -66,7 +66,7 @@ class AppointmentUpdateView(PatientChildUpdateMixin, UpdateView):
     model = Appointment
     form_class = AppointmentForm
     title = 'Reschedule / update appointment'
-    success_tab = '#visits'
+    success_tab = '#plan'
 
 
 class AppointmentStatusView(PermissionRequiredMixin, View):
@@ -91,7 +91,7 @@ class AppointmentStatusView(PermissionRequiredMixin, View):
             log_event(request=request, action=AuditEvent.Action.STATUS, obj=appointment,
                       changes={'status': [old, appointment.status]}, reason=form.cleaned_data['reason'])
             messages.success(request, f'Appointment marked {appointment.get_status_display().lower()}.')
-        return redirect(request.POST.get('next') or appointment.patient.get_absolute_url() + '#visits')
+        return redirect(request.POST.get('next') or appointment.patient.get_absolute_url() + '#plan')
 
 
 class EncounterListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
@@ -225,10 +225,13 @@ class FollowUpPlanCreateView(PatientChildCreateMixin, CreateView):
     model = FollowUpPlan
     form_class = FollowUpPlanForm
     title = 'Create follow-up schedule'
-    success_tab = '#visits'
+    success_tab = '#plan'
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        replaced = retire_other_plans(self.object, self.request.user, self.request)
+        if replaced:
+            messages.info(self.request, f'The earlier schedule was stopped: {replaced} of its future visits were cancelled.')
         if self.object.generation == FollowUpPlan.Generation.AUTOMATIC:
             created = generate_visits(self.object, self.request.user)
             messages.info(self.request, f'{created} visits generated. Past dates are marked "expected" for reconciliation.')
@@ -240,11 +243,14 @@ class FollowUpPlanUpdateView(PatientChildUpdateMixin, UpdateView):
     model = FollowUpPlan
     form_class = FollowUpPlanForm
     title = 'Change follow-up schedule'
-    success_tab = '#visits'
+    success_tab = '#plan'
     success_message = ''
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        replaced = retire_other_plans(self.object, self.request.user, self.request)
+        if replaced:
+            messages.info(self.request, f'The other schedule was stopped: {replaced} of its future visits were cancelled.')
         if form.has_changed() and set(form.changed_data) - {'change_reason'}:
             cancelled, created = revise_plan(self.object, self.request.user, form.cleaned_data['change_reason'],
                                              self.request)
@@ -261,7 +267,7 @@ class FollowUpPlanGenerateView(PermissionRequiredMixin, View):
                                  pk=pk)
         created = generate_visits(plan, request.user)
         messages.success(request, f'{created} new visits generated (existing visits were not duplicated).')
-        return redirect(plan.patient.get_absolute_url() + '#visits')
+        return redirect(plan.patient.get_absolute_url() + '#plan')
 
 
 class AdmissionListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
@@ -285,7 +291,7 @@ class AdmissionCreateView(PatientChildCreateMixin, CreateView):
     model = Admission
     form_class = AdmissionForm
     title = 'Admit subject'
-    success_tab = '#visits'
+    success_tab = '#admissions'
 
     def get_initial(self):
         return {**super().get_initial(), 'encounter': self.request.GET.get('encounter')}
@@ -305,7 +311,7 @@ class AdmissionDischargeView(PatientChildUpdateMixin, UpdateView):
     model = Admission
     form_class = DischargeForm
     title = 'Discharge subject'
-    success_tab = '#visits'
+    success_tab = '#admissions'
 
     def get_initial(self):
         return {'discharged_at': timezone.now()}

@@ -8,13 +8,14 @@ from django.db import close_old_connections
 from django.utils import timezone
 
 from . import datasets as ds
+from .edcs_names import column_names
 from .models import ExportJob
 
 PROGRESS_EVERY = 500
 
 
 def file_name(job):
-    tag = '_deidentified' if job.deidentified else ''
+    tag = ('_edcsnames' if job.filters.get('names') == 'edcs' else '') + ('_deidentified' if job.deidentified else '')
     name = job.dataset.replace('form:*', 'all_forms').replace('form:', 'form_')
     return f'NCD_{name}_{job.mode}{tag}_{timezone.localdate():%Y%m%d}_u{job.user_id}_j{job.pk}.{job.fmt}'
 
@@ -73,11 +74,16 @@ def build(job):
         if job.done % PROGRESS_EVERY == 0:
             ExportJob.objects.filter(pk=job.pk).update(done=job.done)
 
+    names = job.filters.get('names')
+
+    def header(dataset):
+        return column_names(dataset, ds.visible_columns(dataset, job.deidentified), names)
+
     if job.fmt == ExportJob.Format.CSV:
         dataset, queryset = parts[0]
         with open(path, 'w', newline='', encoding='utf-8-sig') as handle:
             writer = csv.writer(handle)
-            writer.writerow([c.name for c in ds.visible_columns(dataset, job.deidentified)])
+            writer.writerow(header(dataset))
             for row in rows_for(job, dataset, queryset):
                 writer.writerow(row)
                 tick()
@@ -86,17 +92,17 @@ def build(job):
         bold, used = Font(bold=True), set()
         for dataset, queryset in parts:
             sheet = workbook.create_sheet(sheet_title(dataset.label, used))
-            header = []
-            for c in ds.visible_columns(dataset, job.deidentified):
-                cell = WriteOnlyCell(sheet, value=c.name)
+            cells = []
+            for name in header(dataset):
+                cell = WriteOnlyCell(sheet, value=name)
                 cell.font = bold
-                header.append(cell)
-            sheet.append(header)
+                cells.append(cell)
+            sheet.append(cells)
             for row in rows_for(job, dataset, queryset):
                 sheet.append(row)
                 tick()
         codebook = workbook.create_sheet('Codebook')
-        codebook.append(['Dataset', 'Variable', 'Label', 'Type', 'Unit', 'Code', 'Code label', 'In de-identified export'])
+        codebook.append(ds.CODEBOOK_HEADER)
         for row in ds.codebook_rows([d for d, _q in parts], job.deidentified):
             codebook.append(row)
         workbook.save(path)

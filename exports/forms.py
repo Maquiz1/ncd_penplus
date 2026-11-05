@@ -21,6 +21,9 @@ class ExportForm(BootstrapForm):
     dataset = forms.ChoiceField()
     fmt = forms.ChoiceField(label='Format', choices=ExportJob.Format.choices, initial='xlsx')
     mode = forms.ChoiceField(label='Answers as', choices=ExportJob.Mode.choices, initial='labels')
+    names = forms.ChoiceField(label='Variable names', initial='new', required=False,
+                              choices=[('new', 'New names'), ('edcs', 'Old EDCS names (where EDCS had the variable)')],
+                              help_text='EDCS names keep analysis scripts written for the old EDCS data working.')
     district = forms.ModelChoiceField(queryset=District.objects.none(), required=False, empty_label='All districts')
     site = forms.ModelChoiceField(queryset=None, required=False, empty_label='All my sites')
     start = forms.DateField(required=False, label='Records from', widget=forms.DateInput(attrs={'type': 'date'}))

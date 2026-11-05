@@ -180,6 +180,9 @@ def _patient_dataset():
 def static_datasets():
     return [
         _patient_dataset(),
+        model_dataset('prescreenings', 'Screening form (consent, residence, known NCD, investigations requested)',
+                      'Registration & screening', 'clinical.PreScreening', date_field='date',
+                      select_related=('patient__current_facility', 'facility')),
         model_dataset('screenings', 'Screenings', 'Registration & screening', 'clinical.Screening', date_field='screening_date',
                       select_related=('patient__current_facility', 'disease', 'facility')),
         model_dataset('family', 'Family members / siblings', 'Registration & screening', 'clinical.FamilyMember',
@@ -390,6 +393,10 @@ def visible_columns(dataset, deidentified):
     return [c for c in dataset.columns if not (deidentified and c.identifying)]
 
 
+CODEBOOK_HEADER = ['Dataset', 'Variable', 'EDCS table.column', 'Label', 'Type', 'Unit', 'Code', 'Code label',
+                   'In de-identified export']
+
+
 def dataset_queryset(dataset, facilities, start=None, end=None, disease_ids=None):
     """Records of the facilities; with disease_ids (staff limited to some programmes) only those patients."""
     manager = getattr(dataset.model, 'objects')
@@ -414,12 +421,14 @@ def dataset_queryset(dataset, facilities, start=None, end=None, disease_ids=None
 
 
 def codebook_rows(datasets, deidentified):
-    """(dataset, variable, label, type, unit, code, code label, in de-identified export) – one row per code."""
+    """(dataset, variable, EDCS name, label, type, unit, code, code label, in de-identified export) – one row per code."""
+    from .edcs_names import edcs_name
     for d in datasets:
         for c in d.columns:
             if deidentified and c.identifying:
                 continue
-            base = [d.label, c.name, c.label, c.kind, c.unit]
+            old = edcs_name(d, c)
+            base = [d.label, c.name, f'{old[0]}.{old[1]}' if old else '', c.label, c.kind, c.unit]
             flag = 'No' if c.identifying else 'Yes'
             if c.choices:
                 for code, label in c.choices:

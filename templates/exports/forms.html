@@ -37,6 +37,7 @@
             <li><h6 class="dropdown-header">Excel{% if f.tables|length > 1 %} (a sheet per table){% endif %}</h6></li>
             <li><button class="dropdown-item" name="mode" value="labels"><i class="bi bi-file-earmark-excel"></i> Readable answers</button></li>
             <li><button class="dropdown-item" name="mode" value="codes"><i class="bi bi-file-earmark-excel"></i> Codes (for analysis)</button></li>
+            <li><button class="dropdown-item" name="mode" value="codes:edcs"><i class="bi bi-file-earmark-excel"></i> Codes, old EDCS names</button></li>
             <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">CSV, one table</h6></li>
             {% for t in f.tables %}<li><button class="dropdown-item" name="dataset" value="{{ t.dataset.key }}"><i class="bi bi-filetype-csv"></i> {{ t.dataset.label }}</button></li>{% endfor %}
           </ul>

@@ -1,43 +1,6 @@
 {% load ncd %}
 {# Records made once, at baseline: screening, diagnoses and programmes, the study record and facility history. #}
 <div class="row g-3 mt-0{% if pathway.active != 'baseline' %} d-none{% endif %}" data-baseline-only>
-  <div class="col-lg-6" id="screening"><div class="card shadow-sm h-100">
-    <div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Screening</span>
-      {% if prescreenings %}{% if perms.clinical.change_prescreening %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:prescreening_update' prescreenings.0.pk %}"><i class="bi bi-pencil"></i> Edit / screen for more</a>{% endif %}
-      {% elif perms.clinical.add_prescreening %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:prescreening_add' patient.pk %}"><i class="bi bi-plus"></i> Screening</a>{% endif %}</div>
-    <ul class="list-group list-group-flush">
-      {% for s in prescreenings %}<li class="list-group-item small">
-        <div class="d-flex justify-content-between"><span>{{ s.date|date:"d M Y" }} · {{ s.facility }} · {{ s.get_disposition_display }}</span>{% if perms.clinical.delete_prescreening %}<a class="text-danger" href="{% url 'clinical:prescreening_delete' s.pk %}">Delete</a>{% endif %}</div>
-        <div class="text-body-secondary">Known NCD: {% if s.known_ncd %}{% for d in s.known_diseases.all %}{{ d }}{% if not forloop.last %}, {% endif %}{% empty %}Yes{% endfor %}{% elif s.known_ncd is False %}No{% else %}—{% endif %} · Investigations requested: {{ s.lab_test_requested|yesno:"Yes,No,—" }} · In area: {{ s.resides_in_area|yesno:"Yes,No" }}</div>
-      </li>{% empty %}<li class="list-group-item text-body-secondary">No screening recorded.</li>{% endfor %}
-      {% for s in screenings %}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
-        <span>{{ s.disease }}{% if s.rescreen_of_id %} <span class="badge text-bg-info" title="Repeats the screening of {{ s.rescreen_of.screening_date|date:'d M Y' }}">Re-screening</span>{% endif %} <span class="small text-body-secondary">{{ s.screening_date|date:"d M Y" }}</span></span>
-        <span class="text-nowrap small">{% status_badge s.result %}
-          {% if s.can_rescreen and perms.clinical.add_screening %}<a class="ms-2" href="{% url 'clinical:screening_rescreen' s.pk %}"><i class="bi bi-arrow-repeat"></i> Re-screen</a>{% endif %}
-          {% if perms.clinical.change_screening %}<a class="ms-2" href="{% url 'clinical:screening_update' s.pk %}">Edit</a>{% endif %}
-          {% if perms.clinical.delete_screening %}<a class="ms-2 text-danger" href="{% url 'clinical:screening_delete' s.pk %}">Delete</a>{% endif %}</span>
-      </li>{% endfor %}
-    </ul>
-  </div></div>
-
-  <div class="col-lg-6" id="clinical"><div class="card shadow-sm h-100">
-    <div class="card-header bg-body fw-semibold">Diagnoses &amp; programmes</div>
-    <ul class="list-group list-group-flush">
-      {% for d in diagnoses %}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
-        <span><i class="bi bi-clipboard2-check"></i> {{ d.description }} <span class="small text-body-secondary">({{ d.disease }}, {{ d.diagnosis_date|date:"d M Y" }})</span></span>
-        <span class="text-nowrap small">{% status_badge d.status d.get_status_display %}{% if perms.clinical.change_diagnosis %}<a class="ms-2" href="{% url 'clinical:diagnosis_update' d.pk %}">Edit</a>{% endif %}</span>
-      </li>{% empty %}<li class="list-group-item text-body-secondary">No diagnosis yet.</li>{% endfor %}
-      {% for e in programme_enrollments %}<li class="list-group-item">
-        <div class="d-flex justify-content-between align-items-center gap-2">
-          <span><i class="bi bi-journal-medical"></i> {{ e.programme }} <span class="small text-body-secondary">since {{ e.enrollment_date|date:"d M Y" }}</span></span>
-          <span class="text-nowrap small">{% status_badge e.status e.get_status_display %}{% if perms.clinical.change_programmeenrollment %}<a class="ms-2" href="{% url 'clinical:enrollment_update' e.pk %}">Update</a>{% if e.status in returnable_statuses and not patient.is_deceased %}<a class="ms-2 fw-semibold" href="{% url 'clinical:enrollment_return' e.pk %}">Return to care</a>{% endif %}{% endif %}</span>
-        </div>
-        {% if e.outcome_date %}<div class="small text-body-secondary">{{ e.outcome_date|date:"d M Y" }} – {{ e.outcome_reason }}</div>{% endif %}
-        {% if e.events.all %}<div class="small text-body-secondary">History: {% for ev in e.events.all %}<span class="me-2">{{ ev.event_date|date:"d M Y" }} → {{ ev.get_to_status_display }}{% if ev.reason %} ({{ ev.reason }}){% endif %}</span>{% endfor %}</div>{% endif %}
-      </li>{% endfor %}
-    </ul>
-  </div></div>
-
   <div class="col-lg-6" id="research"><div class="card shadow-sm h-100">
     <div class="card-header bg-body fw-semibold">PEN-Plus study</div>
     <ul class="list-group list-group-flush">
@@ -61,18 +24,4 @@
     </ul>
   </div></div>
 
-  {% if family_members or perms.clinical.add_familymember %}
-  <div class="col-12" id="family"><div class="card shadow-sm">
-    <div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Family / siblings <span class="small fw-normal text-body-secondary">· sickle cell family screening</span></span>
-      {% if perms.clinical.add_familymember %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:family_add' patient.pk %}"><i class="bi bi-plus"></i> Family member</a>{% endif %}</div>
-    <div class="table-responsive"><table class="table table-sm mb-0">
-      <thead><tr><th>Relation</th><th>Sex</th><th>Age</th><th>Alive</th><th>Sickle cell status</th><th>Tested</th><th>Referred</th><th></th></tr></thead>
-      <tbody>{% for m in family_members %}<tr><td>{{ m.get_relation_display }}</td><td>{{ m.get_sex_display|default:"—" }}</td><td>{{ m.age_years|default_if_none:"—" }}</td><td>{{ m.alive|yesno:"Yes,No,—" }}</td>
-        <td>{% if m.scd_status == 'affected' %}<span class="badge text-bg-danger">{{ m.get_scd_status_display }}</span>{% elif m.scd_status == 'carrier' %}<span class="badge text-bg-warning">{{ m.get_scd_status_display }}</span>{% else %}{{ m.get_scd_status_display }}{% endif %}</td>
-        <td>{{ m.tested|yesno:"Yes,No,—" }}{% if m.test_date %} {{ m.test_date|date:"d M Y" }}{% endif %}{% if m.test_type %} ({{ m.test_type }}){% endif %}</td><td>{{ m.referred_for_screening|yesno:"Yes,—" }}</td>
-        <td>{% if perms.clinical.change_familymember %}<a href="{% url 'clinical:family_edit' m.pk %}">Edit</a>{% endif %}</td></tr>
-      {% empty %}<tr><td colspan="8" class="text-body-secondary">No family members recorded.</td></tr>{% endfor %}</tbody>
-    </table></div>
-  </div></div>
-  {% endif %}
 </div>

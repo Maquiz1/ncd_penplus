@@ -67,6 +67,9 @@ class PrescriptionLineForm(BootstrapModelForm):
             self.fields[name].widget.attrs['placeholder'] = {
                 'dose': 'e.g. 500 mg', 'frequency': 'e.g. BD', 'quantity': 'e.g. 60'}[name]
         self.fields['quantity'].label = 'Quantity'
+        # Chosen for each medicine, like the medicine itself.
+        self.fields['route'].choices = [('', '---------')] + list(Prescription.Route.choices)
+        self.fields['route'].initial = ''
         self.fields['duration_days'].label = 'Days'
 
     LAYOUT = [('medication', 'col-lg-4'), ('dose', 'col-lg-2'), ('route', 'col-lg-2'), ('frequency', 'col-lg-2'),

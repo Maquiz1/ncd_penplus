@@ -23,12 +23,17 @@
 {% include "patients/_pathway.html" %}
 
 <div class="{% if pathway.active != 'baseline' %}d-none{% endif %}" data-baseline-only>{# the subject's full record; under Follow-up and Unscheduled it is inside each visit #}
-<ul class="nav nav-tabs tab-scroll mb-3" role="tablist">
+<ul class="nav nav-tabs nav-fill tab-scroll mb-3" role="tablist">
   <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#visits" type="button">Visits &amp; appointments</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#screening" type="button">Screening</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#visits" type="button">Visits</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#labs" type="button">Investigations</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#medications" type="button">Medications</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#admissions" type="button">Admission</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#clinical" type="button">Diagnosis</button></li>
+  {% if show_scd_family %}<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#family" type="button">SCD family history</button></li>{% endif %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#forms" type="button">Forms <span class="badge text-bg-light">{{ submissions|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#plan" type="button"{% if not pathway.enrolled %} disabled title="Set after enrollment"{% endif %}>Follow-up plan</button></li>
 </ul>
 
 <div class="tab-content">
@@ -78,20 +83,100 @@
 
   {# ---------------- visits ---------------- #}
   <div class="tab-pane fade" id="visits" role="tabpanel">
-    <div class="d-flex gap-2 mb-2">
-      {% if perms.encounters.add_followupplan %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:plan_add' patient.pk %}"><i class="bi bi-calendar-range"></i> Follow-up schedule</a>{% endif %}
-      {% if perms.encounters.add_appointment %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:appointment_add' patient.pk %}"><i class="bi bi-plus"></i> Appointment</a>{% endif %}
-    </div>
-    {% include "patients/_appointments.html" %}
-    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">All visits</div><div class="table-responsive"><table class="table table-sm table-hover mb-0">
-      <thead><tr><th>Date</th><th>Type</th><th>Facility</th><th>Location</th><th>Scheduled</th><th>Status</th><th>Staff</th></tr></thead>
-      <tbody>{% for e in encounters %}<tr><td><a href="{{ e.get_absolute_url }}">{{ e.encounter_date|date:"d M Y H:i" }}</a></td><td>{{ e.get_stage_display }}</td><td>{{ e.facility }}</td><td>{{ e.get_location_type_display }}{% if e.home_visit_outcome %} ({{ e.get_home_visit_outcome_display }}){% endif %}</td><td>{{ e.is_scheduled|yesno:"Yes,Unscheduled" }}</td><td>{% status_badge e.status e.get_status_display %}</td><td>{{ e.staff }}</td></tr>
-      {% empty %}<tr><td colspan="7" class="text-body-secondary">No visits.</td></tr>{% endfor %}</tbody>
+    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Baseline <span class="small fw-normal text-body-secondary">· registration, screening and enrollment; follow-up and unscheduled visits are under their buttons</span></div><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th>Step</th><th>Date</th><th class="hide-xs">Facility</th><th class="hide-xs">Details</th><th class="text-end">Action</th></tr></thead>
+      <tbody>
+        <tr><td class="fw-semibold">Registration</td><td>{{ patient.registration_date|date:"d M Y" }}</td><td class="hide-xs">{{ patient.registration_facility }}</td><td class="small hide-xs">{{ patient.patient_number }}{% if patient.old_study_id or patient.old_id %} · EDCS {{ patient.old_study_id|default:patient.old_id }}{% endif %}</td>
+          <td class="text-end">{% if perms.patients.change_patient and can_view_identity %}<a class="btn btn-sm btn-outline-primary" href="{% url 'patients:update' patient.pk %}"><i class="bi bi-eye"></i> View</a>{% endif %}</td></tr>
+        {% for s in prescreenings %}<tr><td class="fw-semibold">Screening</td><td>{{ s.date|date:"d M Y" }}</td><td class="hide-xs">{{ s.facility }}</td><td class="small hide-xs">{{ s.get_disposition_display }}{% for sc in screenings %}{% if forloop.first %} · screened for {% endif %}{{ sc.disease }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% if perms.clinical.change_prescreening %}{% url 'clinical:prescreening_update' s.pk %}{% else %}#screening{% endif %}"><i class="bi bi-eye"></i> View</a></td></tr>
+        {% empty %}<tr><td class="fw-semibold">Screening</td><td colspan="3" class="text-body-secondary small">Not done yet.</td><td class="text-end">{% if perms.clinical.add_prescreening %}<a class="btn btn-sm btn-primary" href="{% url 'clinical:prescreening_add' patient.pk %}">Start</a>{% endif %}</td></tr>{% endfor %}
+        {% for d in diagnoses %}<tr><td class="fw-semibold">Diagnosis</td><td>{{ d.diagnosis_date|date:"d M Y" }}</td><td class="hide-xs">{{ d.encounter.facility|default:"—" }}</td><td class="small hide-xs">{{ d.description }} {% status_badge d.status d.get_status_display %}</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="#clinical" data-open-tab="#clinical"><i class="bi bi-eye"></i> View</a></td></tr>
+        {% empty %}<tr><td class="fw-semibold">Diagnosis</td><td colspan="3" class="text-body-secondary small">Not done yet.</td><td class="text-end">{% if perms.clinical.add_diagnosis %}<a class="btn btn-sm btn-primary" href="{% url 'clinical:diagnosis_add' patient.pk %}">Start</a>{% endif %}</td></tr>{% endfor %}
+        {% for e in programme_enrollments %}<tr><td class="fw-semibold">Enrollment</td><td>{{ e.enrollment_date|date:"d M Y" }}</td><td class="hide-xs">{{ e.facility }}</td><td class="small hide-xs">{{ e.programme }} {% status_badge e.status e.get_status_display %}</td>
+          <td class="text-end">{% for v in baseline_visits %}{% if forloop.first %}<a class="btn btn-sm btn-outline-primary" href="{{ v.get_absolute_url }}"><i class="bi bi-eye"></i> View</a>{% endif %}{% endfor %}</td></tr>
+        {% empty %}<tr><td class="fw-semibold">Enrollment</td><td colspan="3" class="text-body-secondary small">Not enrolled yet.</td><td></td></tr>{% endfor %}
+      </tbody>
     </table></div></div>
-    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Admissions <span class="small fw-normal text-body-secondary">· admit from inside a visit</span></div>
+    {% if baseline_visits %}<p class="small text-body-secondary mt-2 mb-0">Baseline visit: {% for v in baseline_visits %}<a href="{{ v.get_absolute_url }}">{{ v.encounter_date|date:"d M Y" }}</a> {% status_badge v.status v.get_status_display %}{% if not forloop.last %}, {% endif %}{% endfor %}. Forms, investigations and prescriptions made at baseline belong to it.</p>{% endif %}
+  </div>
+
+  {# ---------------- follow-up plan ---------------- #}
+  <div class="tab-pane fade" id="plan" role="tabpanel">
+    <div class="d-flex gap-2 mb-2">
+      {% if perms.encounters.add_followupplan %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:plan_add' patient.pk %}"><i class="bi bi-calendar-range"></i> {% if plans %}New follow-up schedule{% else %}Follow-up schedule{% endif %}</a>{% endif %}
+      {% if perms.encounters.add_appointment %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'encounters:appointment_add' patient.pk %}" title="A single visit outside the schedule, e.g. a review in two weeks"><i class="bi bi-plus"></i> Extra appointment</a>{% endif %}
+      <span class="small text-body-secondary align-self-center">One schedule is active at a time: a new one stops the old one and cancels its future visits.</span>
+    </div>
+    {% include "patients/_appointments.html" with back_anchor="#plan" %}
+  </div>
+
+  {# ---------------- screening and diagnosis: made once at baseline, then viewed, edited or deleted ---------------- #}
+  <div class="tab-pane fade" id="screening" role="tabpanel">
+  <div class="card shadow-sm">
+    <div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Screening</span>
+      {% if prescreenings %}{% if perms.clinical.change_prescreening %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:prescreening_update' prescreenings.0.pk %}"><i class="bi bi-eye"></i> View / edit</a>{% endif %}
+      {% elif perms.clinical.add_prescreening %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:prescreening_add' patient.pk %}"><i class="bi bi-plus"></i> Screening</a>{% endif %}</div>
+    <ul class="list-group list-group-flush">
+      {% for s in prescreenings %}<li class="list-group-item small">
+        <div class="d-flex justify-content-between"><span>{{ s.date|date:"d M Y" }} · {{ s.facility }} · {{ s.get_disposition_display }}</span>{% if perms.clinical.delete_prescreening %}<a class="text-danger" href="{% url 'clinical:prescreening_delete' s.pk %}">Delete</a>{% endif %}</div>
+        <div class="text-body-secondary">Known NCD: {% if s.known_ncd %}{% for d in s.known_diseases.all %}{{ d }}{% if not forloop.last %}, {% endif %}{% empty %}Yes{% endfor %}{% elif s.known_ncd is False %}No{% else %}—{% endif %} · Investigations requested: {{ s.lab_test_requested|yesno:"Yes,No,—" }} · In area: {{ s.resides_in_area|yesno:"Yes,No" }}</div>
+      </li>{% empty %}<li class="list-group-item text-body-secondary">No screening recorded.</li>{% endfor %}
+      {% for s in screenings %}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+        <span>{{ s.disease }}{% if s.rescreen_of_id %} <span class="badge text-bg-info" title="Repeats the screening of {{ s.rescreen_of.screening_date|date:'d M Y' }}">Re-screening</span>{% endif %} <span class="small text-body-secondary">{{ s.screening_date|date:"d M Y" }}</span></span>
+        <span class="text-nowrap small">{% status_badge s.result %}
+          {% if s.can_rescreen and perms.clinical.add_screening %}<a class="ms-2" href="{% url 'clinical:screening_rescreen' s.pk %}"><i class="bi bi-arrow-repeat"></i> Re-screen</a>{% endif %}
+          {% if perms.clinical.change_screening %}<a class="ms-2" href="{% url 'clinical:screening_update' s.pk %}">Edit</a>{% endif %}
+          {% if perms.clinical.delete_screening %}<a class="ms-2 text-danger" href="{% url 'clinical:screening_delete' s.pk %}">Delete</a>{% endif %}</span>
+      </li>{% endfor %}
+    </ul>
+  </div>
+  </div>
+  <div class="tab-pane fade" id="clinical" role="tabpanel">
+  <div class="card shadow-sm">
+    <div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Diagnoses &amp; programmes</span>
+      {% if not diagnoses and perms.clinical.add_diagnosis %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:diagnosis_add' patient.pk %}"><i class="bi bi-plus"></i> Diagnosis</a>{% endif %}</div>
+    <ul class="list-group list-group-flush">
+      {% for d in diagnoses %}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+        <span><i class="bi bi-clipboard2-check"></i> {{ d.description }} <span class="small text-body-secondary">({{ d.disease }}, {{ d.diagnosis_date|date:"d M Y" }})</span></span>
+        <span class="text-nowrap small">{% status_badge d.status d.get_status_display %}{% if perms.patients.view_subject_summary %}<a class="ms-2" href="{% url 'patients:summary' patient.pk %}">View</a>{% endif %}{% if perms.clinical.change_diagnosis %}<a class="ms-2" href="{% url 'clinical:diagnosis_update' d.pk %}">Edit</a>{% endif %}{% if perms.clinical.delete_diagnosis %}<a class="ms-2 text-danger" href="{% url 'records:delete' 'diagnosis' d.pk %}?next={{ patient.get_absolute_url|urlencode }}%23clinical">Delete</a>{% endif %}</span>
+      </li>{% empty %}<li class="list-group-item text-body-secondary">No diagnosis yet.</li>{% endfor %}
+      {% for e in programme_enrollments %}<li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-2">
+          <span><i class="bi bi-journal-medical"></i> {{ e.programme }} <span class="small text-body-secondary">since {{ e.enrollment_date|date:"d M Y" }}</span></span>
+          <span class="text-nowrap small">{% status_badge e.status e.get_status_display %}{% if perms.clinical.change_programmeenrollment %}<a class="ms-2" href="{% url 'clinical:enrollment_update' e.pk %}">Update</a>{% if e.status in returnable_statuses and not patient.is_deceased %}<a class="ms-2 fw-semibold" href="{% url 'clinical:enrollment_return' e.pk %}">Return to care</a>{% endif %}{% endif %}</span>
+        </div>
+        {% if e.outcome_date %}<div class="small text-body-secondary">{{ e.outcome_date|date:"d M Y" }} – {{ e.outcome_reason }}</div>{% endif %}
+        {% if e.events.all %}<div class="small text-body-secondary">History: {% for ev in e.events.all %}<span class="me-2">{{ ev.event_date|date:"d M Y" }} → {{ ev.get_to_status_display }}{% if ev.reason %} ({{ ev.reason }}){% endif %}</span>{% endfor %}</div>{% endif %}
+      </li>{% endfor %}
+    </ul>
+  </div>
+  </div>
+
+  {# ---------------- admission ---------------- #}
+  <div class="tab-pane fade" id="admissions" role="tabpanel">
+    <div class="card shadow-sm"><div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Admissions</span>
+      {% if perms.encounters.add_admission and not patient.is_deceased %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:admission_add' patient.pk %}"><i class="bi bi-hospital"></i> Admit</a>{% endif %}</div>
       {% include "patients/_admissions.html" %}
     </div>
   </div>
+
+  {# ---------------- sickle cell family history (only for subjects with sickle cell) ---------------- #}
+  {% if show_scd_family %}<div class="tab-pane fade" id="family" role="tabpanel">
+    <div class="card shadow-sm">
+    <div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Family / siblings <span class="small fw-normal text-body-secondary">· sickle cell family screening</span></span>
+      {% if perms.clinical.add_familymember %}<a class="btn btn-sm btn-outline-primary" href="{% url 'clinical:family_add' patient.pk %}"><i class="bi bi-plus"></i> Family member</a>{% endif %}</div>
+    <div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>Relation</th><th>Sex</th><th>Age</th><th>Alive</th><th>Sickle cell status</th><th>Tested</th><th>Referred</th><th></th></tr></thead>
+      <tbody>{% for m in family_members %}<tr><td>{{ m.get_relation_display }}</td><td>{{ m.get_sex_display|default:"—" }}</td><td>{{ m.age_years|default_if_none:"—" }}</td><td>{{ m.alive|yesno:"Yes,No,—" }}</td>
+        <td>{% if m.scd_status == 'affected' %}<span class="badge text-bg-danger">{{ m.get_scd_status_display }}</span>{% elif m.scd_status == 'carrier' %}<span class="badge text-bg-warning">{{ m.get_scd_status_display }}</span>{% else %}{{ m.get_scd_status_display }}{% endif %}</td>
+        <td>{{ m.tested|yesno:"Yes,No,—" }}{% if m.test_date %} {{ m.test_date|date:"d M Y" }}{% endif %}{% if m.test_type %} ({{ m.test_type }}){% endif %}</td><td>{{ m.referred_for_screening|yesno:"Yes,—" }}</td>
+        <td>{% if perms.clinical.change_familymember %}<a href="{% url 'clinical:family_edit' m.pk %}">Edit</a>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="8" class="text-body-secondary">No family members recorded.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    </div>
+  </div>{% endif %}
 
   {# ---------------- labs ---------------- #}
   <div class="tab-pane fade" id="labs" role="tabpanel">
@@ -160,6 +245,13 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   if (tab) bootstrap.Tab.getOrCreateInstance(tab).show();
   if (card) card.scrollIntoView();
+  // Links inside a tab (e.g. View on the Diagnosis row) open another tab.
+  document.querySelectorAll('[data-open-tab]').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      bootstrap.Tab.getOrCreateInstance(document.querySelector('.tab-scroll [data-bs-target="' + link.dataset.openTab + '"]')).show();
+    });
+  });
 });
 </script>
 {% endblock %}

@@ -598,6 +598,8 @@ class PatientFlowTests(BaseTestCase):
         self.assertNotContains(visit_page, 'Screening &amp; diagnoses')
         self.assertContains(visit_page, 'Investigations at this visit')
         self.assertContains(visit_page, 'Medicines prescribed at this visit')
+        form = self.client.get(reverse('pharmacy:prescription_add', args=[p.pk]) + f'?encounter={visit.pk}').context['form']
+        self.assertEqual([str(c[0]) for c in form.fields['encounter'].choices], [str(visit.pk)])
         self.assertContains(page, 'class="d-none" data-baseline-only')
         self.assertContains(visit_page, reverse('pharmacy:prescription_add', args=[p.pk]) + f'?encounter={visit.pk}')
         # Today's open visit replaces the Start button; one left open on an earlier day does not.
@@ -626,13 +628,21 @@ class PatientFlowTests(BaseTestCase):
 
     def test_subject_page_has_five_tabs_and_baseline_cards_on_overview(self):
         import re
+        from clinical.models import Disease
         self.make_main_study()
         p = self.confirmed_subject()
         self.client.force_login(self.clinician_ilala)
         self.enroll(p, 'dm-care')
         page = self.client.get(reverse('patients:detail', args=[p.pk])).content.decode()
         tabs = re.findall(r'data-bs-toggle="tab" data-bs-target="#\w+" type="button">([^<]+)', page)
-        self.assertEqual(tabs, ['Overview', 'Visits &amp; appointments', 'Investigations', 'Medications', 'Forms '])
+        self.assertEqual(tabs, ['Overview', 'Screening', 'Visits', 'Investigations', 'Medications', 'Admission', 'Diagnosis',
+                                'Forms ', 'Follow-up plan'])
+        Screening.objects.create(patient=p, disease=Disease.objects.get(code='scd'), facility=self.ilala, screened_by=self.admin)
+        self.assertContains(self.client.get(reverse('patients:detail', args=[p.pk])), 'SCD family history')
+        from encounters.models import Encounter
+        Encounter.objects.create(patient=p, facility=self.ilala, stage='follow_up', staff=self.admin)
+        visits = self.client.get(reverse('patients:detail', args=[p.pk])).context['baseline_visits']
+        self.assertEqual({v.stage for v in visits} - {'baseline', 'screening'}, set())
         for anchor in ('id="screening"', 'id="clinical"', 'id="research"', 'id="transfers"'):
             self.assertIn(anchor, page)
         enrollment = p.programme_enrollments.get()
@@ -723,6 +733,34 @@ class PatientFlowTests(BaseTestCase):
         self.assertEqual(list(form.fields['study_enrollment'].queryset), [record])
         self.assertEqual((form.initial['study_enrollment'], form.initial['anchor_date']),
                          (record.pk, record.enrollment_date))
+        self.assertEqual(form.initial['visit_count'], 1)
+        self.assertEqual([c[0] for c in form.fields['visit_count'].widget.choices], list(range(13)))
+        response = self.client.post(reverse('encounters:plan_add', args=[p.pk]), {
+            'facility': self.ilala.pk, 'study_enrollment': record.pk, 'interval_months': 1, 'anchor_type': 'enrollment',
+            'anchor_date': record.enrollment_date.isoformat(), 'visit_count': 0, 'generation': 'automatic'})
+        self.assertContains(response, 'Choose how many future visits to book')
+
+    def test_one_active_schedule_and_deleting_unused_appointments(self):
+        from encounters.models import Appointment, Encounter, FollowUpPlan
+        from encounters.services import generate_visits
+        from records.services import blockers
+        p = self.make_patient()
+        today = timezone.localdate()
+        old = FollowUpPlan.objects.create(patient=p, facility=self.ilala, interval_months=3, anchor_date=today, visit_count=2)
+        generate_visits(old, self.admin)
+        self.client.force_login(self.admin)
+        self.client.post(reverse('encounters:plan_add', args=[p.pk]), {
+            'facility': self.ilala.pk, 'interval_months': 1, 'anchor_type': 'custom', 'anchor_date': today.isoformat(),
+            'visit_count': 2, 'generation': 'automatic'})
+        old.refresh_from_db()
+        self.assertEqual((old.is_active, FollowUpPlan.objects.filter(patient=p, is_active=True).count()), (False, 1))
+        self.assertFalse(Appointment.objects.filter(plan=old).exclude(status='cancelled').exists())
+        self.assertEqual(generate_visits(old, self.admin), 0)
+        unused = Appointment.objects.filter(plan=old).first()
+        self.assertEqual(blockers(unused), [])
+        attended = Appointment.objects.filter(patient=p, is_deleted=False).exclude(status='cancelled').first()
+        Encounter.objects.create(patient=p, facility=self.ilala, appointment=attended, staff=self.admin)
+        self.assertTrue(blockers(attended))
 
     def test_confirmed_diagnosis_hides_awaiting_doctor(self):
         from clinical.flow import patient_flow

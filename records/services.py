@@ -18,6 +18,8 @@ def blockers(obj):
     label = obj._meta.label
     if label == 'pharmacy.Prescription' and obj.dispensings.exists():
         return ['It has been dispensed; cancel the prescription instead.']
+    if label == 'encounters.Appointment' and obj.encounters.exists():
+        return ['A visit is linked to it; it can be cancelled or marked missed, not deleted.']
     if label == 'encounters.Encounter':
         reasons = []
         open_labs = obj.lab_orders.exclude(status='cancelled').count()

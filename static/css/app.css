@@ -186,3 +186,22 @@ body { background-color: var(--bs-body-bg); }
 /* Sidebar group headings (Clinic, Services, Reports, Research & data, System) */
 .sidebar-group-label { margin: .9rem .75rem .2rem; font-size: .65rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   color: var(--bs-primary); opacity: .75; }
+
+/* Subject page: the step buttons, the Baseline / Follow-up / Unscheduled buttons, the tabs and the progress steps
+   share the full width. On a phone the steps go two per row and the tabs scroll sideways. */
+.pathway-steps > .pathway-step { flex: 1 1 0; justify-content: center; text-align: center; white-space: nowrap; }
+.path-pills .nav-link { white-space: nowrap; }
+.tab-scroll.nav-fill .nav-item { flex: 1 0 auto; }
+.tab-scroll .nav-link { white-space: nowrap; padding: .5rem .55rem; }
+.path-pills { flex-wrap: nowrap; }
+.flow-steps { flex: 1 1 auto; justify-content: space-between; }
+@media (max-width: 575.98px) {
+  .pathway-steps > .pathway-step { flex: 1 1 calc(50% - .5rem); font-size: .85rem; padding: .45rem .5rem; }
+  .path-pills .nav-link { padding: .4rem .25rem; font-size: .85rem; }
+  .hide-xs { display: none; }
+  .flow-steps { justify-content: flex-start; gap: .4rem 0; }
+  .flow-step { flex: 1 1 45%; }
+  .flow-step::after { display: none; }
+  .flow-disease { min-width: 0; width: 100%; }
+}
+

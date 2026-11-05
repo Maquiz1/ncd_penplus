@@ -83,11 +83,22 @@ class FollowUpPlanForm(PatientChildForm):
                 if not self.instance.pk:
                     self.initial.setdefault('study_enrollment', current.pk)
                     self.initial.setdefault('anchor_date', current.enrollment_date)
+        # How many visits to book ahead, 1 to 12 (an automatic schedule books at least one; 0 only for manual).
+        self.fields['visit_count'].widget = forms.Select(choices=[(n, str(n)) for n in range(13)],
+                                                         attrs={'class': 'form-select'})
         if not self.instance.pk:
+            self.initial.setdefault('visit_count', 1)
             del self.fields['change_reason']
             del self.fields['is_active']
         else:
             self.fields['change_reason'].required = True
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('generation') == FollowUpPlan.Generation.AUTOMATIC and not cleaned.get('visit_count'):
+            self.add_error('visit_count', 'Choose how many future visits to book (1 to 12).')
+        return cleaned
+
 
 
 class AdmissionForm(PatientChildForm):

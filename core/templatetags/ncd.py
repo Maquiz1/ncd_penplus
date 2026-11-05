@@ -22,6 +22,13 @@ def status_badge(value, label=None):
     return format_html('<span class="badge text-bg-{}">{}</span>', colour, label or str(value).replace('_', ' ').title())
 
 
+@register.simple_tag
+def edcs_name(dataset, column):
+    """(old EDCS table, column) of an export variable, or None."""
+    from exports.edcs_names import edcs_name as lookup
+    return lookup(dataset, column)
+
+
 @register.simple_tag(takes_context=True)
 def patient_name(context, patient):
     """Show the patient's name only to users allowed to see identity fields."""

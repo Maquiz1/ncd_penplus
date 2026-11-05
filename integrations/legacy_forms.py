@@ -33,9 +33,34 @@ LIVE_FORMS = {
     'demographic': ('Demographics', ['baseline'], None, True),
     'social_economic': ('Socio-economic status', ['baseline'], None, True),
     'cardiac': ('Cardiac diagnosis', ['baseline'], 'cardiac', True),
-    'diabetic': ('Diabetes diagnosis', ['baseline'], 'diabetes', True),
+    'diabetic': ('Diabetes presentation', ['baseline'], 'diabetes', True),
     'sickle_cell': ('Sickle cell diagnosis', ['baseline'], 'scd', True),
+    'lab_details': ('Clinical assessments', EVERY_VISIT, None, False),
 }
+# EDCS forms now recorded by a structured step: typed and kept with their old entries, but no longer filled.
+RECORDED_ELSEWHERE = {'cardiac': 'Diagnosis', 'sickle_cell': 'Diagnosis'}
+# Fields a live form no longer asks because a structured step records them; old entries keep their answers.
+_MEDICINES = ['asa', 'furosemide', 'ace_i', 'beta_blocker', 'anti_hypertensive', 'benzathine', 'anticoagulation',
+              'medication_other', 'metformin', 'glibenclamide', 'anti_diabetic', 'aspirin', 'anti_hypertensive2',
+              'medication_other2', 'prophylaxis2', 'folic_acid2', 'penicillin2', 'pain_control', 'hydroxyurea',
+              'medication_other3']
+DROPPED_FIELDS = {
+    'treatment_plan': ([k for m in _MEDICINES for k in (m, f'action_{m}', f'dose_{m}')]
+                       + ['basal_changed', 'basal_am2', 'basal_pm2', 'prandial_changed', 'prandial_am2',
+                          'prandial_lunch2', 'prandial_pm2'],
+                       'Medicines and insulin doses are recorded under Prescribe'),
+    # Lab values are requested and resulted under Investigations; the assessments stay.
+    'lab_details': (['lab_date', 'na', 'k', 'bun', 'cre', 'bnp', 'inr', 'lab_Other', 'lab_specify', 'na_diabetes',
+                     'k_diabetes', 'cre_diabetes', 'proteinuria', 'lipid_panel', 'other_lab_diabetes',
+                     'specify_lab_diabetes', 'hematology_test', 'wbc', 'hb', 'mcv', 'plt', 'fe_studies', 'lfts',
+                     'chemistry_test', 'chemistry_test2'],
+                    'Lab values are requested and resulted under Investigations'),
+    'symptoms': (['fasting', 'random_fs', 'hba1c', 'hb', 'wbc', 'plt'],
+                 'Lab values are requested and resulted under Investigations'),
+    # The type of diabetes is chosen in the Diagnosis step; presentation and hypertension stay here.
+    'diabetic': (['diagnosis_date', 'diagnosis', 'diagnosis_other'], 'The diabetes type is recorded in the Diagnosis step'),
+}
+TRIMMED_NOTE = 'Trimmed'
 # Newer forms that never got an entry and would duplicate the live EDCS forms or a structured record.
 REPLACED_FORMS = ['general-prescreening', 'vital-signs', 'cardiac-assessment', 'diabetes-assessment',
                   'scd-assessment', 'cv-risk']
@@ -86,8 +111,9 @@ def make_live(table):
     definition = FormDefinition.objects.filter(code=legacy_code(table)).first()
     if definition is None:
         return None
-    version = definition.published_version
-    if version and not version.change_notes.startswith(LIVE_NOTE):
+    version = definition.versions.filter(change_notes__startswith=LIVE_NOTE).order_by('-number').first()
+    if version is None and definition.published_version:
+        version = definition.published_version
         submissions = FormSubmission.all_objects.filter(version__definition=definition)
         info = DICTIONARY.get(table, {})
         draft = clone_version(version, None)
@@ -101,12 +127,23 @@ def make_live(table):
         draft.save(update_fields=['change_notes'])
         version = publish_version(draft, None)
     if version:
-        FormSubmission.all_objects.filter(version__definition=definition).exclude(version=version) \
+        # Old entries live on the typed version, which still has every EDCS column.
+        FormSubmission.all_objects.filter(version__definition=definition, version__number__lt=version.number) \
             .update(version=version)
+        if table in DROPPED_FIELDS and definition.published_version == version:
+            keys, reason = DROPPED_FIELDS[table]
+            trimmed = clone_version(version, None)
+            FormField.objects.filter(section__version=trimmed, key__in=keys).delete()
+            trimmed.change_notes = f'{TRIMMED_NOTE}: {reason}. Entries made before keep those answers.'
+            trimmed.save(update_fields=['change_notes'])
+            publish_version(trimmed, None)
     definition.name = name
     definition.description = (f'PEN-Plus form, continued from the EDCS table "{table}". Entries from the EDCS '
                               'are included; answer codes keep their EDCS values.')
-    definition.is_active, definition.stages, definition.is_required = True, stages, required
+    elsewhere = RECORDED_ELSEWHERE.get(table)
+    if elsewhere:
+        definition.description += f' No longer filled: the {elsewhere} step records this now.'
+    definition.is_active, definition.stages, definition.is_required = not elsewhere, stages, required
     definition.applicability = FormDefinition.Applicability.SINGLE if disease_code else FormDefinition.Applicability.UNIVERSAL
     definition.save()
     if disease_code:

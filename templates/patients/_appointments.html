@@ -1,11 +1,11 @@
 {% load ncd %}{# Follow-up schedules and appointments, with Attend / Edit / Missed. #}
-    {% if plans %}
+    {% if plans and not hide_plans %}
     <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Follow-up schedules</div><ul class="list-group list-group-flush">
       {% for plan in plans %}<li class="list-group-item d-flex flex-wrap justify-content-between gap-2">
         <span>{{ plan }} · {{ plan.visit_count }} future visits{% if plan.end_date %} until {{ plan.end_date|date:"d M Y" }}{% endif %} · {{ plan.get_generation_display }}{% if plan.programme_enrollment %} · {{ plan.programme_enrollment.programme }}{% endif %}{% if plan.study_enrollment %} · {{ plan.study_enrollment }}{% endif %} {% if not plan.is_active %}{% status_badge 'inactive' %}{% endif %}</span>
         <span class="d-flex gap-2">
           {% if perms.encounters.change_followupplan %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'encounters:plan_update' plan.pk %}">Change</a>{% endif %}
-          {% if perms.encounters.add_appointment %}<form method="post" action="{% url 'encounters:plan_generate' plan.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">Generate visits</button></form>{% endif %}
+          {% if perms.encounters.add_appointment and plan.is_active %}<form method="post" action="{% url 'encounters:plan_generate' plan.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">Generate visits</button></form>{% endif %}
         </span></li>{% endfor %}
     </ul></div>
     {% endif %}
@@ -17,7 +17,8 @@
         <td class="text-end text-nowrap">{% if a.is_open %}
           {% if perms.encounters.add_encounter %}<a class="btn btn-sm btn-success" href="{% url 'encounters:encounter_add' patient.pk %}?appointment={{ a.pk }}">Attend</a>{% endif %}
           {% if perms.encounters.change_appointment %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'encounters:appointment_update' a.pk %}">Edit</a>
-          <form method="post" action="{% url 'encounters:appointment_status' a.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="status" value="missed"><input type="hidden" name="next" value="{{ request.path }}#visits"><button class="btn btn-sm btn-outline-danger">Missed</button></form>{% endif %}
-        {% endif %}</td></tr>
+          <form method="post" action="{% url 'encounters:appointment_status' a.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="status" value="missed"><input type="hidden" name="next" value="{{ request.path }}{{ back_anchor }}"><button class="btn btn-sm btn-outline-danger">Missed</button></form>{% endif %}
+        {% endif %}{% if perms.encounters.delete_appointment and not a.visits %}{# cancelled, or never attended: nothing is linked to it #}
+          <a class="btn btn-sm btn-outline-danger" href="{% url 'records:delete' 'appointment' a.pk %}?next={{ patient.get_absolute_url|urlencode }}{{ back_anchor|default:'%23plan'|urlencode }}" title="Nothing is linked to this appointment"><i class="bi bi-trash"></i></a>{% endif %}</td></tr>
       {% empty %}<tr><td colspan="7" class="text-body-secondary">No appointments.</td></tr>{% endfor %}</tbody>
     </table></div></div>

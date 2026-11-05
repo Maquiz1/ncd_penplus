@@ -478,7 +478,7 @@ class ReturnToCareView(PermissionRequiredMixin, View):
         for study in skipped:
             messages.warning(request, f'{study.study.code}: consent was withdrawn, so research participation was not '
                                       f'reopened. Record new consent to re-enroll.')
-        return redirect(enrollment.patient.get_absolute_url() + '#visits')
+        return redirect(enrollment.patient.get_absolute_url() + '#plan')
 
 
 class ScreeningListView(PermissionRequiredMixin, ScopedQuerysetMixin, ListView):
@@ -678,7 +678,7 @@ class FamilyMemberCreateView(PatientChildCreateMixin, CreateView):
     model = FamilyMember
     form_class = FamilyMemberForm
     title = 'Add family member'
-    success_tab = '#clinical'
+    success_tab = '#family'
 
 
 class FamilyMemberUpdateView(PatientChildUpdateMixin, UpdateView):
@@ -686,7 +686,7 @@ class FamilyMemberUpdateView(PatientChildUpdateMixin, UpdateView):
     model = FamilyMember
     form_class = FamilyMemberForm
     title = 'Edit family member'
-    success_tab = '#clinical'
+    success_tab = '#family'
 
 
 class FlowGapsView(PermissionRequiredMixin, ListView):

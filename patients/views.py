@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
@@ -92,18 +92,24 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             identifiers=p.identifiers.select_related('issuer'),
             prescreenings=p.prescreenings.select_related('facility'),
             screenings=p.screenings.select_related('disease', 'facility', 'screened_by'),
-            diagnoses=p.diagnoses.select_related('disease', 'clinician'),
+            diagnoses=p.diagnoses.select_related('disease', 'clinician', 'encounter__facility'),
             programme_enrollments=p.programme_enrollments.select_related('programme__disease', 'facility')
             .prefetch_related('events'),
             returnable_statuses=('ltfu', 'transferred_out', 'withdrawn', 'other', 'completed'),
             eligibility=p.study_eligibility.select_related('study'),
             consents=p.consents.select_related('study'),
             study_enrollments=p.study_enrollments.select_related('study', 'facility'),
-            appointments=p.appointments.select_related('facility', 'plan').order_by('scheduled_date')[:100],
+            appointments=p.appointments.select_related('facility', 'plan').annotate(
+                visits=Count('encounters', filter=Q(encounters__is_deleted=False))).order_by('scheduled_date')[:100],
             plans=p.followup_plans.select_related('facility'),
-            encounters=p.encounters.select_related('facility', 'staff').order_by('-encounter_date')[:50],
+            baseline_visits=p.encounters.filter(stage__in=['baseline', 'screening']).select_related('facility', 'staff')
+            .order_by('-encounter_date'),
             admissions=p.admissions.select_related('facility', 'encounter', 'readmission_of').order_by('-admitted_at'),
             family_members=p.family_members.all(),
+            # Siblings are screened for sickle cell: the tab shows for subjects with sickle cell.
+            show_scd_family=(p.family_members.exists() or p.screenings.filter(disease__code='scd').exists()
+                             or p.diagnoses.filter(disease__code='scd').exclude(status='ruled_out').exists()
+                             or p.programme_enrollments.filter(programme__disease__code='scd').exists()),
             lab_orders=p.lab_orders.select_related('test', 'facility').order_by('-ordered_at'),
             investigations=p.investigations.select_related('facility', 'investigation_type').order_by('-requested_at'),
             submissions=p.form_submissions.select_related('version__definition', 'encounter').order_by('-created_at'),

@@ -51,7 +51,7 @@ class ExportListView(PermissionRequiredMixin, View):
             fmt=data['fmt'], mode=data['mode'], deidentified=not data.get('identifiable'),
             filters={'facilities': list(facilities.values_list('pk', flat=True)) if facilities is not None else None,
                      'start': data['start'].isoformat() if data.get('start') else None,
-                     'end': data['end'].isoformat() if data.get('end') else None},
+                     'end': data['end'].isoformat() if data.get('end') else None, 'names': data.get('names') or 'new'},
             filters_label=' · '.join(label_parts))
         log_event(request=request, action=AuditEvent.Action.EXPORT, obj=job,
                   changes={'dataset': job.dataset, 'deidentified': job.deidentified, 'filters': job.filters_label})
@@ -111,7 +111,7 @@ class CodebookView(PermissionRequiredMixin, View):
             selected = datasets if key in ('', 'all') else [d for d in datasets if d.key == key]
         deidentified = not can_identify(request.user)
         fmt = request.GET.get('format')
-        header = ['Dataset', 'Variable', 'Label', 'Type', 'Unit', 'Code', 'Code label', 'In de-identified export']
+        header = ds.CODEBOOK_HEADER
         if fmt in ('csv', 'xlsx', 'pdf'):
             rows = list(ds.codebook_rows(selected, deidentified))
             name = f'NCD_codebook_{(key or "all").replace("form:", "form_").replace("*", "all_forms")}_{timezone.localdate():%Y%m%d}'
@@ -175,7 +175,7 @@ class FormExportView(PermissionRequiredMixin, View):
 
     def post(self, request):
         key, fmt = request.POST.get('form', ''), request.POST.get('fmt', 'xlsx')
-        mode = request.POST.get('mode', 'labels')
+        mode, _sep, names = request.POST.get('mode', 'labels').partition(':')   # e.g. "codes:edcs" for EDCS names
         dataset_key = request.POST.get('dataset', '')
         if fmt not in ExportJob.Format.values or mode not in ExportJob.Mode.values:
             raise Http404
@@ -195,7 +195,8 @@ class FormExportView(PermissionRequiredMixin, View):
             if len(form.datasets) > 1:
                 fmt = 'xlsx'  # one sheet per table
         job = ExportJob.objects.create(user=request.user, dataset=job_key, dataset_label=label[:200], fmt=fmt,
-                                       mode=mode, deidentified=True, filters={'facilities': None},
+                                       mode=mode, deidentified=True,
+                                       filters={'facilities': None, 'names': 'edcs' if names == 'edcs' else 'new'},
                                        filters_label='All my sites')
         log_event(request=request, action=AuditEvent.Action.EXPORT, obj=job,
                   changes={'dataset': job.dataset, 'deidentified': True, 'filters': job.filters_label})

@@ -312,11 +312,18 @@ class ReturnToCareForm(BootstrapForm):
                                          label='Create a follow-up schedule starting from the return date')
     interval_months = forms.TypedChoiceField(coerce=int, initial=1, label='Visit interval', choices=[
         (1, 'Monthly'), (2, 'Every 2 months'), (3, 'Every 3 months'), (6, 'Every 6 months')])
-    visit_count = forms.IntegerField(min_value=1, max_value=36, initial=6, label='Number of future visits')
+    visit_count = forms.TypedChoiceField(coerce=int, initial=1, label='Number of future visits',
+                                         choices=[(n, str(n)) for n in range(1, 13)])
 
     def __init__(self, *args, enrollment=None, **kwargs):
         self.enrollment = enrollment
         super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('create_schedule') and not cleaned.get('visit_count'):
+            self.add_error('visit_count', 'Choose how many future visits to book (1 to 12).')
+        return cleaned
 
     def clean_return_date(self):
         date = self.cleaned_data['return_date']

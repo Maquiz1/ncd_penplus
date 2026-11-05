@@ -15,7 +15,7 @@
   <thead class="table-light"><tr><th>Date</th><th>Subject</th><th>Type</th><th>Facility</th><th>Location</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
   <tbody>{% for a in object_list %}<tr>
     <td>{{ a.scheduled_date|date:"D d M Y" }}{% if a.scheduled_time %} {{ a.scheduled_time|time:"H:i" }}{% endif %}</td>
-    <td><a href="{{ a.patient.get_absolute_url }}#visits">{{ a.patient }}</a><div class="small">{% patient_name a.patient %}</div></td><td>{{ a.get_stage_display }}</td><td>{{ a.facility }}</td><td>{{ a.get_location_type_display }}</td>
+    <td><a href="{{ a.patient.get_absolute_url }}#plan">{{ a.patient }}</a><div class="small">{% patient_name a.patient %}</div></td><td>{{ a.get_stage_display }}</td><td>{{ a.facility }}</td><td>{{ a.get_location_type_display }}</td>
     <td>{% status_badge a.status a.get_status_display %}</td>
     <td class="text-end text-nowrap">{% if a.is_open %}
       {% if perms.encounters.add_encounter %}<a class="btn btn-sm btn-success" href="{% url 'encounters:encounter_add' a.patient_id %}?appointment={{ a.pk }}">Attend</a>{% endif %}

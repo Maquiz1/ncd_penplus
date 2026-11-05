@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -36,7 +37,8 @@ class FollowUpPlan(TimeStampedModel):
     interval_months = models.PositiveSmallIntegerField(choices=INTERVAL_CHOICES, default=1)
     anchor_type = models.CharField(max_length=20, choices=Anchor.choices, default=Anchor.ENROLLMENT)
     anchor_date = models.DateField(help_text='Date the schedule is calculated from.')
-    visit_count = models.PositiveSmallIntegerField('Number of future visits', default=6)
+    visit_count = models.PositiveSmallIntegerField('Number of future visits', default=1,
+                                                   validators=[MaxValueValidator(12)])
     end_date = models.DateField('Maximum horizon / end date', null=True, blank=True)
     generation = models.CharField(max_length=20, choices=Generation.choices, default=Generation.AUTOMATIC)
     version = models.PositiveSmallIntegerField(default=1, editable=False)

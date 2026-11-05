@@ -1,4 +1,5 @@
 from django import forms
+from django.utils import timezone
 
 from facilities.scope import facilities_for_user
 
@@ -60,6 +61,7 @@ class PatientChildForm(BootstrapModelForm):
     def __init__(self, *args, patient=None, user=None, **kwargs):
         self.patient = patient
         self.user = user
+        self.locked_visit = None
         super().__init__(*args, **kwargs)
         if user is not None:
             for name in ('facility',):
@@ -76,9 +78,37 @@ class PatientChildForm(BootstrapModelForm):
                 if name in self.fields:
                     self.fields[name].queryset = queryset
             encounter = self.fields.get('encounter')
-            if encounter is not None and not encounter.required:
+            visit = self.initial.get('encounter') or (self.instance.encounter_id if hasattr(self.instance, 'encounter_id') else None)
+            if encounter is not None and str(visit or '').isdigit() and encounter.queryset.filter(pk=visit).exists():
+                # Opened from a visit (or the record already belongs to one): it is linked to that visit, and to the
+                # visit's facility, only.
+                encounter.queryset = encounter.queryset.filter(pk=visit)
+                self.locked_visit = encounter.queryset.first()
+                encounter.empty_label = None
+                encounter.required = False
+                encounter.help_text = ''
+                facility = self.fields.get('facility')
+                if facility is not None:
+                    facility.queryset = facility.queryset.model.objects.filter(pk=self.locked_visit.facility_id)
+                    facility.empty_label = None
+                    facility.help_text = 'The facility of this visit.'
+                    self.initial['facility'] = self.locked_visit.facility_id
+            if encounter is not None:
+                encounter.label = 'Visit'
+                encounter.label_from_instance = lambda v: (f'{v.get_stage_display()} visit · '
+                                                           f'{timezone.localtime(v.encounter_date):%d %b %Y}')
+            if self.locked_visit is None and encounter is not None and not encounter.required:
                 encounter.empty_label = 'Not linked to a visit'
                 encounter.help_text = encounter.help_text or 'Optional. Link it to a visit (encounter) if one was recorded.'
+
+    def clean(self):
+        cleaned = super().clean()
+        visit = self.locked_visit
+        if visit is not None:
+            cleaned['encounter'] = visit
+            if 'facility' in self.fields:
+                cleaned['facility'] = visit.facility
+        return cleaned
 
 
 class ReasonForm(BootstrapForm):

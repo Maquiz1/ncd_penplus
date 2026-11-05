@@ -18,7 +18,9 @@ DISEASES = [
 CONDITIONS = [
     ('diabetes', 't1d', 'Type 1 diabetes', '1.1', 'type 1\nt1d\nt1dm', False, []),
     ('diabetes', 't2d', 'Type 2 diabetes', '1.2', 'type 2\nt2d\nt2dm', False, []),
-    ('diabetes', 'dm-other', 'Unspecified / gestational diabetes', '1.3', 'gestational\nnot yet specified\nunspecified', True, []),
+    ('diabetes', 'gdm', 'Gestational diabetes', '1.3', 'gestational', False, []),
+    ('diabetes', 'dm-other', 'Diabetes, type not yet specified', '1.3', 'not yet specified\nunspecified', True, []),
+    ('diabetes', 'dm-other-type', 'Other diabetes', '1.3', 'other diabetes', False, []),
     ('cardiac', 'cardiomyopathy', 'Cardiomyopathy', '', 'cardiomyopathy', False,
      ['Ischemic', 'Alcohol-related', 'Peripartum', 'Arrhythmia-related', 'HIV-related', 'Chemotherapy-related',
       'Viral/idiopathic', 'Other']),

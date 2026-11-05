@@ -81,6 +81,22 @@ class ExportTests(BaseTestCase):
         body = self.client.get(reverse('exports:codebook') + '?dataset=patients&format=csv').content.decode()
         self.assertNotIn('first_name', body)          # de-identified codebook for the PI
 
+    def test_edcs_names_option_and_dictionary_column(self):
+        job = self.export(self.pi, names='edcs', mode='codes')
+        self.assertEqual(job.status, 'done', job.error)
+        self.assertIn('_edcsnames', job.file_name)
+        header, row = self.read_csv(job)
+        self.assertEqual(header[:2], ['ncd_number', 'study_id'])
+        self.assertIn('gender', header)
+        self.assertIn('clinic_date', header)
+        self.assertEqual(len(header), len(set(header)))           # names stay unique
+        self.assertEqual(row[0], self.patient.patient_number)
+        self.assertIn('registration_date', self.read_csv(self.export(self.pi))[0])   # new names by default
+        body = self.client.get(reverse('exports:codebook') + '?dataset=vitals&format=csv').content.decode()
+        self.assertIn('EDCS table.column', body)
+        self.assertIn('vital.dystolic', body)
+        self.assertContains(self.client.get(reverse('exports:codebook') + '?dataset=vitals'), 'vital.pr')
+
     def test_cleanup_removes_old_files(self):
         from django.utils import timezone
 
@@ -148,6 +164,17 @@ class FormsPageTests(BaseTestCase):
         job = self.download(self.pi, form='*')
         self.assertEqual((job.status, job.fmt), ('done', 'xlsx'), job.error)
         self.assertNotIn(':', job.file_name)
+
+    def test_laboratory_with_edcs_names(self):
+        from openpyxl import load_workbook
+        job = self.download(self.pi, form='laboratory', mode='codes:edcs')
+        self.assertEqual((job.status, job.mode, job.filters['names']), ('done', 'codes', 'edcs'), job.error)
+        sheets = load_workbook(job.path, read_only=True)
+        rows = list(sheets[sheets.sheetnames[0]].values)
+        row = dict(zip(rows[0], rows[1]))
+        self.assertEqual((row['hb'], row['cre']), (9.1, 80))           # creat was "cre" in EDCS lab_details
+        self.assertEqual(row['ncd_number'], self.patient.patient_number)
+        self.assertIn('site_id', rows[0])
 
     def test_form_dictionary(self):
         self.client.force_login(self.pi)
