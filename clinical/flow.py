@@ -253,15 +253,26 @@ def visit_steps(visit):
     # Vital signs count as one of the visit's forms.
     missing = sum(1 for r in rows if r['required'] and not r['submissions']) + (not visit.vitals.exists())
     orders = visit.lab_orders.count() + visit.investigations.count()
+    # An unscheduled visit may need no tests or medicines.
+    optional = 'Optional' if visit.stage == 'unscheduled' else ''
     steps = [
         ActionStep('Forms', visit.get_absolute_url() + '#visit-forms', 'encounters.view_encounter', not missing,
                    f'{missing} missing' if missing else ''),
         ActionStep('Investigations', reverse('investigations:request', args=[patient.pk]) + query,
-                   'laboratory.add_laborder', orders > 0, f'{orders} requested' if orders else ''),
+                   'laboratory.add_laborder', orders > 0, f'{orders} requested' if orders else optional),
     ]
     if not patient.is_deceased:
+        prescribed = visit.prescriptions.exists()
         steps.append(ActionStep('Prescribe', reverse('pharmacy:prescription_add', args=[patient.pk]) + query,
-                                'pharmacy.add_prescription', visit.prescriptions.exists()))
+                                'pharmacy.add_prescription', prescribed, '' if prescribed else optional))
+    # Admitted from this visit; while the stay is open the step leads to the discharge.
+    stay = visit.admissions.order_by('-admitted_at').first()
+    if stay and not stay.discharged_at:
+        steps.append(ActionStep('Discharge', reverse('encounters:admission_discharge', args=[stay.pk]),
+                                'encounters.change_admission', False, f'admitted to {stay.ward}'))
+    elif stay or not patient.is_deceased:
+        steps.append(ActionStep('Admission', reverse('encounters:admission_add', args=[patient.pk]) + query,
+                                'encounters.add_admission', stay is not None, 'Optional' if stay is None else ''))
     steps.append(ActionStep('Close visit', reverse('encounters:encounter_update', args=[visit.pk]),
                             'encounters.change_encounter', visit.status == 'completed'))
     return steps
@@ -302,6 +313,17 @@ def _baseline_steps(patient, visit):
     return steps
 
 
+def _visit_rows(visits):
+    """Each visit with how many of its required forms (vital signs included) are still missing."""
+    from crf.services import encounter_form_status
+
+    rows = []
+    for visit in visits:
+        missing = sum(1 for r in encounter_form_status(visit) if r['required'] and not r['submissions'])
+        rows.append({'visit': visit, 'missing': missing + (not visit.vitals.exists())})
+    return rows
+
+
 def patient_pathway(patient):
     """Everything the Baseline, Follow-up and Unscheduled panels show."""
     visits = patient.encounters.exclude(status='cancelled').order_by('-encounter_date')
@@ -324,9 +346,14 @@ def patient_pathway(patient):
         'baseline_steps': _baseline_steps(patient, baseline),
         # The panels list visits; the work (forms, investigations, prescribing) is done inside each visit.
         'follow_up': follow_up,
-        'follow_up_visits': visits.filter(stage='follow_up')[:5],
+        'follow_up_visits': _visit_rows(visits.filter(stage='follow_up').select_related('appointment', 'facility')[:10]),
         'unscheduled': unscheduled,
-        'unscheduled_visits': visits.filter(stage='unscheduled')[:5],
+        'unscheduled_visits': _visit_rows(visits.filter(stage='unscheduled').select_related('facility')[:10]),
+        # A visit left open on an earlier day must not stop today's visit from starting.
+        'follow_up_stale': bool(follow_up and timezone.localdate(follow_up.encounter_date) < today),
+        'unscheduled_stale': bool(unscheduled and timezone.localdate(unscheduled.encounter_date) < today),
+        'can_start_follow_up': not follow_up or timezone.localdate(follow_up.encounter_date) < today,
+        'can_start_unscheduled': not unscheduled or timezone.localdate(unscheduled.encounter_date) < today,
         'upcoming': booked.filter(scheduled_date__gte=today).exclude(pk=getattr(appointment, 'pk', None))
                           .order_by('scheduled_date')[:3],
         'plan': patient.followup_plans.filter(is_active=True).first(),

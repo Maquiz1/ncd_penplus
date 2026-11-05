@@ -1,0 +1,16 @@
+{% load ncd %}{# Prescriptions with dispensing; on the subject page or one visit. #}
+    <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>Prescribed</th><th>Medicine</th><th>Dose / frequency</th><th class="text-end">Qty</th><th>Dispensed</th><th>Status</th><th class="text-end"></th></tr></thead>
+      <tbody>{% for rx in prescriptions %}<tr>
+        <td>{{ rx.prescribed_at|date:"d M Y" }}<div class="small text-body-secondary">{{ rx.prescriber }}</div></td>
+        <td>{{ rx.medication }}</td>
+        <td>{{ rx.dose }} {{ rx.get_route_display|lower }}, {{ rx.frequency }}{% if rx.duration_days %} × {{ rx.duration_days }} d{% endif %}{% if rx.instructions %}<div class="small text-body-secondary">{{ rx.instructions }}</div>{% endif %}</td>
+        <td class="text-end">{{ rx.quantity }}</td>
+        <td class="small">{% for d in rx.dispensings.all %}<div>{{ d.quantity }} on {{ d.dispensed_at|date:"d M Y" }} (batch {{ d.batch.batch_number }})</div>{% empty %}—{% endfor %}</td>
+        <td>{% status_badge rx.status rx.get_status_display %}{% if rx.cancel_reason %}<div class="small text-body-secondary">{{ rx.cancel_reason }}</div>{% endif %}</td>
+        <td class="text-end text-nowrap">{% if rx.is_open %}
+          {% if perms.pharmacy.add_dispensing %}<a class="btn btn-sm btn-primary" href="{% url 'pharmacy:dispense' rx.pk %}?next={{ request.path|urlencode }}{{ back_anchor }}">Dispense</a>{% endif %}
+          {% if perms.pharmacy.change_prescription %}<a class="btn btn-sm btn-outline-danger" href="{% url 'pharmacy:prescription_cancel' rx.pk %}">Cancel</a>{% endif %}
+        {% endif %}</td></tr>
+      {% empty %}<tr><td colspan="7" class="text-body-secondary">No prescriptions.</td></tr>{% endfor %}</tbody>
+    </table></div></div>

@@ -1,7 +1,12 @@
-{% load ncd %}{# Visits of one kind, newest first; each opens its visit page, where the work is done. #}
-<ul class="list-group list-group-flush small">
-  {% for v in visits %}<li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
-    <a href="{{ v.get_absolute_url }}">{{ v.encounter_date|date:"d M Y" }}{% if v.appointment %} <span class="text-body-secondary">(appointment {{ v.appointment.scheduled_date|date:"d M" }})</span>{% endif %}</a>
-    {% status_badge v.status v.get_status_display %}
-  </li>{% empty %}<li class="list-group-item px-0 text-body-secondary">{{ empty }}</li>{% endfor %}
-</ul>
+{% load ncd %}{# Visits of one kind, newest first. View opens the visit, where forms, investigations and prescribing are done. #}
+<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th>Date</th>{% if scheduled %}<th>Appointment</th>{% endif %}<th>Facility</th><th>Forms</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+  <tbody>{% for row in visits %}{% with v=row.visit %}<tr>
+    <td>{{ v.encounter_date|date:"d M Y" }}</td>
+    {% if scheduled %}<td>{{ v.appointment.scheduled_date|date:"d M Y"|default:"—" }}</td>{% endif %}
+    <td>{{ v.facility }}</td>
+    <td>{% if row.missing %}<span class="badge text-bg-warning">{{ row.missing }} missing</span>{% else %}<span class="badge text-bg-success">Complete</span>{% endif %}</td>
+    <td>{% status_badge v.status v.get_status_display %}</td>
+    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ v.get_absolute_url }}"><i class="bi bi-eye"></i> View</a></td>
+  </tr>{% endwith %}{% empty %}<tr><td colspan="{% if scheduled %}6{% else %}5{% endif %}" class="text-body-secondary">{{ empty }}</td></tr>{% endfor %}</tbody>
+</table></div>

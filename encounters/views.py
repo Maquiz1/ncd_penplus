@@ -172,9 +172,10 @@ class EncounterDetailView(PermissionRequiredMixin, ScopedQuerysetMixin, DetailVi
             prescreenings=enc.prescreenings.all(),
             screenings=enc.screenings.select_related('disease'),
             diagnoses=enc.diagnoses.select_related('disease'),
-            lab_orders=enc.lab_orders.select_related('test'),
-            investigations=enc.investigations.all(),
-            prescriptions=enc.prescriptions.select_related('medication'),
+            lab_orders=enc.lab_orders.select_related('test').order_by('-ordered_at'),
+            investigations=enc.investigations.select_related('investigation_type').order_by('-requested_at'),
+            prescriptions=enc.prescriptions.select_related('medication', 'prescriber').prefetch_related('dispensings__batch'),
+            admissions=enc.admissions.select_related('facility', 'readmission_of'),
             form_status=encounter_form_status(enc),
             **kwargs)
 
@@ -286,6 +287,12 @@ class AdmissionCreateView(PatientChildCreateMixin, CreateView):
     title = 'Admit subject'
     success_tab = '#visits'
 
+    def get_initial(self):
+        return {**super().get_initial(), 'encounter': self.request.GET.get('encounter')}
+
+    def get_success_url(self):
+        return self.object.encounter.get_absolute_url() if self.object.encounter else super().get_success_url()
+
     def form_valid(self, form):
         if self.patient.admissions.filter(discharged_at__isnull=True).exists():
             form.add_error(None, 'The subject is already admitted. Discharge the current admission first.')
@@ -302,6 +309,9 @@ class AdmissionDischargeView(PatientChildUpdateMixin, UpdateView):
 
     def get_initial(self):
         return {'discharged_at': timezone.now()}
+
+    def get_success_url(self):
+        return self.object.encounter.get_absolute_url() if self.object.encounter else super().get_success_url()
 
 
 # ---------------------------------------------------------------- clinic days

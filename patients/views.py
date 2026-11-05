@@ -102,7 +102,7 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             appointments=p.appointments.select_related('facility', 'plan').order_by('scheduled_date')[:100],
             plans=p.followup_plans.select_related('facility'),
             encounters=p.encounters.select_related('facility', 'staff').order_by('-encounter_date')[:50],
-            admissions=p.admissions.select_related('facility'),
+            admissions=p.admissions.select_related('facility', 'encounter', 'readmission_of').order_by('-admitted_at'),
             family_members=p.family_members.all(),
             lab_orders=p.lab_orders.select_related('test', 'facility').order_by('-ordered_at'),
             investigations=p.investigations.select_related('facility', 'investigation_type').order_by('-requested_at'),

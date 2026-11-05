@@ -588,13 +588,41 @@ class PatientFlowTests(BaseTestCase):
         visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='unscheduled', staff=self.admin)
         self.client.force_login(self.clinician_ilala)
         page = self.client.get(reverse('patients:detail', args=[p.pk]))
-        self.assertContains(page, f'Open visit of {timezone.localtime(visit.encounter_date):%d %b %Y}')
-        self.assertIn(visit, page.context['pathway']['unscheduled_visits'])
+        self.assertIn(visit, [r['visit'] for r in page.context['pathway']['unscheduled_visits']])
         self.assertNotContains(page, '?stage=unscheduled"><i class="bi bi-plus"></i> Unscheduled visit')
         visit_page = self.client.get(visit.get_absolute_url())
-        self.assertEqual([s.label for s in visit_page.context['steps']], ['Forms', 'Investigations', 'Prescribe', 'Close visit'])
+        self.assertEqual([s.label for s in visit_page.context['steps']],
+                         ['Forms', 'Investigations', 'Prescribe', 'Admission', 'Close visit'])
         self.assertContains(visit_page, 'Everything done from here belongs to this visit.')
+        self.assertEqual({s.label: s.note for s in visit_page.context['steps']}['Prescribe'], 'Optional')
+        self.assertNotContains(visit_page, 'Screening &amp; diagnoses')
+        self.assertContains(visit_page, 'Investigations at this visit')
+        self.assertContains(visit_page, 'Medicines prescribed at this visit')
+        self.assertContains(page, 'class="d-none" data-baseline-only')
         self.assertContains(visit_page, reverse('pharmacy:prescription_add', args=[p.pk]) + f'?encounter={visit.pk}')
+        # Today's open visit replaces the Start button; one left open on an earlier day does not.
+        self.assertNotContains(page, 'Start a new unscheduled visit')
+        Encounter.objects.filter(pk=visit.pk).update(encounter_date=timezone.now() - datetime.timedelta(days=2))
+        page = self.client.get(reverse('patients:detail', args=[p.pk]))
+        self.assertContains(page, 'Start a new unscheduled visit')
+        self.assertContains(page, 'is still open: close it once its work is done')
+
+    def test_admission_is_a_step_inside_the_visit(self):
+        from encounters.models import Admission, Encounter
+        p = self.make_patient()
+        visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='follow_up', staff=self.admin)
+        self.client.force_login(self.admin)
+        steps = {s.label: s for s in self.client.get(visit.get_absolute_url()).context['steps']}
+        self.assertEqual(steps['Admission'].url, reverse('encounters:admission_add', args=[p.pk]) + f'?encounter={visit.pk}')
+        response = self.client.post(steps['Admission'].url, {'facility': self.ilala.pk, 'encounter': visit.pk, 'ward': 'Medical',
+                                                              'admitted_at': timezone.now().strftime('%Y-%m-%dT%H:%M'), 'reason': 'DKA'})
+        self.assertRedirects(response, visit.get_absolute_url(), fetch_redirect_response=False)
+        stay = Admission.objects.get(patient=p)
+        page = self.client.get(visit.get_absolute_url())
+        self.assertEqual({s.label: s.url for s in page.context['steps']}['Discharge'],
+                         reverse('encounters:admission_discharge', args=[stay.pk]))
+        self.assertContains(page, 'Still admitted')
+        self.assertNotContains(self.client.get(reverse('patients:detail', args=[p.pk])), 'data-bs-target="#path-admission"')
 
     def test_subject_page_has_five_tabs_and_baseline_cards_on_overview(self):
         import re

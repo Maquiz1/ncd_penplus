@@ -1,0 +1,11 @@
+{% load ncd %}{# Admissions with discharge; each is admitted from inside a visit. #}
+<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th>Admitted</th><th>Facility / ward</th><th>Reason</th><th>Discharged</th><th>Outcome</th><th class="text-end">Action</th></tr></thead>
+  <tbody>{% for a in admissions %}<tr>
+    <td>{{ a.admitted_at|date:"d M Y H:i" }}{% if a.readmission_of %} <span class="badge text-bg-warning">Readmission</span>{% endif %}</td>
+    <td>{{ a.facility }} / {{ a.ward }}</td><td>{{ a.reason }}</td>
+    <td>{% if a.discharged_at %}{{ a.discharged_at|date:"d M Y H:i" }}{% else %}<span class="badge text-bg-warning">Still admitted</span>{% endif %}</td>
+    <td>{{ a.get_discharge_outcome_display|default:"—" }}</td>
+    <td class="text-end text-nowrap">{% if not a.discharged_at and perms.encounters.change_admission %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:admission_discharge' a.pk %}">Discharge</a>{% endif %}{% if a.encounter and not hide_visit %} <a class="btn btn-sm btn-outline-secondary" href="{{ a.encounter.get_absolute_url }}"><i class="bi bi-eye"></i> Visit</a>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="6" class="text-body-secondary">No admissions.</td></tr>{% endfor %}</tbody>
+</table></div>

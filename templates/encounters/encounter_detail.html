@@ -59,18 +59,24 @@
         Weight {{ v.weight_kg|default:"–" }} kg · Height {{ v.height_cm|default:"–" }} cm · BMI {{ v.bmi|default:"–" }} · RBG {{ v.blood_glucose|default:"–" }}
       </div>{% empty %}<div class="card-body text-body-secondary small">Not recorded.</div>{% endfor %}
     </div>
+    {% if object.stage == 'baseline' or screenings or diagnoses %}{# screening and diagnosis belong to the baseline visit #}
     <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Screening &amp; diagnoses</div><ul class="list-group list-group-flush small">
+      {% for s in prescreenings %}<li class="list-group-item">Screening form {{ s.date|date:"d M Y" }} <span class="text-body-secondary">{{ s.get_disposition_display }}</span></li>{% endfor %}
       {% for s in screenings %}<li class="list-group-item">{{ s.disease }} screening {% status_badge s.result %}</li>{% endfor %}
       {% for d in diagnoses %}<li class="list-group-item">{{ d.description }} {% status_badge d.status d.get_status_display %}</li>{% endfor %}
       {% if not screenings and not diagnoses %}<li class="list-group-item text-body-secondary">None recorded at this encounter.</li>{% endif %}
-    </ul></div>
-    <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Orders</div><ul class="list-group list-group-flush small">
-      {% for s in prescreenings %}<li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-clipboard2-check"></i> Pre-screening {{ s.date|date:"d M Y" }}</span><span class="small text-body-secondary">{{ s.get_disposition_display }}</span></li>{% endfor %}
-      {% for o in lab_orders %}<li class="list-group-item d-flex justify-content-between"><span>{{ o.test.name }}{% if o.result_value %}: <strong class="{% if o.is_abnormal %}text-danger{% endif %}">{{ o.result_value }} {{ o.result_unit }}</strong>{% endif %}</span>{% status_badge o.status o.get_status_display %}</li>{% endfor %}
-      {% for i in investigations %}<li class="list-group-item d-flex justify-content-between"><span>{{ i.name }}: {{ i.description }}</span>{% status_badge i.status i.get_status_display %}</li>{% endfor %}
-      {% for rx in prescriptions %}<li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-capsule"></i> {{ rx.medication }} {{ rx.dose }} {{ rx.frequency }} (×{{ rx.quantity }})</span>{% status_badge rx.status rx.get_status_display %}</li>{% endfor %}
-      {% if not lab_orders and not investigations and not prescriptions %}<li class="list-group-item text-body-secondary">No orders. Pending results do not block form completion.</li>{% endif %}
-    </ul></div>
+    </ul></div>{% endif %}
+    {% if admissions %}<div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Admission</div>{% include "patients/_admissions.html" with hide_visit=True %}</div>{% endif %}
   </div>
 </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4 mb-2" id="visit-investigations">
+  <h2 class="h5 mb-0">Investigations at this visit</h2>
+  {% if perms.laboratory.add_laborder or perms.investigations.add_investigationorder %}<a class="btn btn-sm btn-outline-primary" href="{% url 'investigations:request' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-plus"></i> Request investigations</a>{% endif %}
+</div>
+{% include "patients/_investigation_tables.html" with back_anchor="%23visit-investigations" %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4 mb-2" id="visit-medicines">
+  <h2 class="h5 mb-0">Medicines prescribed at this visit</h2>
+  {% if perms.pharmacy.add_prescription and not patient.is_deceased %}<a class="btn btn-sm btn-outline-primary" href="{% url 'pharmacy:prescription_add' patient.pk %}?encounter={{ object.pk }}"><i class="bi bi-plus"></i> Prescribe</a>{% endif %}
+</div>
+{% include "patients/_prescription_table.html" with back_anchor="%23visit-medicines" %}
 {% endblock %}
