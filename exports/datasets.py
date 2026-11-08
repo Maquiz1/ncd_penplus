@@ -33,6 +33,7 @@ class Column:
     choices: list = field(default_factory=list)   # [(code, label)]
     unit: str = ''
     identifying: bool = False
+    required: bool = False          # the record is not saved without it
 
 
 @dataclass
@@ -107,7 +108,7 @@ def patient_columns(patient_path, date_field):
         return when.year - dob.year - ((when.month, when.day) < (dob.month, dob.day))
 
     return [
-        Column('patient_id', 'Subject ID (NCD number)', 'text', lambda o, m: patient(o).patient_number),
+        Column('patient_id', 'Subject ID (NCD number)', 'text', lambda o, m: patient(o).patient_number, required=True),
         Column('old_study_id', 'Old EDCS study ID (full)', 'text', lambda o, m: old_study_ids().get(patient(o).pk)),
         Column('old_id', 'Old EDCS client number', 'text', lambda o, m: patient(o).old_id),
         Column('site', 'Site (current facility code)', 'code', lambda o, m: patient(o).current_facility.code),
@@ -124,26 +125,28 @@ def field_columns(model, identity, skip=()):
             continue
         name, label = f.name, str(f.verbose_name).capitalize()
         ident = f.name in identity or f.name in FREE_TEXT
+        required = not f.blank and not f.has_default() and not f.primary_key
         if f.primary_key:
             columns.append(Column('record_id', 'Record ID', 'number', lambda o, m: o.pk))
         elif f.is_relation:
             columns.append(Column(f'{name}_id' if name in ('encounter', 'appointment') else name, label, 'code',
-                                  (lambda attr: lambda o, m: natural_key(getattr(o, attr)))(name), identifying=ident))
+                                  (lambda attr: lambda o, m: natural_key(getattr(o, attr)))(name), identifying=ident,
+                                  required=required))
         elif f.choices:
             choices = [(str(v), str(lbl)) for v, lbl in f.flatchoices]
             columns.append(Column(name, label, 'choice', (lambda attr: lambda o, m: getattr(o, attr) if m == 'codes'
                                                           else getattr(o, f'get_{attr}_display')())(name),
-                                  choices=choices, identifying=ident))
+                                  choices=choices, identifying=ident, required=required))
         elif isinstance(f, models.BooleanField):
             columns.append(Column(name, label, 'yes/no', (lambda attr: lambda o, m: yes_no(getattr(o, attr), m))(name),
-                                  choices=[('1', 'Yes'), ('0', 'No')], identifying=ident))
+                                  choices=[('1', 'Yes'), ('0', 'No')], identifying=ident, required=required))
         elif isinstance(f, models.JSONField):
             continue
         else:
             kind = ('datetime' if isinstance(f, models.DateTimeField) else 'date' if isinstance(f, models.DateField)
                     else 'number' if isinstance(f, (models.IntegerField, models.DecimalField, models.FloatField)) else 'text')
             columns.append(Column(name, label, kind, (lambda attr: lambda o, m: plain(getattr(o, attr)))(name),
-                                  identifying=ident))
+                                  identifying=ident, required=required))
     return columns
 
 
@@ -169,7 +172,7 @@ def _patient_dataset():
     from patients.models import Patient
     identity = IDENTITY_FIELDS['patients.Patient']
     old_study_ids = study_id_lookup()
-    columns = [Column('patient_id', 'Subject ID (NCD number)', 'text', lambda o, m: o.patient_number),
+    columns = [Column('patient_id', 'Subject ID (NCD number)', 'text', lambda o, m: o.patient_number, required=True),
                Column('old_study_id', 'Old EDCS study ID (full)', 'text', lambda o, m: old_study_ids().get(o.pk)),
                Column('age_years', 'Age today (years)', 'number', lambda o, m: o.age if o.date_of_birth else None)]
     columns += field_columns(Patient, identity, skip=('patient_number', 'merged_into', 'sms_consent_recorded_at'))
@@ -371,7 +374,7 @@ def form_datasets():
                 return '; '.join(map(str, value)) if isinstance(value, list) else value
             kind = 'choice' if choices else {'number': 'number', 'decimal': 'number', 'integer': 'number',
                                              'date': 'date'}.get(f.field_type, 'text')
-            columns.append(Column(key, f.label, kind, get, choices=choices, unit=f.unit,
+            columns.append(Column(key, f.label, kind, get, choices=choices, unit=f.unit, required=f.required,
                                   identifying=f.field_type in ('textarea',) or key in ('name', 'phone', 'remarks')))
         legacy = definition.code.startswith('edcs-')
         result.append(Dataset(f'form-{definition.code}', definition.name, 'Migrated EDCS forms' if legacy else 'CRF forms',

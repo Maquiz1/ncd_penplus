@@ -142,3 +142,7 @@ The follow-up schedule and extra one-off appointments are set in one place: Base
 ### Exporting with the old EDCS names
 
 Exports use the new variable names by default. Choose **Variable names: Old EDCS names** on the Exports page, or **Codes, old EDCS names** in a form's Data menu on the Forms page, to get the EDCS column names instead (for example `dystolic`, `pr`, `clinic_date`, `vid`, `site_id`, `study_id`), so analysis scripts written for the EDCS data keep working. In that mode the subject's NCD number is `ncd_number`, the old EDCS client number is `patient_id` (`id` in the registration table), and lab results take their EDCS `lab_details` names (for example `cre`). A variable EDCS did not have keeps its new name. The data dictionary has an **EDCS table.column** column showing where each variable came from.
+
+### Data dictionary versions
+
+Exports → Codebook → **Data dictionary** downloads the versioned Excel data dictionary: study forms, datasets, every variable (label, type, unit, codes, required, in de-identified export, old EDCS name), lab tests, the open decisions (D1–D10, L1–L8) and the change log. Earlier versions, as they were issued, are listed under it. The data team raises the version when forms or variables change.

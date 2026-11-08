@@ -48,6 +48,16 @@ git pull
 
 The script backs up the database and uploaded files to `~/backups/penplus`, builds the new image while the old one keeps serving, runs migrations, switches containers, and updates roles and scheduled jobs. It prints the rollback and restore commands at the end.
 
+## Data dictionary versions
+
+The data dictionary is an Excel workbook, `data_dictionary/NCD_PENPlus_Data_Dictionary_v<version>.xlsx`, kept out of git. The current version is always built live from the system (Exports → Codebook → **Data dictionary**). Issued versions are kept so they stay downloadable:
+
+1. On your computer: raise `VERSION` (and `VERSION_DATE`) in `exports/dictionary.py` and add a line to `CHANGE_LOG`.
+2. `venv/bin/python manage.py build_dictionary` writes the new workbook. Keep the older files in `data_dictionary/`.
+3. `./copy-dictionary-to-server.sh` copies every version to `/opt/ncd-penplus/data_dictionary/` (mounted read-only into the containers). Earlier versions then show on the Codebook page.
+
+The first time, after `git pull` on the server, run `docker compose up -d` (done by `deploy-penplus.sh`) so the containers get the new mount.
+
 ## Useful commands
 
 ```bash
@@ -112,4 +122,4 @@ While staff still work in the old EDCS, import a fresh dump whenever you need up
 
 ## Never in git or on the server's repository folder
 
-`.env`, database dumps (`documentations/Database/`), the GoTHOMIS manual and the proposal. They are in `.gitignore`. Copy a dump to the server with `scp` only when it is needed, and delete it after the import.
+`.env`, database dumps (`documentations/Database/`), the GoTHOMIS manual, the proposal and the issued data dictionaries (`data_dictionary/`, copied with `copy-dictionary-to-server.sh`). They are in `.gitignore`. Copy a dump to the server with `scp` only when it is needed, and delete it after the import.

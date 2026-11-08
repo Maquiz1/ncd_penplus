@@ -184,6 +184,41 @@ class FormsPageTests(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn('attachment', response['Content-Disposition'])
 
+    def test_versioned_data_dictionary(self):
+        from unittest import mock
+
+        from openpyxl import load_workbook
+
+        from . import dictionary
+        archive = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, archive, ignore_errors=True)
+        with mock.patch.object(dictionary, 'ARCHIVE_DIR', archive):
+            path = dictionary.write()
+            self.assertEqual(path.name, f'NCD_PENPlus_Data_Dictionary_v{dictionary.VERSION}.xlsx')
+            self.assertEqual(dictionary.archived_versions(), [])          # the current version is not "earlier"
+            (archive / 'NCD_PENPlus_Data_Dictionary_v0.0.9.xlsx').write_bytes(path.read_bytes())
+            self.assertEqual([v for v, _p in dictionary.archived_versions()], ['0.0.9'])
+            self.client.force_login(self.pi)
+            page = self.client.get(reverse('exports:codebook'))
+            self.assertContains(page, f'Data dictionary version {dictionary.VERSION}')
+            self.assertContains(page, 'v0.0.9')
+            old = self.client.get(reverse('exports:archived_dictionary', args=['0.0.9']))
+            self.assertEqual(old.content, path.read_bytes())
+            self.assertEqual(self.client.get(reverse('exports:archived_dictionary', args=['9.9'])).status_code, 404)
+        response = self.client.get(reverse('exports:dictionary'))
+        self.assertIn('attachment', response['Content-Disposition'])
+        workbook = load_workbook(io.BytesIO(response.content), read_only=True)
+        self.assertEqual(workbook.sheetnames, ['README', 'Study Forms', 'Datasets', 'Data Dictionary', 'Choices',
+                                               'Lab Tests', 'Decisions', 'Change Log'])
+        rows = list(workbook['Data Dictionary'].values)
+        vitals = {r[3]: r for r in rows if r[2] == 'vitals'}
+        self.assertEqual(vitals['diastolic_bp'][4], 'vital.dystolic')
+        self.assertEqual(vitals['patient_id'][9], 'Yes')                  # required
+        decisions = {r[0]: r for r in workbook['Decisions'].values}
+        self.assertEqual(decisions['ID'][4], 'Problem found')
+        self.assertEqual((decisions['D1'][1], decisions['D1'][9]), ('High', 'Open'))
+        self.assertEqual(list(workbook['Change Log'].values)[-1][0], dictionary.VERSION)
+
     def test_disease_limited_staff_export_only_their_programme(self):
         from clinical.models import ClinicalProgramme, ProgrammeEnrollment
         ProgrammeEnrollment.objects.create(patient=self.patient, facility=self.ilala,

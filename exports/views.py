@@ -14,7 +14,7 @@ from audit.services import log_event
 from facilities.scope import scope_description
 
 from . import datasets as ds
-from . import study_forms
+from . import dictionary, study_forms
 from .forms import ExportForm
 from .models import ExportJob
 from .tasks import start
@@ -147,7 +147,40 @@ class CodebookView(PermissionRequiredMixin, View):
             return response
         return render(request, 'exports/codebook.html', {
             'datasets': datasets, 'selected': selected, 'key': key, 'deidentified': deidentified,
-            'body_template': 'exports/_codebook_body.html'})
+            'body_template': 'exports/_codebook_body.html', 'version': dictionary.VERSION,
+            'version_date': dictionary.VERSION_DATE, 'archived': dictionary.archived_versions()})
+
+
+XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+
+class DictionaryView(PermissionRequiredMixin, View):
+    """The current data dictionary version, built from the system (variables and codes, no subject data)."""
+
+    permission_required = 'reporting.export_data'
+
+    def get(self, request):
+        buffer = io.BytesIO()
+        dictionary.build_workbook().save(buffer)
+        log_event(request=request, action=AuditEvent.Action.EXPORT, model='exports.Codebook',
+                  object_repr=f'Data dictionary v{dictionary.VERSION}')
+        response = HttpResponse(buffer.getvalue(), content_type=XLSX)
+        response['Content-Disposition'] = f'attachment; filename="{dictionary.dictionary_filename()}"'
+        return response
+
+
+class ArchivedDictionaryView(PermissionRequiredMixin, View):
+    """An earlier data dictionary version, exactly as it was issued."""
+
+    permission_required = 'reporting.export_data'
+
+    def get(self, request, version):
+        path = dict(dictionary.archived_versions()).get(version)
+        if path is None:
+            raise Http404
+        response = HttpResponse(path.read_bytes(), content_type=XLSX)
+        response['Content-Disposition'] = f'attachment; filename="{path.name}"'
+        return response
 
 
 class FormsView(PermissionRequiredMixin, View):

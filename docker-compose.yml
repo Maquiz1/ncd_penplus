@@ -18,6 +18,8 @@ x-app: &app
     - exports:/app/private_exports
     - sent_emails:/app/sent_emails
     - import_reports:/app/import_reports
+    # Issued data dictionary versions (not in git): ./copy-dictionary-to-server.sh puts them in /opt/ncd-penplus/data_dictionary/
+    - ./data_dictionary:/app/data_dictionary:ro
   depends_on:
     - penplus-db
     - penplus-redis

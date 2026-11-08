@@ -31,7 +31,9 @@ def legacy(table):
 FORMS = [
     ('registration', 'Registration', 'clients', ['patients', legacy('clients')],
      'Subject registration, plus the socio-demographic questions of the EDCS registration form.'),
-    ('screening', 'Screening', 'screening', [legacy('screening'), 'screenings'], ''),
+    ('screening', 'Screening', 'screening', ['prescreenings', legacy('screening'), 'screenings'],
+     'The Screening form (consent, residence, known NCD, investigations requested), the EDCS screening form and '
+     'one screening result per disease.'),
     ('demographics', 'Demographics', 'demographic', [legacy('demographic')], ''),
     ('vitals', 'Vital signs', 'vital', ['vitals'], 'Height, weight, MUAC, blood pressure and pulse per visit.'),
     ('patient-category', 'Subject category', 'main_diagnosis', [legacy('main_diagnosis'), 'programme_enrollments'], ''),
@@ -43,18 +45,22 @@ FORMS = [
     ('laboratory', 'Laboratory', 'lab_details', ['laboratory', 'labs'],
      'All lab results: one row per lab date with a column per test, and the same results one row per test '
      '(with units, reference ranges and abnormal flags).'),
-    ('imaging', 'Radiology / imaging', 'results', ['imaging'],
+    ('assessments', 'Clinical assessments', 'lab_details', [legacy('lab_details')],
+     'The assessments of the EDCS lab details form (coping, family planning, eye and foot exams, DKA episodes, '
+     'cardiac surgery, transfusions, transcranial Doppler); its lab values are under Laboratory.'),
+    ('imaging', 'Radiology / imaging', 'results', ['imaging', legacy('results')],
      'ECG, echocardiography, X-ray, ultrasound and other examinations.'),
     ('complications', 'Diagnosis, complications & comorbidities', 'dgns_complctns_comorbdts',
      [legacy('dgns_complctns_comorbdts'), 'diagnoses'], ''),
     ('risks', 'Risks', 'risks', [legacy('risks')], ''),
     ('hospitalization', 'Hospitalization / admission', 'hospitalization, hospitalization_details, hospitalization_table',
-     [legacy('hospitalization'), legacy('hospitalization_details'), 'admissions'],
+     [legacy('hospitalization'), legacy('hospitalization_details'), 'admissions', legacy('hospitalization_table')],
      'The hospitalization questions of each visit, and one row per admission episode.'),
     ('treatment', 'Treatment plan & medicines', 'treatment_plan, medication_treatments',
      [legacy('treatment_plan'), 'medication_history', 'prescriptions'],
      'The treatment plan of each visit, and one row per medicine (start, continue, stop) and per prescription.'),
-    ('family', 'Sickle cell family status', 'sickle_cell_status_table', ['family'], 'One row per sibling.'),
+    ('family', 'Sickle cell family status', 'sickle_cell_status_table', ['family', legacy('sickle_cell_status_table')],
+     'One row per sibling.'),
     ('socio-economic', 'Socio-economic status', 'social_economic', [legacy('social_economic')], ''),
     ('summary', 'Visit summary & outcome', 'summary', [legacy('summary'), 'status_events'], ''),
 ]

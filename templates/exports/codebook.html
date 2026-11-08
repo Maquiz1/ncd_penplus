@@ -5,6 +5,11 @@
   <div><h1 class="h3 mb-0">Codebook (data dictionary)</h1><div class="small text-body-secondary">Generated from the system itself: every dataset, variable, label, type, unit and code, as in the exports{% if deidentified %} (de-identified variables only){% endif %}.</div></div>
   <a class="btn btn-outline-secondary" href="{% url 'exports:list' %}"><i class="bi bi-cloud-arrow-down"></i> Data exports</a>
 </div>
+<div class="card shadow-sm mb-3"><div class="card-body py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div class="small"><strong>Data dictionary version {{ version }}</strong> ({{ version_date }}): study forms, datasets, every variable with its old EDCS name, codes, lab tests, open decisions and the change log.
+    {% if archived %}<div>Earlier versions, as issued: {% for v, path in archived %}<a href="{% url 'exports:archived_dictionary' v %}">v{{ v }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</div>{% endif %}</div>
+  <a class="btn btn-sm btn-success" href="{% url 'exports:dictionary' %}"><i class="bi bi-file-earmark-excel"></i> Data dictionary v{{ version }}</a>
+</div></div>
 <form class="card card-body shadow-sm mb-3 py-2" method="get"><div class="row g-2 align-items-end">
   <div class="col-md-6"><label class="form-label small mb-0">Dataset</label><select class="form-select form-select-sm" name="dataset"><option value="">All datasets</option>{% regroup datasets by group as groups %}{% for g in groups %}<optgroup label="{{ g.grouper }}">{% for d in g.list %}<option value="{{ d.key }}" {% if key == d.key %}selected{% endif %}>{{ d.label }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
   <div class="col-md-auto d-flex gap-2"><button class="btn btn-sm btn-primary">Show</button>
