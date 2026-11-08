@@ -29,7 +29,8 @@ DECISIONS = [
     # HbA1c monitoring
     ('D4', 'Medium', 'HbA1c monitoring', 'HbA1c due list',
      'The interval between HbA1c tests is not set by the protocol.',
-     '3 months; changeable under Administration → Monitoring settings.', 'PI + clinicians', '', 'Open'),
+     '3 months; changeable under Administration → Monitoring settings.', 'PI + clinicians',
+     'Every 3 months, as agreed by the study team (8 Nov 2026). The system already uses 3 months.', 'Answered'),
     ('D5', 'Medium', 'HbA1c monitoring', 'HbA1c due list',
      'When an overdue HbA1c is recorded as not done, it is not stated when it is due again.',
      'Due again 1 month later; changeable under Administration → Monitoring settings.', 'PI + clinicians', '', 'Open'),
@@ -81,5 +82,7 @@ DECISIONS = [
      'Both allowed; "collect" and "receive" can be done by the same person in one step.', 'Sites', '', 'Open'),
     ('L8', 'Medium', 'Laboratory', 'GoTHOMIS',
      'It is not decided whether results go to GoTHOMIS (push) or GoTHOMIS results come here (pull).',
-     'Proposed: ask the hospitals; request the API specification from PO-RALG now.', 'PI + hospitals', '', 'Open'),
+     'Proposed: ask the hospitals; request the API specification from PO-RALG now.', 'PI + hospitals',
+     'Neither for now (8 Nov 2026): results are taken from GoTHOMIS and entered here by hand by lab staff trained '
+     'on this system. No automatic link.', 'Answered'),
 ]

@@ -111,6 +111,7 @@ Glucose, Hb, urine dipstick and HbA1c POC entered at triage or at the visit: **o
 
   Which direction is needed depends on whether the hospital wants PEN-Plus results inside GoTHOMIS.
 - Nothing in phase 1 depends on GoTHOMIS.
+- **Decided (L8, 8 Nov 2026):** no automatic link for now. Lab staff trained on this system take the results from GoTHOMIS and enter them here by hand.
 
 ## 4. Decisions needed
 
@@ -123,7 +124,7 @@ Glucose, Hb, urine dipstick and HbA1c POC entered at triage or at the visit: **o
 | L5 | Blood orders for sickle cell transfusions: now or later? | Later |
 | L6 | Sample number format, and is a printed label or slip needed? | `<facility code>-YYMMDD-NNN`; printable request slip with the number |
 | L7 | Who collects samples: clinic nurse, or the patient goes to the lab? | Both allowed; "collect" and "receive" can be done by the same person in one step |
-| L8 | Should results also go into GoTHOMIS later (push), or should GoTHOMIS results come here (pull)? | Ask the hospitals; request the API specification from PO-RALG now |
+| L8 | Should results also go into GoTHOMIS later (push), or should GoTHOMIS results come here (pull)? | **Decided (8 Nov 2026): neither for now.** Results are taken from GoTHOMIS and entered here by hand by lab staff trained on this system |
 
 ## 5. Build order
 

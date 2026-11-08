@@ -18,7 +18,7 @@ Last updated: 25 Oct 2026. Tick items as they are done; add the decision and dat
 
 | # | Question | Current setting |
 |---|----------|-----------------|
-| D4 | Interval between HbA1c tests | 3 months (Administration → Monitoring settings) |
+| D4 | Interval between HbA1c tests | **Decided (8 Nov 2026): every 3 months.** Set under Administration → Monitoring settings |
 | D5 | After an overdue HbA1c is recorded as **not done**, when is it due again? | 1 month later (Administration → Monitoring settings) |
 | D6 | Reasons for "not done": not ordered at the visit, patient did not attend, sample not collected, kits/reagents out of stock, machine not working, patient refused, could not afford, result lost, other. Add or remove any? | as listed |
 | D7 | Should "not done because of stock-out / machine" be counted in the stock-out indicators (PPF)? | not linked yet |
@@ -50,7 +50,7 @@ Last updated: 25 Oct 2026. Tick items as they are done; add the decision and dat
 3. **Catchment wards, Zanzibar and the places level:** catchment areas per facility, Zanzibar regions/districts, and a places level under the street/village.
 4. **PPF1–PPF6:** manual quarterly entry (trained mid-level providers by cadre, specialist mentorship days, stock-out days for drugs and equipment) and indicator targets.
 5. **Laboratory and investigations (full workflow in this system):** hospital lab, radiology and pharmacy staff trained on PEN-Plus process PEN-Plus requests and enter results here. Sub-departments, sample types and numbers, receive in lab, sample rejection, optional approval, clinician query, amendments, worklists, results history and trends, POC tests, TAT and workload reports. Design and decisions L1–L8: [lab-investigations-design.md](lab-investigations-design.md).
-6. **GoTHOMIS integration (later):** send PEN-Plus results to GoTHOMIS or pull GoTHOMIS results; needs the API specification from PO-RALG. Store GoTHOMIS MRN, facility code and test codes from now on.
+6. **GoTHOMIS integration (later, not planned now):** decided (L8, 8 Nov 2026) that lab staff trained on this system enter results from GoTHOMIS by hand. An automatic link would need the API specification from PO-RALG. Store GoTHOMIS MRN, facility code and test codes from now on.
 7. **Monitoring for other tests:** the HbA1c due list is built so other routine tests (e.g. echo for cardiac patients, Hb for sickle cell) can be added the same way. Which tests and intervals?
 
 ---
