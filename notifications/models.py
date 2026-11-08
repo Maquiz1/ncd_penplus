@@ -10,6 +10,7 @@ class SmsMessage(TimeStampedModel):
 
     class Purpose(models.TextChoices):
         CLINIC_INVITE = 'clinic_invite', 'Clinic day invitation'
+        STAFF_CLINIC = 'staff_clinic', 'Clinic day notice to staff'
         REMINDER_DAY_BEFORE = 'reminder_before', 'Reminder – day before'
         REMINDER_SAME_DAY = 'reminder_today', 'Reminder – same day'
         TEST = 'test', 'Test message'
@@ -124,6 +125,7 @@ class EmailLog(models.Model):
         ACTIVATION = 'activation', 'Account activation'
         PASSWORD_RESET = 'password_reset', 'Password reset'
         MONTHLY_REPORT = 'monthly_report', 'Monthly report'
+        CLINIC_DAY = 'clinic_day', 'Clinic day notice to staff'
         TEST = 'test', 'Test email'
         OTHER = 'other', 'Other'
 

@@ -562,3 +562,79 @@ class BackButtonTests(BaseTestCase):
         self.client.logout()
         self.assertNotContains(self.client.get(reverse('login')), 'js-back')
         self.assertContains(self.client.get(reverse('password_reset')), 'js-back')
+
+
+class SopPageTests(BaseTestCase):
+    def test_everyone_reads_the_sop_and_downloads_versions(self):
+        from . import sop
+        nurse = self.make_user('sop_nurse', 'Nurse / Triage Officer', facility=self.ilala)
+        self.client.force_login(nurse)
+        page = self.client.get(reverse('sop'))
+        self.assertContains(page, f'Version {sop.VERSION}')
+        self.assertContains(page, 'The flow at a glance')
+        self.assertContains(self.client.get(reverse('dashboard')), reverse('sop'))      # in the menu
+        response = self.client.get(reverse('sop') + '?format=pdf')
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(sop.pdf_filename(), response['Content-Disposition'])
+        for version, path in sop.issued_versions():
+            self.assertContains(page, reverse('sop_version', args=[version]))
+            self.assertEqual(self.client.get(reverse('sop_version', args=[version])).content, path.read_bytes())
+        self.assertEqual(self.client.get(reverse('sop_version', args=['9.9'])).status_code, 404)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('sop')).status_code, 302)
+
+
+class SiteRulesTests(BaseTestCase):
+    def test_sites_offered_by_role_of_the_site_and_referral_keeps_the_subject(self):
+        from encounters.models import Referral
+        kcmc = Facility.objects.create(name='KCMC (referral)', code='KCMC-T', district=self.ilala.district,
+                                       is_research_site=False)
+        closed = Facility.objects.create(name='Closed clinic', code='CLOSED-T', district=self.ilala.district,
+                                         is_research_site=True, is_active=False)
+        clerk = self.make_user('clerk_sites', 'Data Clerk', facility=self.ilala)
+        StaffAssignment.objects.create(user=clerk, level='facility', facility=kcmc)
+        StaffAssignment.objects.create(user=clerk, level='facility', facility=closed)
+        self.client.force_login(clerk)
+        form = self.client.get(reverse('patients:create')).context['form']
+        self.assertEqual(list(form.fields['registration_facility'].queryset), [self.ilala])   # clinic site, active
+        self.assertEqual(form.initial['registration_facility'], self.ilala.pk)
+        # Referral: any active hospital, and the subject stays where they are.
+        patient = self.make_patient()
+        self.client.force_login(self.clinician_ilala)
+        form = self.client.get(reverse('encounters:referral_add', args=[patient.pk])).context['form']
+        self.assertIn(kcmc, form.fields['to_facility'].queryset)
+        self.assertNotIn(closed, form.fields['to_facility'].queryset)
+        self.client.post(reverse('encounters:referral_add', args=[patient.pk]), {
+            'facility': self.ilala.pk, 'referral_date': timezone.localdate().isoformat(), 'to_facility': kcmc.pk,
+            'reason': 'Echo and cardiology review'})
+        referral = Referral.objects.get(patient=patient)
+        patient.refresh_from_db()
+        self.assertEqual((referral.destination, patient.current_facility), ('KCMC (referral)', self.ilala))
+        transfer = self.client.get(reverse('patients:transfer_add', args=[patient.pk])).context['form']
+        self.assertNotIn(kcmc, transfer.fields['to_facility'].queryset)     # a transfer is to a PEN-Plus site
+        # Sites are managed in the app by the system administrator.
+        self.client.force_login(self.admin)
+        self.client.post(reverse('facilities:update', args=[kcmc.pk]), {
+            'name': kcmc.name, 'code': kcmc.code, 'facility_type': 'hospital', 'district': kcmc.district_id,
+            'is_research_site': 'on'})
+        kcmc.refresh_from_db()
+        self.assertEqual((kcmc.is_research_site, kcmc.is_active), (True, False))
+
+    def test_transfer_out_of_penplus_closes_the_clinic_and_the_study(self):
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        from encounters.models import Appointment
+        patient = self.make_patient()
+        enrollment = ProgrammeEnrollment.objects.create(patient=patient, facility=self.ilala,
+                                                        programme=ClinicalProgramme.objects.get(code='dm-care'))
+        future = Appointment.objects.create(patient=patient, facility=self.ilala, stage='follow_up',
+                                            scheduled_date=timezone.localdate() + datetime.timedelta(days=20))
+        self.client.force_login(self.clinician_ilala)
+        url = reverse('clinical:transfer_out', args=[patient.pk])
+        self.assertContains(self.client.get(url), 'Diabetes Clinic')
+        self.client.post(url, {'date': timezone.localdate().isoformat(), 'to_other': 'Muhimbili', 'reason': 'Moved to Dar'})
+        enrollment.refresh_from_db()
+        future.refresh_from_db()
+        self.assertEqual((enrollment.status, future.status), ('transferred_out', 'cancelled'))
+        self.assertIn('Muhimbili', enrollment.outcome_reason)
+        self.assertEqual(self.client.get(url).status_code, 403)          # nothing left to transfer out
+

@@ -28,4 +28,5 @@ urlpatterns = [
     path('patients/<int:patient_pk>/enrollment/add/', views.ProgrammeEnrollmentCreateView.as_view(), name='enrollment_add'),
     path('enrollment/<int:pk>/edit/', views.ProgrammeEnrollmentUpdateView.as_view(), name='enrollment_update'),
     path('enrollment/<int:pk>/return/', views.ReturnToCareView.as_view(), name='enrollment_return'),
+    path('patients/<int:pk>/transfer-out/', views.TransferOutView.as_view(), name='transfer_out'),
 ]

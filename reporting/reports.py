@@ -70,6 +70,56 @@ def recruitment_by_site(filters):
     return {'rows': rows, 'total': total, 'diseases': diseases, 'ended_labels': list(ENDED.values())}
 
 
+# ------------------------------------------------------------------ study summary (the subject flow)
+
+def study_summary(filters):
+    """The subjects registered in the period at the chosen sites, and how many of them reached each step:
+    screened, consented, diagnosed (confirmed), enrolled (ever) and enrolled (active now). Per disease where the
+    step belongs to a disease."""
+    from clinical.models import PreScreening
+    from research.models import ConsentRecord
+
+    diseases = [filters.disease] if filters.disease else list(filters.diseases)
+    cohort = Patient.objects.filter(registration_facility__in=filters.facilities,
+                                    registration_date__range=(filters.start, filters.end))
+    ids = set(cohort.values_list('pk', flat=True))
+    screenings = Screening.objects.filter(patient_id__in=ids, disease__in=diseases)
+    diagnosed = Diagnosis.objects.filter(patient_id__in=ids, disease__in=diseases, status=Diagnosis.Status.CONFIRMED)
+    enrolled = ProgrammeEnrollment.objects.filter(patient_id__in=ids, programme__disease__in=diseases)
+
+    def subjects(qs, field='patient_id'):
+        return set(qs.values_list(field, flat=True))
+
+    screened = subjects(PreScreening.objects.filter(patient_id__in=ids)) | subjects(screenings)
+    consented = (subjects(PreScreening.objects.filter(patient_id__in=ids, consent_obtained=True))
+                 | subjects(screenings.filter(consent_obtained=True))
+                 | subjects(ConsentRecord.objects.filter(patient_id__in=ids, decision='consented')))
+    steps = [
+        ('registered', 'Registered', ids, 'Registered at the site in the period.', None),
+        ('screened', 'Screened', screened, 'Screening form filled, or screened for a disease.',
+         lambda d: subjects(screenings.filter(disease=d))),
+        ('consented', 'Consented', consented & screened, 'Consented in the screening form (or a study consent).',
+         None),
+        ('diagnosed', 'Diagnosed (confirmed)', subjects(diagnosed), 'A diagnosis the doctor confirmed.',
+         lambda d: subjects(diagnosed.filter(disease=d))),
+        ('enrolled', 'Enrolled (ever)', subjects(enrolled), 'Enrolled in a programme, whatever the status now.',
+         lambda d: subjects(enrolled.filter(programme__disease=d))),
+        ('active', 'Enrolled (active now)', subjects(enrolled.filter(status='active')),
+         'In care today: an active programme enrollment.',
+         lambda d: subjects(enrolled.filter(programme__disease=d, status='active'))),
+    ]
+    rows, previous = [], None
+    total = len(ids)
+    for key, label, found, note, per_disease in steps:
+        count = len(found)
+        rows.append({'key': key, 'label': label, 'count': count, 'note': note,
+                     'of_registered': round(100 * count / total) if total else 0,
+                     'of_previous': round(100 * count / previous) if previous else None,
+                     'by_disease': [len(per_disease(d)) for d in diseases] if per_disease else None})
+        previous = count
+    return {'rows': rows, 'diseases': diseases, 'total': total}
+
+
 # ------------------------------------------------------------------ patients by condition
 
 def condition_report(filters, disease, condition_code=None):

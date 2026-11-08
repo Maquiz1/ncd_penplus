@@ -94,6 +94,33 @@ def schedule(session, user, request=None):
     return counts
 
 
+@transaction.atomic
+def move_to_dates(session, user, request=None):
+    """The clinic's dates changed: its booked appointments not yet attended move to the new days, shared out as
+    before. Queued SMS for the old dates are cancelled, so the invitations are sent again."""
+    from notifications.models import SmsMessage
+
+    days = session.days()
+    booked = list(session.appointments.filter(status__in=Appointment.OPEN_STATUSES, encounters__isnull=True)
+                  .order_by('scheduled_date', 'patient__patient_number'))
+    per_day = math.ceil(len(booked) / len(days)) if booked and session.allocation == 'spread' else len(booked) or 1
+    moved = 0
+    for index, appointment in enumerate(booked):
+        day = days[min(index // per_day, len(days) - 1)]
+        if (appointment.scheduled_date, appointment.scheduled_time) == (day, session.start_time):
+            continue
+        appointment.scheduled_date, appointment.scheduled_time = day, session.start_time
+        appointment.status = 'rescheduled'
+        appointment.reason_for_change = f'Clinic day moved: {session.name}'[:255]
+        appointment.save()
+        moved += 1
+    SmsMessage.objects.filter(clinic_session=session, status='queued').update(status='cancelled',
+                                                                              error='Clinic day moved')
+    log_event(actor=user, request=request, action=AuditEvent.Action.UPDATE, obj=session,
+              changes={'appointments_moved': moved}, reason='Clinic day dates changed')
+    return moved
+
+
 def send_invitations(session, user, request=None):
     from notifications.models import SmsMessage
     from notifications.services import process_queue, queue_message
@@ -109,6 +136,62 @@ def send_invitations(session, user, request=None):
     log_event(actor=user, request=request, action=AuditEvent.Action.CREATE, obj=session,
               changes={**reasons, **{f'sms {k}': v for k, v in sent.items()}}, reason='Clinic day SMS invitations')
     return reasons, sent
+
+
+def site_staff(session):
+    """Active staff assigned to the clinic's facility (not district or national staff)."""
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+
+    today = timezone.localdate()
+    return (get_user_model().objects.filter(
+        is_active=True, assignments__is_active=True, assignments__level='facility',
+        assignments__facility=session.facility, assignments__start_date__lte=today)
+        .filter(Q(assignments__end_date__isnull=True) | Q(assignments__end_date__gte=today)).distinct())
+
+
+def _when(session):
+    time = f', {session.start_time:%H:%M}' if session.start_time else ''
+    if session.end_date and session.end_date != session.start_date:
+        return f'{session.start_date:%a %d %b} to {session.end_date:%a %d %b %Y}{time}'
+    return f'{session.start_date:%a %d %b %Y}{time}'
+
+
+def notify_staff(session, user, event, request=None):
+    """SMS and email to the site's staff when a clinic day is scheduled, moved or cancelled. No subject details:
+    only the clinic, dates and how many subjects are booked. Returns {'sms': n, 'email': n}."""
+    from notifications.email import send_logged_email, site_url
+    from notifications.models import EmailLog, SmsMessage
+    from notifications.services import process_queue
+    from notifications.sms import normalize_tz_phone
+
+    booked = session.appointments.filter(status__in=Appointment.OPEN_STATUSES).count()
+    headline = {'scheduled': f'{session.name} at {session.facility.name}: {_when(session)}.',
+                'moved': f'{session.name} at {session.facility.name} moved to {_when(session)}.',
+                'cancelled': f'{session.name} at {session.facility.name} on {_when(session)} is cancelled.'}[event]
+    team = f' Team: {session.team}.' if session.team else ''
+    sms = f'PEN-Plus: {headline}' + ('' if event == 'cancelled' else f' {booked} subjects booked.{team}')
+    url = site_url() + session.get_absolute_url()
+    counts = Counter()
+    for person in site_staff(session):
+        phone = normalize_tz_phone(person.phone)
+        if phone:
+            SmsMessage.objects.create(purpose=SmsMessage.Purpose.STAFF_CLINIC, phone=phone, recipient='staff',
+                                      body=sms[:480], clinic_session=session, for_date=session.start_date,
+                                      created_by=user)
+            counts['sms'] += 1
+        if person.email:
+            body = (f'Dear {person.get_full_name() or person.username},\n\n{headline}\n'
+                    + ('' if event == 'cancelled' else f'Subjects booked: {booked}.{team}\n')
+                    + f'\nClinic day: {url}\n\nNCD PEN-Plus clinic system')
+            log = send_logged_email(person.email, f'PEN-Plus {session.name}: {_when(session)}', body,
+                                    purpose=EmailLog.Purpose.CLINIC_DAY, user=person, sent_by=user, fail_silently=True)
+            counts['email'] += log.status == EmailLog.Status.SENT
+    if counts['sms']:
+        process_queue(limit=300)
+    log_event(actor=user, request=request, action=AuditEvent.Action.CREATE, obj=session, changes=dict(counts),
+              reason=f'Site staff told: clinic day {event}')
+    return counts
 
 
 @transaction.atomic

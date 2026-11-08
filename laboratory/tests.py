@@ -117,6 +117,29 @@ class LabCatalogueTests(BaseTestCase):
         self.client.post(url, {**data, 'confirm_repeat': 'on'})
         self.assertEqual(LabOrder.objects.filter(patient=self.patient).count(), 8)
 
+    def test_repeat_warning_only_within_the_same_visit(self):
+        from encounters.models import Encounter
+        baseline = Encounter.objects.create(patient=self.patient, facility=self.ilala, stage='baseline',
+                                            encounter_date=timezone.now() - datetime.timedelta(days=30),
+                                            staff=self.admin, created_by=self.admin)
+        follow_up = Encounter.objects.create(patient=self.patient, facility=self.ilala, stage='follow_up',
+                                             staff=self.admin, created_by=self.admin)
+        self.client.force_login(self.clinician_ilala)
+        url = reverse('investigations:request', args=[self.patient.pk])
+        data = {'panels': [LabPanel.objects.get(code='fbc').pk], 'facility': self.ilala.pk}
+        self.client.post(f'{url}?encounter={baseline.pk}', data)
+        self.assertEqual(LabOrder.objects.filter(encounter=baseline).count(), 4)   # still waiting for results
+        page = self.client.get(f'{url}?encounter={follow_up.pk}')
+        self.assertNotContains(page, 'Already requested')
+        self.assertContains(page, 'in an earlier visit, waiting for result')
+        self.client.post(f'{url}?encounter={follow_up.pk}', data)
+        self.assertEqual(LabOrder.objects.filter(encounter=follow_up).count(), 4)
+        response = self.client.post(f'{url}?encounter={follow_up.pk}', data)
+        self.assertContains(response, 'Already requested in this visit')
+        self.assertEqual(LabOrder.objects.filter(encounter=follow_up).count(), 4)
+        steps = {st.label: st for st in self.client.get(follow_up.get_absolute_url()).context['steps']}
+        self.assertEqual(steps['Investigations'].note, '4 lab')            # this visit only, not the baseline's 4
+
     def test_request_limited_to_what_the_person_may_order(self):
         from investigations.models import InvestigationOrder, InvestigationType
         call_command('setup_investigations', stdout=open('/dev/null', 'w'))

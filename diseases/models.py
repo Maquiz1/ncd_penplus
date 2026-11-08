@@ -46,6 +46,11 @@ class Condition(TimeStampedModel):
     def label(self):
         return f'{self.parent.name} – {self.name}' if self.parent_id else self.name
 
+    @property
+    def is_other(self):
+        """An "Other …" choice: the doctor has to say what it is."""
+        return self.name.lower().startswith('other')
+
 
 def match_condition(description, disease, conditions=None):
     """The condition for a diagnosis description.

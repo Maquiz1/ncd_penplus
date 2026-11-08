@@ -70,7 +70,7 @@ def patient_flow(patient):
     enrollments = list(patient.programme_enrollments.select_related('programme__disease')
                        .order_by('-enrollment_date', '-pk'))
     orders = _orders(patient)
-    plan = patient.followup_plans.filter(is_active=True).first()
+    plans = list(patient.followup_plans.filter(is_active=True).prefetch_related('programmes'))
     next_appointment = patient.appointments.filter(status__in=['scheduled', 'confirmed', 'rescheduled'],
                                                    scheduled_date__gte=today).order_by('scheduled_date').first()
 
@@ -153,6 +153,9 @@ def patient_flow(patient):
             en.state, en.date, en.note = 'stopped', d_enrollments[0].outcome_date, d_enrollments[0].get_status_display()
 
         pl = _step(steps, 'plan')
+        # The schedule of this disease's programme (each programme follows its own).
+        plan = next((p for p in plans if open_enrollment in p.programmes.all()
+                     or p.programme_enrollment_id == open_enrollment.pk), None) if open_enrollment else None
         if plan:
             pl.state, pl.date, pl.note = 'done', plan.anchor_date, plan.get_interval_months_display()
         elif next_appointment:
@@ -252,14 +255,17 @@ def visit_steps(visit):
     rows = encounter_form_status(visit)
     # Vital signs count as one of the visit's forms.
     missing = sum(1 for r in rows if r['required'] and not r['submissions']) + (not visit.vitals.exists())
-    orders = visit.lab_orders.count() + visit.investigations.count()
+    # Counted for this visit only: its laboratory tests and its imaging / ECG / echo requests.
+    lab, imaging = visit.lab_orders.exclude(status='cancelled').count(), visit.investigations.exclude(status='cancelled').count()
+    orders = lab + imaging
+    counted = ' · '.join(part for part in (f'{lab} lab' if lab else '', f'{imaging} imaging' if imaging else '') if part)
     # An unscheduled visit may need no tests or medicines.
     optional = 'Optional' if visit.stage == 'unscheduled' else ''
     steps = [
         ActionStep('Forms', visit.get_absolute_url() + '#visit-forms', 'encounters.view_encounter', not missing,
                    f'{missing} missing' if missing else ''),
         ActionStep('Investigations', reverse('investigations:request', args=[patient.pk]) + query,
-                   'laboratory.add_laborder', orders > 0, f'{orders} requested' if orders else optional),
+                   'laboratory.add_laborder', orders > 0, counted if orders else optional),
     ]
     if not patient.is_deceased:
         prescribed = visit.prescriptions.exists()
@@ -302,6 +308,14 @@ def _baseline_steps(patient, visit):
         prescribed = (visit.prescriptions if visit else patient.prescriptions).exists()
         steps.append(ActionStep('Prescribe', reverse('pharmacy:prescription_add', args=[pk]) + query,
                                 'pharmacy.add_prescription', prescribed, '' if prescribed else 'Optional'))
+    # A subject can be admitted during the baseline visit (for example in DKA). Optional.
+    stay = visit.admissions.order_by('-admitted_at').first() if visit else None
+    if stay and not stay.discharged_at:
+        steps.append(ActionStep('Discharge', reverse('encounters:admission_discharge', args=[stay.pk]),
+                                'encounters.change_admission', False, f'admitted to {stay.ward}'))
+    elif stay or not patient.is_deceased:
+        steps.append(ActionStep('Admission', add('encounters:admission_add') + query, 'encounters.add_admission',
+                                stay is not None, 'Optional' if stay is None else ''))
     steps += [
         ActionStep('Enroll', add('clinical:enrollment_add'), 'clinical.add_programmeenrollment',
                    patient.programme_enrollments.exists()),
@@ -369,7 +383,7 @@ GAPS = [
     ('positive_no_diagnosis', 'Positive, no diagnosis', 'Screened positive but no diagnosis recorded for that disease.'),
     ('diagnosed_not_enrolled', 'Diagnosed, not enrolled', 'A diagnosis but never enrolled in that disease\'s programme.'),
     ('enrolled_no_baseline', 'Enrolled, no baseline visit', 'Active enrollment but no baseline or follow-up visit.'),
-    ('no_plan', 'No follow-up plan', 'Active enrollment with no follow-up plan and no upcoming appointment.'),
+    ('no_plan', 'No follow-up plan', 'A programme with no follow-up schedule, and no upcoming appointment.'),
 ]
 
 
@@ -393,7 +407,11 @@ def gap_querysets(patients):
     active = ProgrammeEnrollment.objects.filter(status__in=OPEN_ENROLLMENT).values('patient_id')
     visits = Encounter.objects.filter(patient=OuterRef('pk'), stage__in=['baseline', 'follow_up', 'unscheduled']) \
         .exclude(status='cancelled')
-    plans = FollowUpPlan.objects.filter(patient=OuterRef('pk'), is_active=True)
+    # An open programme enrollment that no active schedule covers.
+    active_plans = FollowUpPlan.objects.filter(is_active=True)
+    unscheduled_programmes = ProgrammeEnrollment.objects.filter(status__in=OPEN_ENROLLMENT).exclude(
+        pk__in=active_plans.filter(programmes__isnull=False).values('programmes')).exclude(
+        pk__in=active_plans.filter(programme_enrollment__isnull=False).values('programme_enrollment'))  # no NULLs in NOT IN
     upcoming = Appointment.objects.filter(patient=OuterRef('pk'), status__in=['scheduled', 'confirmed', 'rescheduled'],
                                           scheduled_date__gte=today)
     enrolled = patients.filter(pk__in=active)
@@ -402,7 +420,8 @@ def gap_querysets(patients):
         'positive_no_diagnosis': patients.filter(pk__in=positive.values('patient_id')),
         'diagnosed_not_enrolled': patients.filter(pk__in=not_enrolled.values('patient_id')),
         'enrolled_no_baseline': enrolled.exclude(Exists(visits)),
-        'no_plan': enrolled.filter(Exists(visits)).exclude(Exists(plans)).exclude(Exists(upcoming)),
+        'no_plan': enrolled.filter(Exists(visits), pk__in=unscheduled_programmes.values('patient_id'))
+                           .exclude(Exists(upcoming)),
     }
 
 

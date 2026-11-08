@@ -127,6 +127,7 @@
               <a class="nav-link {% if path == '/reports/' %}active{% endif %}" href="{% url 'reporting:home' %}"><i class="bi bi-file-earmark-bar-graph"></i> All reports</a>
               {% if perms.patients.view_subject_summary and not perms.patients.view_patient %}<a class="nav-link {% if '/summar' in path %}active{% endif %}" href="{% url 'patients:summaries' %}"><i class="bi bi-file-earmark-medical"></i> Subject summaries</a>{% endif %}
               <a class="nav-link {% if '/reports/disease' in path %}active{% endif %}" href="{% url 'reporting:disease' %}"><i class="bi bi-clipboard2-data"></i> Disease reports</a>
+              <a class="nav-link {% if '/reports/study-summary' in path %}active{% endif %}" href="{% url 'reporting:study_summary' %}"><i class="bi bi-funnel"></i> Study summary</a>
               <a class="nav-link {% if '/reports/recruitment' in path %}active{% endif %}" href="{% url 'reporting:recruitment' %}"><i class="bi bi-person-lines-fill"></i> Recruitment by site</a>
               <a class="nav-link {% if '/reports/conditions' in path %}active{% endif %}" href="{% url 'reporting:conditions' %}"><i class="bi bi-diagram-3"></i> Subjects by condition</a>
               <a class="nav-link {% if '/reports/trends' in path %}active{% endif %}" href="{% url 'reporting:trends' %}"><i class="bi bi-activity"></i> Vitals &amp; HbA1c trends</a>
@@ -154,6 +155,13 @@
               </div>
             </div>
             {% endif %}
+            <div class="sidebar-group-label">Help</div>
+            <div class="sidebar-section">{# for everyone #}
+              <button class="sidebar-heading sidebar-toggle{% if path|slice:':5' != '/sop/' %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-documents" aria-expanded="{% if path|slice:':5' == '/sop/' %}true{% else %}false{% endif %}" aria-controls="nav-documents"><i class="bi bi-folder2"></i><span>Documents</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse{% if path|slice:':5' == '/sop/' %} show{% endif %}" id="nav-documents" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if path|slice:':5' == '/sop/' %}active{% endif %}" href="{% url 'sop' %}"><i class="bi bi-journal-text"></i> SOP</a>
+              </div>
+            </div>
             {% if perms.research.view_study or perms.crf.view_formsubmission or perms.issues.view_dataissue or perms.reporting.export_data %}<div class="sidebar-group-label">Research &amp; data</div>{% endif %}
             {% if perms.research.view_study or perms.crf.view_formsubmission %}
             <div class="sidebar-section">
@@ -194,7 +202,7 @@
               <a class="nav-link {% if '/staff/roles' in path %}active{% endif %}" href="{% url 'users:roles' %}"><i class="bi bi-grid-3x3"></i> Roles &amp; access</a>{% endif %}
               {% if perms.users.view_position %}<a class="nav-link {% if '/staff/positions' in path %}active{% endif %}" href="{% url 'users:positions' %}"><i class="bi bi-person-vcard"></i> Positions</a>{% endif %}
               {% if perms.clinical.view_disease %}<a class="nav-link {% if '/diseases/' in path %}active{% endif %}" href="{% url 'diseases:list' %}"><i class="bi bi-virus"></i> Diseases</a>{% endif %}
-              {% if perms.facilities.view_facility %}<a class="nav-link {% if path == '/facilities/' %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Facilities</a>{% endif %}
+              {% if perms.facilities.view_facility %}<a class="nav-link {% if '/facilities/' in path %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Sites</a>{% endif %}
               {% if perms.notifications.view_emaillog %}<a class="nav-link {% if path == '/email/' %}active{% endif %}" href="{% url 'email:log' %}"><i class="bi bi-envelope"></i> Email log</a>{% endif %}
               {% if perms.notifications.view_siteconfiguration %}<a class="nav-link {% if '/email/settings' in path %}active{% endif %}" href="{% url 'email:settings' %}"><i class="bi bi-gear"></i> Email settings</a>{% endif %}
               {% if perms.notifications.view_smssettings %}<a class="nav-link {% if '/sms/settings' in path %}active{% endif %}" href="{% url 'notifications:settings' %}"><i class="bi bi-phone"></i> SMS settings</a>{% endif %}

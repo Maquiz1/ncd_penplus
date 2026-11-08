@@ -2,7 +2,7 @@ from django import forms
 
 from core.forms import BootstrapForm, BootstrapModelForm, PatientChildForm
 from facilities.forms import LocationFieldsMixin
-from facilities.scope import default_facility, facilities_for_user
+from facilities.scope import clinic_sites_for_user, default_facility, facilities_for_user
 
 from .models import Patient, PatientIdentifier, PatientTransfer
 
@@ -34,7 +34,11 @@ class PatientForm(LocationFieldsMixin, BootstrapModelForm):
         self.setup_locations(default_district=facility.district if facility else None)
         self.order_location_fields(before='address')
         self.duplicates = []
-        self.fields['registration_facility'].queryset = facilities_for_user(user)
+        # Subjects are registered only at the PEN-Plus clinic sites the user works at.
+        sites = clinic_sites_for_user(user)
+        self.fields['registration_facility'].queryset = sites
+        if len(sites) == 1 and not self.instance.pk:
+            self.initial['registration_facility'] = sites[0].pk
         if self.instance.pk:
             # Registration facility and date are historical facts; corrections go through admin.
             del self.fields['registration_facility']
@@ -74,6 +78,15 @@ class PatientTransferForm(PatientChildForm):
     class Meta:
         model = PatientTransfer
         fields = ['to_facility', 'reason', 'study_area_note', 'request_date', 'effective_date', 'handover_notes']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A transfer moves the subject to another PEN-Plus clinic site (anywhere, not only the user's own).
+        from facilities.models import Facility
+        self.fields['to_facility'].queryset = Facility.objects.filter(is_active=True, is_research_site=True).exclude(
+            pk=getattr(self.patient, 'current_facility_id', None)).order_by('name')
+        self.fields['to_facility'].help_text = ('Another PEN-Plus clinic site. To send the subject to a hospital '
+                                                'outside PEN-Plus, use Refer instead: the subject stays enrolled.')
 
     def clean_to_facility(self):
         facility = self.cleaned_data['to_facility']

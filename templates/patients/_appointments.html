@@ -2,7 +2,7 @@
     {% if plans and not hide_plans %}
     <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Follow-up schedules</div><ul class="list-group list-group-flush">
       {% for plan in plans %}<li class="list-group-item d-flex flex-wrap justify-content-between gap-2">
-        <span>{{ plan }} · {{ plan.visit_count }} future visits{% if plan.end_date %} until {{ plan.end_date|date:"d M Y" }}{% endif %} · {{ plan.get_generation_display }}{% if plan.programme_enrollment %} · {{ plan.programme_enrollment.programme }}{% endif %}{% if plan.study_enrollment %} · {{ plan.study_enrollment }}{% endif %} {% if not plan.is_active %}{% status_badge 'inactive' %}{% endif %}</span>
+        <span>{{ plan }} · {{ plan.visit_count }} future visits{% if plan.end_date %} until {{ plan.end_date|date:"d M Y" }}{% endif %} · {{ plan.get_generation_display }}{% with names=plan.programme_names %}{% if names %} · <strong>{{ names }}</strong>{% endif %}{% endwith %}{% if plan.study_enrollment %} · {{ plan.study_enrollment }}{% endif %} {% if not plan.is_active %}{% status_badge 'inactive' %}{% endif %}</span>
         <span class="d-flex gap-2">
           {% if perms.encounters.change_followupplan %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'encounters:plan_update' plan.pk %}">Change</a>{% endif %}
           {% if perms.encounters.add_appointment and plan.is_active %}<form method="post" action="{% url 'encounters:plan_generate' plan.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">Generate visits</button></form>{% endif %}
@@ -13,7 +13,7 @@
       <thead><tr><th>Date</th><th>Type</th><th>Facility</th><th>Location</th><th>Status</th><th>Notes</th><th class="text-end">Actions</th></tr></thead>
       <tbody>{% for a in appointments %}<tr>
         <td>{{ a.scheduled_date|date:"d M Y" }}{% if a.scheduled_time %} {{ a.scheduled_time|time:"H:i" }}{% endif %}{% if a.plan_version %} <span class="badge text-bg-light" title="Generated from schedule">v{{ a.plan_version }}#{{ a.sequence }}</span>{% endif %}{% if a.origin == 'edcs_gap' %} <span class="badge text-bg-light" title="{{ a.get_origin_display }}">no EDCS visit</span>{% endif %}</td>
-        <td>{{ a.get_stage_display }}</td><td>{{ a.facility }}</td><td>{{ a.get_location_type_display }}</td><td>{% status_badge a.status a.get_status_display %}</td><td class="small">{{ a.reason_for_change|default:a.notes }}</td>
+        <td>{{ a.get_stage_display }}{% if a.plan %}<div class="small text-body-secondary">{{ a.plan.programme_names }}</div>{% endif %}</td><td>{{ a.facility }}</td><td>{{ a.get_location_type_display }}</td><td>{% status_badge a.status a.get_status_display %}</td><td class="small">{{ a.reason_for_change|default:a.notes }}</td>
         <td class="text-end text-nowrap">{% if a.is_open %}
           {% if perms.encounters.add_encounter %}<a class="btn btn-sm btn-success" href="{% url 'encounters:encounter_add' patient.pk %}?appointment={{ a.pk }}">Attend</a>{% endif %}
           {% if perms.encounters.change_appointment %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'encounters:appointment_update' a.pk %}">Edit</a>

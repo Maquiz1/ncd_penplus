@@ -8,7 +8,10 @@ venv/
 *.pyc
 db.sqlite3
 # Patient data and local files never go into the image
-documentations/
+documentations/*
+# ... except the SOP the app shows and its issued PDF versions
+!documentations/sop.md
+!documentations/sop/
 private_media/
 private_exports/
 sent_emails/

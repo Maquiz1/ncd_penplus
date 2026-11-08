@@ -20,6 +20,16 @@ def highest_level(user):
     return next((level for level in reversed(LEVEL_ORDER) if level in levels), None)
 
 
+def clinic_sites_for_user(user, keep=None):
+    """The PEN-Plus clinic sites the user works at: active, marked as a PEN-Plus clinic site, and in the user's
+    scope. Offered wherever subjects are registered, seen or booked. `keep`: a facility already on the record."""
+    sites = facilities_for_user(user).filter(is_active=True, is_research_site=True)
+    if keep:
+        from .models import Facility
+        sites = Facility.objects.filter(Q(pk__in=sites.values('pk')) | Q(pk=getattr(keep, 'pk', keep)))
+    return sites.order_by('name')
+
+
 def facilities_for_user(user):
     """Facilities the user may access, computed from effective assignments.
 

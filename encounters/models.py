@@ -34,6 +34,10 @@ class FollowUpPlan(TimeStampedModel):
                                              blank=True, related_name='followup_plans')
     study_enrollment = models.ForeignKey('research.StudyEnrollment', on_delete=models.PROTECT, null=True, blank=True,
                                          related_name='followup_plans')
+    # The programme clinics this schedule books visits for. Each programme follows one active schedule, so a subject
+    # in two programmes can attend, say, the diabetes clinic monthly and the cardiac clinic every 3 months.
+    programmes = models.ManyToManyField('clinical.ProgrammeEnrollment', blank=True, related_name='schedules',
+                                        verbose_name='Programmes')
     interval_months = models.PositiveSmallIntegerField(choices=INTERVAL_CHOICES, default=1)
     anchor_type = models.CharField(max_length=20, choices=Anchor.choices, default=Anchor.ENROLLMENT)
     anchor_date = models.DateField(help_text='Date the schedule is calculated from.')
@@ -51,6 +55,9 @@ class FollowUpPlan(TimeStampedModel):
 
     def __str__(self):
         return f'{self.get_interval_months_display()} from {self.anchor_date} (v{self.version})'
+
+    def programme_names(self):
+        return ', '.join(str(e.programme) for e in self.programmes.all())
 
     def clean(self):
         if self.programme_enrollment_id and self.study_enrollment_id:
@@ -322,3 +329,32 @@ class Admission(SoftDeleteModel):
             raise ValidationError({'discharged_at': 'Discharge cannot be before admission.'})
         if self.discharged_at and not self.discharge_outcome:
             raise ValidationError({'discharge_outcome': 'Select the discharge outcome.'})
+
+
+class Referral(SoftDeleteModel):
+    """The subject is sent to another hospital (for example BMH or KCMC) and stays enrolled in the PEN-Plus clinic.
+    Moving the subject to another PEN-Plus clinic site is a transfer instead."""
+
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='referrals')
+    encounter = models.ForeignKey(Encounter, on_delete=models.PROTECT, null=True, blank=True, related_name='referrals')
+    facility = models.ForeignKey(Facility, on_delete=models.PROTECT, related_name='referrals_out',
+                                 verbose_name='Referred from')
+    to_facility = models.ForeignKey(Facility, on_delete=models.PROTECT, null=True, blank=True,
+                                    related_name='referrals_in', verbose_name='Referred to')
+    to_other = models.CharField('Other hospital (not in the list)', max_length=200, blank=True)
+    referral_date = models.DateField(default=timezone.localdate)
+    reason = models.CharField('Reason for referral', max_length=255)
+    notes = models.TextField(blank=True)
+    returned_on = models.DateField('Back in the PEN-Plus clinic on', null=True, blank=True)
+    feedback = models.TextField('Feedback / outcome from the receiving hospital', blank=True)
+
+    class Meta:
+        ordering = ['-referral_date', '-pk']
+
+    def __str__(self):
+        return f'Referral to {self.destination} ({self.referral_date:%d %b %Y})'
+
+    @property
+    def destination(self):
+        return self.to_facility.name if self.to_facility_id else self.to_other
+

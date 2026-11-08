@@ -625,6 +625,24 @@ class PatientFlowTests(BaseTestCase):
                          reverse('encounters:admission_discharge', args=[stay.pk]))
         self.assertContains(page, 'Still admitted')
         self.assertNotContains(self.client.get(reverse('patients:detail', args=[p.pk])), 'data-bs-target="#path-admission"')
+        # Admitted again: only after discharge, and a stay ending within 30 days is offered as the earlier one.
+        again = {'facility': self.ilala.pk, 'ward': 'Medical', 'admitted_at': timezone.now().strftime('%Y-%m-%dT%H:%M'),
+                 'reason': 'DKA again'}
+        self.assertContains(self.client.post(steps['Admission'].url, again), 'already admitted')
+        stay.discharged_at, stay.discharge_outcome = timezone.now() - datetime.timedelta(days=10), 'improved'
+        stay.save()
+        form = self.client.get(steps['Admission'].url).context['form']
+        self.assertEqual(form.initial['readmission_of'], stay.pk)
+        self.client.post(steps['Admission'].url, {**again, 'readmission_of': stay.pk})
+        self.assertEqual(Admission.objects.filter(patient=p).latest('pk').readmission_of, stay)
+        # Died in hospital: the discharge asks for the date and cause, and records the death on the subject.
+        second = Admission.objects.filter(patient=p).latest('pk')
+        url = reverse('encounters:admission_discharge', args=[second.pk])
+        died = {'discharged_at': timezone.now().strftime('%Y-%m-%dT%H:%M'), 'discharge_outcome': 'died'}
+        self.assertContains(self.client.post(url, died), 'Give the date of death.')
+        self.client.post(url, {**died, 'date_of_death': timezone.localdate().isoformat(), 'cause_of_death': 'DKA'})
+        p.refresh_from_db()
+        self.assertEqual((p.vital_status, p.date_of_death, p.cause_of_death), ('deceased', timezone.localdate(), 'DKA'))
 
     def test_subject_page_has_five_tabs_and_baseline_cards_on_overview(self):
         import re
@@ -746,12 +764,14 @@ class PatientFlowTests(BaseTestCase):
         from records.services import blockers
         p = self.make_patient()
         today = timezone.localdate()
+        dm = ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala,
+                                                programme=ClinicalProgramme.objects.get(code='dm-care'))
         old = FollowUpPlan.objects.create(patient=p, facility=self.ilala, interval_months=3, anchor_date=today, visit_count=2)
         generate_visits(old, self.admin)
         self.client.force_login(self.admin)
         self.client.post(reverse('encounters:plan_add', args=[p.pk]), {
-            'facility': self.ilala.pk, 'interval_months': 1, 'anchor_type': 'custom', 'anchor_date': today.isoformat(),
-            'visit_count': 2, 'generation': 'automatic'})
+            'programmes': [dm.pk], 'facility': self.ilala.pk, 'interval_months': 1, 'anchor_type': 'custom',
+            'anchor_date': today.isoformat(), 'visit_count': 2, 'generation': 'automatic'})
         old.refresh_from_db()
         self.assertEqual((old.is_active, FollowUpPlan.objects.filter(patient=p, is_active=True).count()), (False, 1))
         self.assertFalse(Appointment.objects.filter(plan=old).exclude(status='cancelled').exists())
@@ -762,6 +782,46 @@ class PatientFlowTests(BaseTestCase):
         Encounter.objects.create(patient=p, facility=self.ilala, appointment=attended, staff=self.admin)
         self.assertTrue(blockers(attended))
 
+    def test_one_schedule_per_programme(self):
+        from encounters.models import Appointment, FollowUpPlan
+        from issues.detectors import visits_same_month
+        from issues.models import DataIssue
+        p = self.make_patient()
+        today = timezone.localdate()
+        dm, cardiac = (ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala,
+                                                          programme=ClinicalProgramme.objects.get(code=code))
+                       for code in ('dm-care', 'cardiac-care'))
+        self.client.force_login(self.admin)
+        url = reverse('encounters:plan_add', args=[p.pk])
+        form = self.client.get(url).context['form']
+        self.assertEqual(set(form.initial['programmes']), {dm.pk, cardiac.pk})       # both ticked to start with
+
+        def plan(programmes, months):
+            self.client.post(url, {'programmes': [e.pk for e in programmes], 'facility': self.ilala.pk,
+                                   'interval_months': months, 'anchor_type': 'custom', 'anchor_date': today.isoformat(),
+                                   'visit_count': 2, 'generation': 'automatic'})
+            return FollowUpPlan.objects.filter(patient=p).latest('pk')
+
+        both = plan([dm, cardiac], 1)
+        cardiac_plan = plan([cardiac], 3)                  # cardiac moves to its own schedule
+        both.refresh_from_db()
+        self.assertTrue(both.is_active)
+        self.assertEqual(list(both.programmes.all()), [dm])
+        self.assertEqual(Appointment.objects.filter(plan=cardiac_plan).first().programme_enrollment, cardiac)
+        plan([dm], 2)                                      # a new diabetes schedule replaces the old one
+        both.refresh_from_db()
+        cardiac_plan.refresh_from_db()
+        self.assertEqual((both.is_active, cardiac_plan.is_active), (False, True))
+        # A diabetes and a cardiac clinic visit in the same month are both expected.
+        from encounters.models import Encounter
+        for a in Appointment.objects.filter(patient=p, status='scheduled').order_by('scheduled_date')[:1]:
+            Encounter.objects.create(patient=p, facility=self.ilala, appointment=a, stage='follow_up', staff=self.admin)
+        cardiac_visit = Appointment.objects.filter(plan=cardiac_plan, status='scheduled').first()
+        Encounter.objects.create(patient=p, facility=self.ilala, appointment=cardiac_visit, stage='follow_up',
+                                 staff=self.admin)
+        visits_same_month([p.pk])
+        self.assertFalse(DataIssue.objects.filter(code='visits_same_month', patient=p).exists())
+
     def test_confirmed_diagnosis_hides_awaiting_doctor(self):
         from clinical.flow import patient_flow
         from clinical.models import Disease
@@ -770,6 +830,25 @@ class PatientFlowTests(BaseTestCase):
         Diagnosis.objects.create(patient=p, disease=diabetes, description='T2DM', clinician=self.admin, status='confirmed')
         Screening.objects.create(patient=p, disease=diabetes, facility=self.ilala, screened_by=self.admin)
         self.assertEqual(patient_flow(p)[0].steps[2].note, '')
+
+    def test_other_condition_needs_to_be_specified(self):
+        from diseases.models import Condition
+        p = self.make_patient()
+        main = Condition.objects.get_or_create(code='cardiomyopathy', defaults={'disease': self.cardiac,
+                                                                                'name': 'Cardiomyopathy'})[0]
+        other = Condition.objects.get_or_create(code='cardiomyopathy-other', defaults={
+            'disease': self.cardiac, 'parent': main, 'name': 'Other'})[0]
+        self.client.force_login(self.clinician_ilala)
+        url = reverse('clinical:diagnosis_add', args=[p.pk])
+        data = {'conditions': [other.pk], f'status_{other.disease_id}': 'provisional',
+                'diagnosis_date': timezone.localdate().isoformat()}
+        response = self.client.get(url)
+        self.assertContains(response, f'data-key="{other.pk}" data-name="{other.label}" data-disease="{other.disease.name}" data-other="1"')
+        response = self.client.post(url, data)
+        self.assertContains(response, 'Say what &quot;Cardiomyopathy – Other&quot; is')
+        self.assertFalse(Diagnosis.objects.filter(patient=p).exists())
+        self.client.post(url, {**data, f'other_{other.pk}': 'Takotsubo'})
+        self.assertEqual(Diagnosis.objects.get(patient=p).description, 'Cardiomyopathy – Other: Takotsubo')
 
     def test_doctor_marks_not_diagnosed(self):
         from clinical.flow import patient_flow
@@ -876,7 +955,11 @@ class PatientFlowTests(BaseTestCase):
         visit = Encounter.objects.create(patient=p, facility=self.ilala, stage='baseline', staff=self.admin)
         steps = lambda: {s.label: s for s in patient_pathway(p)['baseline_steps']}
         labels = list(steps())
-        self.assertEqual(labels[labels.index('Diagnosis') + 1:labels.index('Enroll')], ['Prescribe'])
+        self.assertEqual(labels[labels.index('Diagnosis') + 1:], ['Prescribe', 'Admission', 'Enroll'])
+        self.assertEqual(steps()['Admission'].note, 'Optional')
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse('patients:detail', args=[p.pk])),
+                            'It closes by itself when the subject is enrolled.')
         self.assertEqual((steps()['Prescribe'].done, steps()['Prescribe'].note), (False, 'Optional'))
         self.assertTrue(steps()['Prescribe'].url.endswith(f'?encounter={visit.pk}'))
         Prescription.objects.create(patient=p, encounter=visit, facility=self.ilala, prescriber=self.admin,
@@ -936,7 +1019,7 @@ class SubjectSummaryTests(BaseTestCase):
         response = self.client.get(reverse('patients:summary', args=[p.pk]))
         self.assertContains(response, p.patient_number)
         self.assertContains(response, 'Old ID 1-007')
-        self.assertContains(response, 'Diabetes care programme')
+        self.assertContains(response, 'Diabetes Clinic')
         self.assertContains(response, '150/95')
         self.assertNotContains(response, 'Kileo')
         self.assertNotContains(response, '0755111222')

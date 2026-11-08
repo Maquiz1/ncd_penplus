@@ -18,7 +18,7 @@ SKIP_FIELDS = {'created_at', 'updated_at', 'created_by', 'is_deleted', 'deleted_
                'request_group', 'attachment'}
 # Removed from de-identified exports in addition to IDENTITY_FIELDS (free text may name people).
 FREE_TEXT = {'notes', 'clinical_notes', 'plan_notes', 'result_notes', 'review_comment', 'discharge_summary', 'chief_complaint',
-             'counselling_notes', 'instructions', 'cancel_reason', 'reason_for_change', 'comments'}
+             'counselling_notes', 'instructions', 'cancel_reason', 'reason_for_change', 'comments', 'feedback'}
 STAFF_FKS = {'created_by', 'clinician', 'staff', 'requested_by', 'reported_by', 'reviewed_by', 'ordered_by',
              'collected_by', 'resulted_by', 'prescriber', 'dispensed_by', 'screened_by', 'submitted_by', 'recorded_by',
              'performed_by', 'resolved_by', 'deleted_by', 'consent_obtained_by', 'assessed_by'}
@@ -213,6 +213,8 @@ def static_datasets():
         model_dataset('admissions', 'Admissions / hospitalizations', 'Care', 'encounters.Admission',
                       date_field='admitted_at', skip=('readmission_of',),
                       select_related=('patient__current_facility', 'facility')),
+        model_dataset('referrals', 'Referrals to other hospitals', 'Care', 'encounters.Referral',
+                      date_field='referral_date', select_related=('patient__current_facility', 'facility', 'to_facility')),
         model_dataset('labs', 'Lab results', 'Services', 'laboratory.LabOrder', date_field='ordered_at', skip=('panel',),
                       select_related=('patient__current_facility', 'facility', 'test')),
         model_dataset('investigations', 'ECG / echo / imaging (summary)', 'Services', 'investigations.InvestigationOrder',

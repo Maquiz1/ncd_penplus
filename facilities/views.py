@@ -1,5 +1,11 @@
+from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.views.generic import ListView
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, ListView, UpdateView
+
+from audit.models import AuditEvent
+from audit.services import log_event
+from core.forms import BootstrapModelForm
 
 from .models import Facility
 from .scope import facilities_for_user
@@ -18,6 +24,43 @@ class FacilityListView(PermissionRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         return super().get_context_data(model=Facility, **kwargs)
+
+
+class FacilityForm(BootstrapModelForm):
+    class Meta:
+        model = Facility
+        fields = ['name', 'code', 'facility_type', 'district', 'is_research_site', 'is_active']
+
+
+class FacilityEditMixin(PermissionRequiredMixin):
+    """Sites are managed here (not only in the admin): name, code, district, PEN-Plus clinic site and active."""
+
+    model = Facility
+    form_class = FacilityForm
+    template_name = 'generic_form.html'
+    success_url = reverse_lazy('facilities:list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_event(request=self.request, action=self.action, obj=self.object,
+                  changes={k: str(form.cleaned_data.get(k)) for k in form.changed_data})
+        messages.success(self.request, f'{self.object.name} saved.')
+        return response
+
+
+class FacilityCreateView(FacilityEditMixin, CreateView):
+    permission_required = 'facilities.add_facility'
+    action = AuditEvent.Action.CREATE
+    extra_context = {'title': 'Add site'}
+
+
+class FacilityUpdateView(FacilityEditMixin, UpdateView):
+    permission_required = 'facilities.change_facility'
+    action = AuditEvent.Action.UPDATE
+    extra_context = {'title': 'Edit site'}
+
+    def get_queryset(self):
+        return facilities_for_user(self.request.user)
 
 
 # ---------------------------------------------------------------- address pickers (JSON for Tom Select)

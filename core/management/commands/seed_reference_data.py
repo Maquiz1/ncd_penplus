@@ -25,9 +25,10 @@ DEMO_FACILITIES = [
     ('DEMO-MOS-HC', 'Demo Moshi Health Centre', 'Moshi Municipal', 'health_centre', False),
 ]
 DISEASES = [('diabetes', 'Diabetes'), ('cardiac', 'Cardiac disease'), ('scd', 'Sickle cell disease')]
-PROGRAMMES = [('dm-care', 'Diabetes care programme', 'diabetes'),
-              ('cardiac-care', 'Cardiac care programme', 'cardiac'),
-              ('scd-care', 'Sickle cell care programme', 'scd')]
+# The PEN-Plus clinic's three disease clinics: the programme and the clinic are one thing, with one name.
+PROGRAMMES = [('dm-care', 'Diabetes Clinic', 'diabetes'),
+              ('cardiac-care', 'Cardiac Clinic', 'cardiac'),
+              ('scd-care', 'SCD Clinic', 'scd')]
 LAB_TESTS = [
     ('hba1c', 'HbA1c', 'Blood (EDTA)', '%', '4.0–5.6'),
     ('fbg', 'Fasting blood glucose', 'Blood', 'mmol/L', '3.9–5.5'),

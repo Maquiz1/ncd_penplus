@@ -9,7 +9,11 @@
   </div>
   <div class="tab-content">
     <div class="tab-pane fade{% if pathway.active == 'baseline' %} show active{% endif %}" id="path-baseline" role="tabpanel">
-      <div class="card-body border-bottom">{% include "patients/_steps.html" with steps=pathway.baseline_steps %}</div>
+      <div class="card-body border-bottom">{% include "patients/_steps.html" with steps=pathway.baseline_steps %}
+        {% with b=pathway.baseline %}{% if b %}<div class="small text-body-secondary mt-2"><i class="bi bi-info-circle"></i>
+          {% if b.status == 'completed' %}Baseline visit closed{% if b.updated_at %} on {{ b.updated_at|date:"d M Y" }}{% endif %}{% if b.stage == 'screening' %} (screening only){% else %} at enrollment{% endif %}.
+          {% else %}Baseline visit open since {{ b.encounter_date|date:"d M Y" }}. It closes by itself when the subject is enrolled.{% endif %}
+          <a href="{{ b.get_absolute_url }}">View visit</a></div>{% endif %}{% endwith %}</div>
       {% include "patients/_flow.html" %}
     </div>
 

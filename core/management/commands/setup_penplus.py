@@ -28,7 +28,7 @@ FACILITIES = [
     ('KCMC', 'Kilimanjaro Christian Medical Centre (referral / mentoring)', 'Moshi Municipal', 'hospital', False),
 ]
 EXTRA_DISEASES = [('other-ncd', 'Other NCD (respiratory, liver, kidney, other)')]
-EXTRA_PROGRAMMES = [('other-ncd-care', 'Other NCD care', 'other-ncd')]
+EXTRA_PROGRAMMES = [('other-ncd-care', 'Other NCD Clinic', 'other-ncd')]
 # Protocol Table 3 and the EDCS medication list, in addition to the starter catalogue.
 MEDICATIONS = [
     ('atenolol-50', 'Atenolol', '50 mg', 'tablet', 'tablet', 100),

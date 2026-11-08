@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from core.views import dashboard
+from core.views import SopView, dashboard
 from users.views import AccountPasswordResetConfirmView, LoggedPasswordResetView
 
 admin.site.site_header = 'NCD - PENPLUS CLINIC administration'
@@ -10,6 +10,8 @@ admin.site.site_title = 'NCD - PENPLUS CLINIC admin'
 
 urlpatterns = [
     path('', dashboard, name='dashboard'),
+    path('sop/', SopView.as_view(), name='sop'),
+    path('sop/v<str:version>/', SopView.as_view(), name='sop_version'),
     path('admin/', admin.site.urls),
     path('accounts/password_reset/', LoggedPasswordResetView.as_view(), name='password_reset'),
     path('accounts/reset/<uidb64>/<token>/', AccountPasswordResetConfirmView.as_view(), name='password_reset_confirm'),

@@ -30,7 +30,7 @@ class InvestigationRequestForm(PatientChildForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.repeats = []
-        self.notes = history(self.patient)
+        self.notes = history(self.patient, self.locked_visit)
         self.fields['priority'].required = False
         if not self.user.has_perm('laboratory.add_laborder'):
             self.fields['panels'].queryset = LabPanel.objects.none()
@@ -48,8 +48,9 @@ class InvestigationRequestForm(PatientChildForm):
         self.repeats = ([t.name for t, _panel in tests if self.notes['test'].get(t.pk, ('', False))[1]]
                         + [t.name for t in types if self.notes['type'].get(t.pk, ('', False))[1]])
         if self.repeats and not cleaned.get('confirm_repeat'):
-            raise forms.ValidationError('Already requested and not finished, or requested today: '
-                                        f'{", ".join(self.repeats)}.')
+            raise forms.ValidationError(('Already requested in this visit: ' if self.locked_visit else
+                                         'Already requested and not finished, or requested today: ')
+                                        + f'{", ".join(self.repeats)}.')
         cleaned['priority'] = cleaned.get('priority') or LabOrder.Priority.ROUTINE
         return cleaned
 

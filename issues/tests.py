@@ -200,3 +200,53 @@ class HbA1cOverdueTests(BaseTestCase):
         self.assertEqual(hba1c_overdue(), 0)
         self.assertNotContains(self.client.get(patient.get_absolute_url()), 'next due')
         self.assertEqual(self.client.post(edit, {'interval_months': 0, 'retry_months': 1}).status_code, 200)  # invalid
+
+
+class StudyWithoutProgrammeTests(BaseTestCase):
+    def test_study_subject_with_no_programme_is_flagged_until_enrolled(self):
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        from research.models import ConsentRecord, Study, StudyEligibilityAssessment, StudyEnrollment
+
+        from .detectors import study_without_programme
+        patient = self.make_patient()
+        study = Study.objects.create(code='penplus', title='PEN-Plus', status='active')
+        StudyEnrollment.objects.create(
+            patient=patient, study=study, participant_id='1-298', facility=self.ilala,
+            eligibility=StudyEligibilityAssessment.objects.create(patient=patient, study=study, is_eligible=True,
+                                                                  assessed_by=self.admin),
+            consent=ConsentRecord.objects.create(patient=patient, study=study, consent_version='1',
+                                                 decision='consented', obtained_by=self.admin))
+        self.assertEqual(study_without_programme(), 1)
+        issue = DataIssue.objects.get(code='study_without_programme')
+        self.assertEqual((issue.patient, issue.title), (patient, 'In the study (1-298) but in no programme'))
+        self.assertEqual(study_without_programme(), 0)                     # not raised twice
+        ProgrammeEnrollment.objects.create(patient=patient, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        study_without_programme()
+        issue.refresh_from_db()
+        self.assertEqual(issue.status, DataIssue.Status.RESOLVED)
+
+    def test_programme_subject_not_in_the_study_is_flagged(self):
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        from research.models import ConsentRecord, Study, StudyEligibilityAssessment, StudyEnrollment
+
+        from .detectors import programme_without_study
+        patient = self.make_patient()
+        ProgrammeEnrollment.objects.create(patient=patient, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        study = Study.objects.create(code='penplus', title='PEN-Plus', status='active')
+        record = StudyEnrollment.objects.create(
+            patient=patient, study=study, participant_id='1-072', facility=self.ilala, status='completed',
+            outcome_date=timezone.localdate(),
+            eligibility=StudyEligibilityAssessment.objects.create(patient=patient, study=study, is_eligible=True,
+                                                                  assessed_by=self.admin),
+            consent=ConsentRecord.objects.create(patient=patient, study=study, consent_version='1',
+                                                 decision='consented', obtained_by=self.admin))
+        self.assertEqual(programme_without_study(), 1)
+        issue = DataIssue.objects.get(code='programme_without_study')
+        self.assertIn('(1-072) is completed', issue.description)
+        record.status, record.outcome_date = 'active', None
+        record.save()
+        programme_without_study()
+        issue.refresh_from_db()
+        self.assertEqual(issue.status, DataIssue.Status.RESOLVED)

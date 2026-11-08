@@ -8,7 +8,9 @@
     <ul class="dropdown-menu">
       {% if perms.patients.change_patient and can_view_identity %}<li><a class="dropdown-item" href="{% url 'patients:update' patient.pk %}"><i class="bi bi-pencil me-2"></i>Edit demographics</a></li>{% endif %}
       {% if perms.patients.add_patientidentifier and can_view_identity %}<li><a class="dropdown-item" href="{% url 'patients:identifier_add' patient.pk %}"><i class="bi bi-upc me-2"></i>Add identifier</a></li>{% endif %}
-      {% if perms.patients.add_patienttransfer and not open_transfer %}<li><a class="dropdown-item" href="{% url 'patients:transfer_add' patient.pk %}"><i class="bi bi-arrow-left-right me-2"></i>Transfer out</a></li>{% endif %}
+      {% if perms.patients.add_patienttransfer and not open_transfer %}<li><a class="dropdown-item" href="{% url 'patients:transfer_add' patient.pk %}"><i class="bi bi-arrow-left-right me-2"></i>Transfer to another PEN-Plus site</a></li>{% endif %}
+      {% if perms.encounters.add_referral and not patient.is_deceased %}<li><a class="dropdown-item" href="{% url 'encounters:referral_add' patient.pk %}"><i class="bi bi-send me-2"></i>Refer to another hospital</a></li>{% endif %}
+      {% if perms.clinical.change_programmeenrollment and has_open_programme %}<li><a class="dropdown-item" href="{% url 'clinical:transfer_out' patient.pk %}"><i class="bi bi-box-arrow-right me-2"></i>Transfer out of PEN-Plus</a></li>{% endif %}
       {% if perms.clinical.change_programmeenrollment %}{% for e in programme_enrollments %}
       <li><a class="dropdown-item" href="{% if e.status in returnable_statuses and not patient.is_deceased %}{% url 'clinical:enrollment_return' e.pk %}{% else %}{% url 'clinical:enrollment_update' e.pk %}{% endif %}"><i class="bi bi-journal-medical me-2"></i>{% if e.status in returnable_statuses and not patient.is_deceased %}Return to care: {{ e.programme }}{% else %}Outcome (LTFU, stopped…): {{ e.programme }}{% endif %}</a></li>{% endfor %}{% endif %}
       {% if perms.research.change_studyenrollment %}{% for e in study_enrollments %}{% if e.status == 'active' or e.status == 'pending' %}
@@ -159,6 +161,16 @@
     <div class="card shadow-sm"><div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Admissions</span>
       {% if perms.encounters.add_admission and not patient.is_deceased %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:admission_add' patient.pk %}"><i class="bi bi-hospital"></i> Admit</a>{% endif %}</div>
       {% include "patients/_admissions.html" %}
+    </div>
+    <div class="card shadow-sm mt-3"><div class="card-header bg-body d-flex justify-content-between align-items-center"><span class="fw-semibold">Referrals <span class="small fw-normal text-body-secondary">· to other hospitals; the subject stays enrolled</span></span>
+      {% if perms.encounters.add_referral and not patient.is_deceased %}<a class="btn btn-sm btn-outline-primary" href="{% url 'encounters:referral_add' patient.pk %}"><i class="bi bi-send"></i> Refer</a>{% endif %}</div>
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Date</th><th>Referred to</th><th>Reason</th><th>Back on</th><th>Feedback</th><th class="text-end">Action</th></tr></thead>
+        <tbody>{% for r in referrals %}<tr><td>{{ r.referral_date|date:"d M Y" }}</td><td>{{ r.destination }}</td><td>{{ r.reason }}</td>
+          <td>{% if r.returned_on %}{{ r.returned_on|date:"d M Y" }}{% else %}<span class="badge text-bg-warning">Not back yet</span>{% endif %}</td><td class="small">{{ r.feedback|default:"—"|truncatechars:80 }}</td>
+          <td class="text-end">{% if perms.encounters.change_referral %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'encounters:referral_update' r.pk %}">Return / feedback</a>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="6" class="text-body-secondary">No referrals.</td></tr>{% endfor %}</tbody>
+      </table></div>
     </div>
   </div>
 

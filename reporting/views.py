@@ -19,7 +19,7 @@ from patients.models import Patient, PatientIdentifier
 
 from .models import ReportRun
 from .pdf import FilteredReportMixin
-from .reports import condition_report, recruitment_by_site, trends_report
+from .reports import condition_report, recruitment_by_site, study_summary, trends_report
 from .services import period_report
 
 
@@ -114,6 +114,22 @@ class RecruitmentReportView(ReportPage):
         for r in data['rows'] + [dict(data['total'], facility='Total')]:
             yield ([str(r['facility']), r['registered'], r['screened'], r['positive'], r['eligible'], r['enrolled']]
                    + r['by_disease'] + r['ended'] + [r['active']])
+
+
+class StudySummaryView(ReportPage):
+    report_title = 'Study summary'
+    body_template = 'reporting/body/study_summary.html'
+    default_period = 'all'
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(data=study_summary(self.get_filters()), **kwargs)
+
+    def csv_rows(self, context):
+        data = context['data']
+        yield ['Step', 'Subjects', '% of registered', '% of previous step'] + [d.name for d in data['diseases']]
+        for r in data['rows']:
+            yield ([r['label'], r['count'], r['of_registered'], '' if r['of_previous'] is None else r['of_previous']]
+                   + (r['by_disease'] or [''] * len(data['diseases'])))
 
 
 class ConditionReportView(ReportPage):
@@ -211,7 +227,8 @@ class StudyProgressView(ReportPage):
                                        hidden_filters={'study': study.pk} if study else {}, **kwargs)
         if study is None:
             return ctx
-        enrollments = study.enrollments.filter(facility__in=f.facilities, enrollment_date__lte=f.end)
+        enrollments = study.enrollments.filter(facility__in=f.facilities, enrollment_date__lte=f.end,
+                                               patient__is_deleted=False)  # deleted subjects are not counted
         sites = []
         for facility in f.facilities.filter(pk__in=enrollments.values('facility')).order_by('name'):
             counts = dict(enrollments.filter(facility=facility).values_list('status').annotate(n=Count('id')))
@@ -220,8 +237,9 @@ class StudyProgressView(ReportPage):
                           'retention': round(100 * counts.get('active', 0) / total, 1) if total else None})
         totals = dict(enrollments.values_list('status').annotate(n=Count('id')))
         assessed = StudyEligibilityAssessment.objects.filter(study=study, patient__current_facility__in=f.facilities,
-                                                             assessed_on__range=(f.start, f.end))
-        consents = ConsentRecord.objects.filter(study=study, patient__current_facility__in=f.facilities)
+                                                             assessed_on__range=(f.start, f.end), patient__is_deleted=False)
+        consents = ConsentRecord.objects.filter(study=study, patient__current_facility__in=f.facilities,
+                                                patient__is_deleted=False)
         first = enrollments.order_by('enrollment_date').values_list('enrollment_date', flat=True).first()
         monthly, cumulative = [], 0
         if first:

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>SOP v{{ version }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm;
+          @top-right { content: "NCD PEN-Plus SOP · v{{ version }}"; font-size: 8pt; color: #666; }
+          @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #666; } }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9.5pt; line-height: 1.45; color: #111; }
+  .cover { border-bottom: 2px solid #0b6e72; padding-bottom: 8pt; margin-bottom: 12pt; }
+  .cover h1 { font-size: 18pt; margin: 0 0 4pt; color: #0b6e72; }
+  .cover .meta { color: #555; font-size: 9pt; }
+  h2 { font-size: 13pt; color: #0b6e72; margin: 16pt 0 6pt; page-break-after: avoid; }
+  h3 { font-size: 11pt; margin: 12pt 0 4pt; page-break-after: avoid; }
+  p, li { margin: 0 0 4pt; } ul, ol { padding-left: 16pt; margin: 0 0 6pt; }
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 8.5pt; }
+  th, td { border: 1px solid #bbb; padding: 3pt 5pt; vertical-align: top; text-align: left; }
+  th { background: #e2f1f1; } tr { page-break-inside: avoid; }
+  pre { background: #f3f6f6; border: 1px solid #d7e0e1; padding: 6pt; font-size: 8pt; white-space: pre-wrap; }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.5pt; }
+  .log { margin-top: 18pt; page-break-before: always; }
+</style></head>
+<body>
+  <div class="cover">
+    <h1>SOP: using the NCD PEN-Plus system</h1>
+    <div class="meta">Version {{ version }} · {{ version_date }} · NCD PEN-Plus clinic (PEN-Plus study)</div>
+  </div>
+  {{ body|safe }}
+  <div class="log"><h2>Change log</h2>
+    <table><thead><tr><th>Version</th><th>Date</th><th>Changes</th></tr></thead>
+    <tbody>{% for v, d, text in change_log %}<tr><td>{{ v }}</td><td>{{ d }}</td><td>{{ text }}</td></tr>{% endfor %}</tbody></table>
+  </div>
+</body></html>

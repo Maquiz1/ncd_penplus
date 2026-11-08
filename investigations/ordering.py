@@ -51,22 +51,49 @@ def _open_note(when, today):
     return f'Already requested {_date(when)}, waiting for result'
 
 
-def history(patient):
-    """{'test': {pk: (note, warn)}, 'type': {pk: (note, warn)}}. warn: requesting it again would probably duplicate."""
+def history(patient, visit=None):
+    """{'test': {pk: (note, warn)}, 'type': {pk: (note, warn)}}. warn: requesting it again would probably duplicate.
+
+    Every visit makes its own requests: inside a visit only a request made in that same visit is a repeat. Requests
+    of earlier visits (a baseline test still waiting for its result) are shown for information only.
+    """
     today = timezone.localdate()
     tests, types = {}, {}
+
+    def repeat(order, when, is_open):
+        if visit is not None:
+            return order.encounter_id == visit.pk
+        return is_open or timezone.localdate(when) == today
+
+    def note(order, when, is_open):
+        if visit is not None:
+            return 'Already requested in this visit' if order.encounter_id == visit.pk else \
+                f'Requested {_date(when)} in an earlier visit, waiting for result'
+        return _open_note(when, today)
+
     for o in (LabOrder.objects.filter(patient=patient).exclude(status='cancelled').order_by('ordered_at')):
-        if o.status in ('ordered', 'collected') or timezone.localdate(o.ordered_at) == today:
-            tests[o.test_id] = (_open_note(o.ordered_at, today), True)
-        elif o.test_id not in tests or not tests[o.test_id][1]:
+        is_open = o.status in ('ordered', 'collected')
+        if repeat(o, o.ordered_at, is_open):
+            tests[o.test_id] = (note(o, o.ordered_at, is_open), True)
+        elif o.test_id in tests and tests[o.test_id][1]:
+            continue
+        elif is_open:
+            tests[o.test_id] = (note(o, o.ordered_at, is_open), False)
+        else:
             result = f': {o.result_value} {o.result_unit}'.rstrip() if o.result_value else ''
             tests[o.test_id] = (f'Last result {_date(o.resulted_at or o.ordered_at)}{result}', False)
     for o in (InvestigationOrder.objects.filter(patient=patient, investigation_type__isnull=False)
               .exclude(status='cancelled').order_by('requested_at')):
-        if o.status in ('requested', 'scheduled') or timezone.localdate(o.requested_at) == today:
-            types[o.investigation_type_id] = (_open_note(o.requested_at, today), True)
-        elif o.investigation_type_id not in types or not types[o.investigation_type_id][1]:
-            types[o.investigation_type_id] = (f'Last done {_date(o.performed_at or o.requested_at)}', False)
+        is_open = o.status in ('requested', 'scheduled')
+        key = o.investigation_type_id
+        if repeat(o, o.requested_at, is_open):
+            types[key] = (note(o, o.requested_at, is_open), True)
+        elif key in types and types[key][1]:
+            continue
+        elif is_open:
+            types[key] = (note(o, o.requested_at, is_open), False)
+        else:
+            types[key] = (f'Last done {_date(o.performed_at or o.requested_at)}', False)
     return {'test': tests, 'type': types}
 
 

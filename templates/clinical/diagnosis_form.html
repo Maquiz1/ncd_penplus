@@ -35,7 +35,7 @@
             </div>
             <div class="col-md-8 dx-items" id="inv-items">
               {% for disease, items in groups %}{% for i in items %}
-              <label class="inv-item{% if i.parent %} inv-sub{% endif %}" data-group="{{ disease.pk }}" data-key="{{ i.pk }}" data-name="{{ i.label }}" data-disease="{{ disease.name }}">
+              <label class="inv-item{% if i.parent %} inv-sub{% endif %}" data-group="{{ disease.pk }}" data-key="{{ i.pk }}" data-name="{{ i.label }}" data-disease="{{ disease.name }}"{% if i.is_other %} data-other="1"{% endif %}>
                 <input type="checkbox" class="form-check-input" name="conditions" value="{{ i.pk }}"{% if i.pk in selected %} checked{% endif %}>
                 <span><span class="inv-item-name">{{ i.name }}</span>{% if i.parent %}<small class="d-none dx-parent text-body-secondary">{{ i.parent.name }}</small>{% endif %}{% if i.recorded %}<small class="d-block text-warning-emphasis"><i class="bi bi-exclamation-triangle"></i> {{ i.recorded }}</small>{% endif %}</span>
               </label>{% endfor %}{% endfor %}
@@ -80,6 +80,7 @@
 {% block scripts %}
 {{ status_choices|json_script:"dx-status-choices" }}
 {{ chosen_statuses|json_script:"dx-chosen" }}
+{{ other_texts|json_script:"dx-other-texts" }}
 <script>
 // Diseases show their conditions; search looks through all of them; the tray lists what is ticked.
 (function () {
@@ -111,6 +112,7 @@
   // One status per disease ticked, empty until the doctor chooses; only "Confirmed" allows enrolling.
   var statusChoices = JSON.parse(document.getElementById('dx-status-choices').textContent);
   var chosen = JSON.parse(document.getElementById('dx-chosen').textContent);
+  var otherTexts = JSON.parse(document.getElementById('dx-other-texts').textContent);
   function renderStatus(checked) {
     var box = document.getElementById('dx-status');
     box.querySelectorAll('select').forEach(function (s) { chosen[s.dataset.disease] = s.value; });
@@ -162,10 +164,26 @@
       row.className = 'list-group-item d-flex justify-content-between align-items-start gap-2 py-2';
       var text = document.createElement('div');
       text.textContent = i.dataset.name;
+      text.className = 'flex-grow-1';
       var small = document.createElement('small');
       small.className = 'd-block text-body-secondary';
       small.textContent = i.dataset.disease;
       text.appendChild(small);
+      // An "Other" condition needs the doctor to say what it is.
+      if (i.dataset.other) {
+        var key = i.dataset.key;
+        var box = document.createElement('input');
+        box.type = 'text';
+        box.className = 'form-control form-control-sm mt-1';
+        box.name = box.id = 'other_' + key;
+        box.maxLength = 200;
+        box.required = true;
+        box.placeholder = 'Specify (required)';
+        box.setAttribute('aria-label', 'Specify ' + i.dataset.name);
+        box.value = otherTexts[key] || '';
+        box.addEventListener('input', function () { otherTexts[key] = box.value; });
+        text.appendChild(box);
+      }
       var remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'btn-close btn-sm';

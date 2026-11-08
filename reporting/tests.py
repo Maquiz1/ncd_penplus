@@ -17,7 +17,8 @@ class ReportTests(BaseTestCase):
 
     def test_reports_render_with_filters_pdf_and_csv(self):
         self.client.force_login(self.manager)
-        names = ['recruitment', 'conditions', 'trends', 'study_progress', 'follow_up', 'report', 'data_quality']
+        names = ['recruitment', 'study_summary', 'conditions', 'trends', 'study_progress', 'follow_up', 'report',
+                 'data_quality']
         for name in names:
             url = reverse(f'reporting:{name}')
             for query in ('', '?period=last_month', '?period=custom&start=2020-01-01&end=2030-12-31&disease=diabetes',
@@ -38,6 +39,21 @@ class ReportTests(BaseTestCase):
         self.assertContains(response, self.patient.patient_number)
         csv_body = self.client.get(reverse('reporting:conditions') + '?disease=diabetes&period=all&format=csv').content.decode()
         self.assertIn('Type 2', csv_body)
+
+    def test_study_summary_follows_the_subject_flow(self):
+        from clinical.models import PreScreening
+        PreScreening.objects.create(patient=self.patient, facility=self.ilala, consent_obtained=True)
+        self.make_patient(first_name='Only', last_name='Registered')
+        self.client.force_login(self.manager)
+        body = self.client.get(reverse('reporting:study_summary') + '?period=all&format=csv').content.decode()
+        rows = {line.split(',')[0]: line.split(',') for line in body.splitlines()[1:]}
+        self.assertEqual([rows[k][1] for k in ('Registered', 'Screened', 'Consented', 'Diagnosed (confirmed)',
+                                                'Enrolled (ever)', 'Enrolled (active now)')], ['2', '1', '1', '1', '1', '1'])
+        self.assertEqual(rows['Screened'][2:4], ['50', '50'])          # % of registered, % of previous step
+        page = self.client.get(reverse('dashboard'))
+        self.assertContains(page, 'Screened')
+        self.assertContains(page, '1 active now')
+        self.assertNotContains(page, '> Registered<')
 
     def test_recruitment_counts_enrolment(self):
         self.client.force_login(self.manager)

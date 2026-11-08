@@ -85,8 +85,13 @@ class Facility(models.Model):
     name = models.CharField(max_length=200)
     code = models.CharField(max_length=30, unique=True)
     facility_type = models.CharField(max_length=20, choices=FacilityType.choices, default=FacilityType.HOSPITAL)
-    is_research_site = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    # A PEN-Plus clinic site registers and follows subjects. Other active sites (referral or mentoring hospitals)
+    # are offered only as referral destinations.
+    is_research_site = models.BooleanField('PEN-Plus clinic site', default=False,
+                                           help_text='Subjects are registered and seen here. Leave off for referral '
+                                                     'or mentoring hospitals.')
+    is_active = models.BooleanField('Active', default=True,
+                                    help_text='An inactive site is not offered for new records; its old records stay.')
 
     class Meta:
         ordering = ['name']

@@ -17,8 +17,8 @@ from core.models import WorkflowStage
 from facilities.scope import facilities_for_user, scope_queryset
 
 from .forms import (AdmissionForm, AppointmentForm, AppointmentStatusForm, ClinicSessionForm, DischargeForm,
-                    EncounterForm, FollowUpPlanForm, VitalsForm)
-from .models import Admission, Appointment, ClinicSession, Encounter, FollowUpPlan, Vitals
+                    EncounterForm, FollowUpPlanForm, ReferralForm, VitalsForm)
+from .models import Admission, Appointment, ClinicSession, Encounter, FollowUpPlan, Referral, Vitals
 from .services import generate_visits, retire_other_plans, revise_plan
 
 
@@ -319,6 +319,37 @@ class AdmissionDischargeView(PatientChildUpdateMixin, UpdateView):
     def get_success_url(self):
         return self.object.encounter.get_absolute_url() if self.object.encounter else super().get_success_url()
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        data = form.cleaned_data
+        patient = self.object.patient
+        if data['discharge_outcome'] == Admission.DischargeOutcome.DIED and not patient.is_deceased:
+            from patients.services import record_death
+            record_death(patient, data['date_of_death'], data['cause_of_death'].strip(), self.request.user,
+                         self.request)
+            messages.info(self.request, 'The death was recorded on the subject: programmes closed and future '
+                                        'appointments cancelled.')
+        return response
+
+
+class ReferralCreateView(PatientChildCreateMixin, CreateView):
+    permission_required = 'encounters.add_referral'
+    model = Referral
+    form_class = ReferralForm
+    title = 'Refer to another hospital'
+    success_tab = '#admissions'
+
+    def get_initial(self):
+        return {**super().get_initial(), 'encounter': self.request.GET.get('encounter')}
+
+
+class ReferralUpdateView(PatientChildUpdateMixin, UpdateView):
+    permission_required = 'encounters.change_referral'
+    model = Referral
+    form_class = ReferralForm
+    title = 'Referral: return and feedback'
+    success_tab = '#admissions'
+
 
 # ---------------------------------------------------------------- clinic days
 
@@ -368,6 +399,19 @@ class ClinicSessionUpdateView(PermissionRequiredMixin, AuditedUpdateMixin, Updat
     def get_form_kwargs(self):
         return {**super().get_form_kwargs(), 'user': self.request.user}
 
+    def form_valid(self, form):
+        from encounters import clinic
+        response = super().form_valid(form)
+        timing = {'start_date', 'end_date', 'start_time', 'allocation', 'skip_weekends'}
+        if self.object.status == ClinicSession.Status.SCHEDULED and timing & set(form.changed_data):
+            moved = clinic.move_to_dates(self.object, self.request.user, self.request)
+            if moved:
+                messages.info(self.request, f'{moved} appointment(s) moved to the new dates. Send the SMS '
+                                            f'invitations again so the subjects know.')
+            counts = clinic.notify_staff(self.object, self.request.user, 'moved', self.request)
+            messages.info(self.request, f'Site staff told: {counts.get("sms", 0)} SMS, {counts.get("email", 0)} email(s).')
+        return response
+
 
 class ClinicSessionDetailView(PermissionRequiredMixin, DetailView):
     permission_required = 'encounters.view_clinicsession'
@@ -401,9 +445,14 @@ class ClinicSessionActionView(PermissionRequiredMixin, View):
         if session.status == 'cancelled':
             messages.error(request, 'This clinic day was cancelled.')
         elif action == 'schedule':
+            first_time = session.status == ClinicSession.Status.DRAFT
             counts = clinic.schedule(session, request.user, request)
             messages.success(request, 'Appointments: ' + ', '.join(f'{v} {k}' for k, v in counts.items()) if counts
                              else 'No eligible subjects found.')
+            if first_time:
+                self.told(request, clinic.notify_staff(session, request.user, 'scheduled', request))
+        elif action == 'notify':
+            self.told(request, clinic.notify_staff(session, request.user, 'scheduled', request))
         elif action == 'sms':
             if not request.user.has_perm('notifications.add_smsmessage'):
                 raise PermissionDenied
@@ -423,6 +472,11 @@ class ClinicSessionActionView(PermissionRequiredMixin, View):
             else:
                 count = clinic.cancel(session, request.user, reason, request)
                 messages.success(request, f'Clinic day cancelled; {count} appointment(s) cancelled.')
+                self.told(request, clinic.notify_staff(session, request.user, 'cancelled', request))
         else:
             raise PermissionDenied
         return redirect(session.get_absolute_url())
+
+    @staticmethod
+    def told(request, counts):
+        messages.info(request, f'Site staff told: {counts.get("sms", 0)} SMS, {counts.get("email", 0)} email(s).')

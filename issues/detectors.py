@@ -29,7 +29,8 @@ MONTHLY_STAGES = ('baseline', 'follow_up')  # one per month is expected; any oth
 
 
 def visits_same_month(patient_ids=None):
-    """Two or more baseline/follow-up visits in one month: one is the monthly visit, the others should be Unscheduled.
+    """More baseline/follow-up visits in one month than the subject has schedules: one per schedule is the monthly
+    visit, the others should be Unscheduled.
     Closes by itself once at most one is left."""
     months = defaultdict(list)
     encounters = Encounter.objects.filter(stage__in=MONTHLY_STAGES).exclude(status='cancelled')
@@ -40,7 +41,10 @@ def visits_same_month(patient_ids=None):
         months[(e.patient_id, day.year, day.month)].append(e)
     created, still_needed = 0, set()
     for (patient_id, year, month), encounters in months.items():
-        if len(encounters) < 2:
+        # Each schedule (programme clinic) has its own monthly visit: a diabetes and a cardiac clinic visit in the
+        # same month are both expected. Visits with no schedule share one.
+        schedules = {e.appointment.plan_id for e in encounters if e.appointment_id and e.appointment.plan_id}
+        if len(encounters) < 2 or len(schedules) == len(encounters):
             continue
         first = datetime.date(year, month, 1)
         key = f'visits-month:{patient_id}:{year}-{month:02d}'
@@ -48,7 +52,7 @@ def visits_same_month(patient_ids=None):
         scheduled = sum(1 for e in encounters if e.appointment_id)
         _, new = raise_issue(
             key, 'visits_same_month', DataIssue.Category.VISITS, f'{len(encounters)} follow-up visits in {first:%B %Y}',
-            f'Only one follow-up visit is expected per month; {scheduled} of these {len(encounters)} are linked to an '
+            f'Only one follow-up visit per schedule is expected per month; {scheduled} of these {len(encounters)} are linked to an '
             f'appointment. Keep the monthly visit and mark the others as Unscheduled.',
             patient=encounters[0].patient, related_date=first)
         created += new
@@ -261,8 +265,84 @@ def hba1c_overdue(patient_ids=None):
     return created
 
 
+def study_without_programme(patient_ids=None):
+    """Active in the PEN-Plus study but in no programme: the clinic is the study, so the two should match (most are
+    EDCS subjects enrolled in the study without a disease form or category). Closes by itself once the subject is
+    enrolled in a programme or the study record is closed."""
+    from clinical.models import ProgrammeEnrollment
+    from research.models import StudyEnrollment
+
+    open_care = ProgrammeEnrollment.objects.filter(status__in=['pending', 'active']).values('patient_id')
+    records = (StudyEnrollment.objects.filter(status__in=['pending', 'active'], patient__is_deleted=False)
+               .exclude(patient_id__in=open_care).select_related('patient', 'study'))
+    if patient_ids is not None:
+        records = records.filter(patient_id__in=patient_ids)
+    created, still_needed = 0, set()
+    for record in records:
+        key = f'study-no-programme:{record.pk}'
+        still_needed.add(key)
+        origin = (' EDCS had the subject enrolled in the study, but no disease form or category was recorded, so '
+                  'the import had no programme to put them in.' if record.patient.old_id else '')
+        _, new = raise_issue(
+            key, 'study_without_programme', DataIssue.Category.CONSENT,
+            f'In the study ({record.participant_id}) but in no programme',
+            f'{record.get_status_display()} in the {record.study.code} study since {record.enrollment_date:%d %b %Y}, '
+            f'but with no diagnosis and no programme enrollment.{origin} The doctor records the diagnosis and enrolls '
+            f'the subject in the programme, or the study record is closed with its real outcome (Update on the '
+            f'subject\'s PEN-Plus study card).', patient=record.patient, obj=record,
+            related_date=record.enrollment_date)
+        created += new
+    stale = DataIssue.objects.open().filter(code='study_without_programme').exclude(key__in=still_needed)
+    if patient_ids is not None:
+        stale = stale.filter(patient_id__in=patient_ids)
+    stale.update(status=DataIssue.Status.RESOLVED, resolved_at=timezone.now(),
+                 resolution_note='Enrolled in a programme, or the study record was closed (closed automatically).')
+    return created
+
+
+def programme_without_study(patient_ids=None):
+    """In a programme (in care here) but not active in the PEN-Plus study: the record says the study ended, or there
+    is none. Closes by itself once the study record is active again or the programme is closed."""
+    from clinical.models import ProgrammeEnrollment
+    from research.models import StudyEnrollment
+    from research.services import MAIN_STUDY_CODE
+
+    in_study = StudyEnrollment.objects.filter(study__code=MAIN_STUDY_CODE, status__in=['pending', 'active'])
+    care = (ProgrammeEnrollment.objects.filter(status__in=['pending', 'active'], patient__is_deleted=False)
+            .exclude(patient_id__in=in_study.values('patient_id')).select_related('patient', 'programme'))
+    if patient_ids is not None:
+        care = care.filter(patient_id__in=patient_ids)
+    by_patient = defaultdict(list)
+    for enrollment in care:
+        by_patient[enrollment.patient].append(enrollment)
+    created, still_needed = 0, set()
+    for patient, enrollments in by_patient.items():
+        key = f'programme-no-study:{patient.pk}'
+        still_needed.add(key)
+        last = (StudyEnrollment.objects.filter(patient=patient, study__code=MAIN_STUDY_CODE)
+                .order_by('-enrollment_date').first())
+        study = (f'Its PEN-Plus study record ({last.participant_id}) is {last.get_status_display().lower()}'
+                 + (f' since {last.outcome_date:%d %b %Y}' if last.outcome_date else '') + '.') if last else \
+            'There is no PEN-Plus study record.'
+        programmes = ', '.join(str(e.programme) for e in enrollments)
+        _, new = raise_issue(
+            key, 'programme_without_study', DataIssue.Category.CONSENT,
+            'In a programme but not active in the study',
+            f'In care ({programmes}), but not active in the study. {study} The PEN-Plus clinic is the study, so the '
+            f'two should match: reopen the study record if the subject is still in the study (consent in place), '
+            f'or record the programme outcome (More actions on the subject page) if care ended.',
+            patient=patient, obj=last, related_date=last.outcome_date if last else None)
+        created += new
+    stale = DataIssue.objects.open().filter(code='programme_without_study').exclude(key__in=still_needed)
+    if patient_ids is not None:
+        stale = stale.filter(patient_id__in=patient_ids)
+    stale.update(status=DataIssue.Status.RESOLVED, resolved_at=timezone.now(),
+                 resolution_note='Study record active again, or the programme was closed (closed automatically).')
+    return created
+
+
 DETECTORS = [visits_same_month, duplicate_identifiers, duplicate_people, missing_date_of_birth, consent_to_verify,
-             address_problems, diagnosis_prompts, hba1c_overdue]
+             address_problems, diagnosis_prompts, hba1c_overdue, study_without_programme, programme_without_study]
 
 
 def run_all():

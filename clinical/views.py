@@ -23,7 +23,7 @@ from issues.detectors import diagnosis_prompts
 from core.models import WorkflowStage
 from encounters.services import baseline_visit, close_baseline, current_visit
 
-from .forms import (CONSENT_RULE, ENROLL_RULE, DiagnosisCreateForm, ProgrammeEnrollmentCreateForm, RescreenForm, FamilyMemberForm, DiagnosisForm, PatientQuickForm, ReturnToCareForm, PreScreeningForm, ProgrammeEnrollmentForm, ScreeningCreateForm,
+from .forms import (CONSENT_RULE, ENROLL_RULE, TransferOutForm, DiagnosisCreateForm, ProgrammeEnrollmentCreateForm, RescreenForm, FamilyMemberForm, DiagnosisForm, PatientQuickForm, ReturnToCareForm, PreScreeningForm, ProgrammeEnrollmentForm, ScreeningCreateForm,
                     ScreeningSessionForm, ScreeningUpdateForm, SessionScreeningForm)
 from .models import (CLOSED_RETURNABLE, ClinicalProgramme, FamilyMember, Diagnosis, Disease, EnrollmentEvent, PreScreening,
                      ProgrammeEnrollment, Screening, ScreeningSession)
@@ -311,7 +311,7 @@ class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
             if items:
                 groups.append((disease, items))
         context.update(
-            status_choices=Diagnosis.Status.choices, chosen_statuses=form.chosen_statuses(),
+            status_choices=Diagnosis.Status.choices, chosen_statuses=form.chosen_statuses(), other_texts=form.other_texts(),
             groups=groups, selected={int(v) for v in form['conditions'].value() or []}, waiting=self.waiting_tests(),
             lab_results=self.patient.lab_orders.filter(status__in=['resulted', 'reviewed']).select_related('test')
             .order_by('-resulted_at')[:12],
@@ -327,6 +327,8 @@ class DiagnosisCreateView(PatientChildCreateMixin, CreateView):
         created = []
         for condition in conditions:
             description = condition.label if condition else details
+            if condition and condition.pk in form.others:
+                description = f'{condition.label}: {form.others[condition.pk]}'
             if condition and details:
                 description = f'{condition.label} – {details}'
             disease = condition.disease if condition else form.cleaned_data['disease']
@@ -410,6 +412,62 @@ class ProgrammeEnrollmentUpdateView(PatientChildUpdateMixin, UpdateView):
         return response
 
 
+class TransferOutView(PermissionRequiredMixin, View):
+    """Transfer out of PEN-Plus: every open programme closes as "transferred out", which closes the study enrollment,
+    and future appointments and schedules stop. A referral (the subject comes back) is recorded under Refer instead."""
+
+    permission_required = 'clinical.change_programmeenrollment'
+
+    def setup_patient(self, request, pk):
+        patient = get_object_or_404(Patient.objects.in_scope(request.user), pk=pk)
+        open_ = list(patient.programme_enrollments.filter(status__in=['pending', 'active']).select_related('programme'))
+        if not open_:
+            raise PermissionDenied('The subject is not in any open programme.')
+        return patient, open_
+
+    def render_form(self, request, patient, open_, form):
+        return render(request, 'confirm_action.html', {
+            'title': 'Transfer out of PEN-Plus', 'patient': patient, 'form': form,
+            'message': f'Closes {", ".join(str(e.programme) for e in open_)} as "transferred out" and the PEN-Plus '
+                       f'study enrollment, and cancels future appointments. To send the subject for a review and '
+                       f'have them come back, use Refer to another hospital instead.',
+            'button': 'Transfer out', 'button_class': 'btn-danger', 'cancel_url': patient.get_absolute_url()})
+
+    def get(self, request, pk):
+        patient, open_ = self.setup_patient(request, pk)
+        return self.render_form(request, patient, open_, TransferOutForm(patient=patient))
+
+    def post(self, request, pk):
+        from encounters.models import Appointment, FollowUpPlan
+        patient, open_ = self.setup_patient(request, pk)
+        form = TransferOutForm(request.POST, patient=patient)
+        if not form.is_valid():
+            return self.render_form(request, patient, open_, form)
+        data = form.cleaned_data
+        where = data['to_facility'].name if data['to_facility'] else data['to_other'].strip()
+        reason = f'Transferred out of PEN-Plus to {where}: {data["reason"]}'[:255]
+        with transaction.atomic():
+            for enrollment in open_:
+                old = enrollment.status
+                enrollment.status, enrollment.outcome_date, enrollment.outcome_reason = (
+                    'transferred_out', data['date'], reason)
+                enrollment.save(update_fields=['status', 'outcome_date', 'outcome_reason', 'updated_at'])
+                EnrollmentEvent.objects.create(enrollment=enrollment, from_status=old,
+                                               to_status='transferred_out', event_date=data['date'], reason=reason,
+                                               created_by=request.user)
+                mirror_programme_status(enrollment, request.user, request)
+            cancelled = Appointment.objects.filter(
+                patient=patient, scheduled_date__gte=data['date'], encounters__isnull=True,
+                status__in=['scheduled', 'confirmed', 'rescheduled', 'expected'],
+            ).update(status='cancelled', reason_for_change=reason)
+            FollowUpPlan.objects.filter(patient=patient, is_active=True).update(is_active=False)
+            log_event(request=request, action=AuditEvent.Action.STATUS, obj=patient, reason=reason,
+                      changes={'programmes_closed': len(open_), 'appointments_cancelled': cancelled})
+        messages.success(request, f'Transferred out of PEN-Plus to {where}. {len(open_)} programme(s) and the study '
+                                  f'enrollment closed; {cancelled} future appointment(s) cancelled.')
+        return redirect(patient.get_absolute_url())
+
+
 class ReturnToCareView(PermissionRequiredMixin, View):
     """Reopen a closed enrollment (default/LTFU, withdrawal, transfer out) while keeping its history."""
 
@@ -441,7 +499,7 @@ class ReturnToCareView(PermissionRequiredMixin, View):
 
     def post(self, request, pk):
         from encounters.models import FollowUpPlan
-        from encounters.services import generate_visits
+        from encounters.services import generate_visits, retire_other_plans
 
         enrollment = self.get_enrollment(request, pk)
         form = ReturnToCareForm(request.POST, enrollment=enrollment)
@@ -471,6 +529,8 @@ class ReturnToCareView(PermissionRequiredMixin, View):
                     patient=enrollment.patient, facility=enrollment.patient.current_facility,
                     programme_enrollment=enrollment, interval_months=data['interval_months'], anchor_type='custom',
                     anchor_date=data['return_date'], visit_count=data['visit_count'], created_by=request.user)
+                plan.programmes.add(enrollment)
+                retire_other_plans(plan, request.user, request)
                 created = generate_visits(plan, request.user)
         messages.success(request, f'{enrollment.programme}: back in care from {data["return_date"]:%d %b %Y}.'
                                   + (f' {created} follow-up visits scheduled.' if created else '')

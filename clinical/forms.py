@@ -363,6 +363,11 @@ class DiagnosisCreateForm(PatientChildForm):
         return {key[len('status_'):]: value for key, value in self.data.items()
                 if key.startswith('status_') and value in Diagnosis.Status.values}
 
+    def other_texts(self):
+        """What each ticked "Other" condition is, posted as other_<condition id>."""
+        return {key[len('other_'):]: value.strip()[:200] for key, value in self.data.items()
+                if key.startswith('other_') and value.strip()}
+
     def clean(self):
         cleaned = super().clean()
         conditions = cleaned.get('conditions') or []
@@ -370,6 +375,14 @@ class DiagnosisCreateForm(PatientChildForm):
             self.add_error('conditions', 'Tick at least one condition, or write the diagnosis in the description.')
         elif not conditions and not cleaned.get('disease'):
             self.add_error('disease', 'Choose the disease for this diagnosis.')
+        self.others = {}
+        texts = self.other_texts()
+        for condition in conditions:
+            if condition.is_other:
+                if texts.get(str(condition.pk)):
+                    self.others[condition.pk] = texts[str(condition.pk)]
+                else:
+                    self.add_error(None, f'Say what "{condition.label}" is ({condition.disease.name.lower()}).')
         diseases = {c.disease for c in conditions} or ({cleaned['disease']} if cleaned.get('disease') else set())
         chosen = self.chosen_statuses()
         for disease in sorted(diseases, key=lambda d: d.name):
@@ -387,3 +400,29 @@ class FamilyMemberForm(PatientChildForm):
                   'referred_for_screening', 'recorded_on', 'notes']
         widgets = {'alive': forms.NullBooleanSelect, 'tested': forms.NullBooleanSelect}
         help_texts = {'scd_status': 'Do not record names: relatives are not registered subjects.'}
+
+
+class TransferOutForm(BootstrapForm):
+    """The subject leaves the PEN-Plus clinic (and so the study) for care elsewhere."""
+
+    date = forms.DateField(label='Transfer date', initial=timezone.localdate,
+                           widget=forms.DateInput(attrs={'type': 'date'}))
+    to_facility = forms.ModelChoiceField(queryset=None, required=False, label='Transferred to',
+                                         empty_label='Not in the list (write it below)')
+    to_other = forms.CharField(max_length=200, required=False, label='Other hospital / place')
+    reason = forms.CharField(max_length=200, label='Reason')
+
+    def __init__(self, *args, patient=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        from facilities.models import Facility
+        self.fields['to_facility'].queryset = Facility.objects.filter(is_active=True).exclude(
+            pk=getattr(patient, 'current_facility_id', None)).order_by('name')
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get('to_facility') and not cleaned.get('to_other', '').strip():
+            self.add_error('to_facility', 'Say where the subject is transferred to.')
+        if cleaned.get('date') and cleaned['date'] > timezone.localdate():
+            self.add_error('date', 'The transfer date cannot be in the future.')
+        return cleaned
+

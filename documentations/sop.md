@@ -4,13 +4,13 @@
 
 **Who uses it.** Everyone who records subject data at a PEN-Plus clinic: registration officers, nurses, clinicians, laboratory, imaging and pharmacy staff, and data clerks.
 
-**Words used.** A **subject** is a person in the PEN-Plus study; the PEN-Plus clinic is the study, so everyone enrolled here is a study subject. Routine care outside PEN-Plus is recorded in GoTHOMIS. An **appointment** is a booking for a future date. A **visit** (an *encounter* in some menus) is a contact that happened. Everything recorded for a subject belongs to a visit.
+**Words used.** The **PEN-Plus clinic** is the PEN-Plus study: everyone enrolled here is a study **subject**. It has three clinics, one per disease: the **Diabetes Clinic**, the **Cardiac Clinic** and the **SCD Clinic**. Each is both the programme a subject is enrolled in and the clinic they attend; the clinics run on different dates, when their specialists come, and local staff may be trained for one or more of them. A subject can be in more than one clinic. Routine care outside PEN-Plus is recorded in GoTHOMIS. A **PEN-Plus site** is a hospital where the PEN-Plus clinic runs (Kondoa, Karatu); other hospitals (for example BMH, KCMC) are referral or mentoring hospitals. An **appointment** is a booking for a future date. A **visit** (an *encounter* in some menus) is a contact that happened. Everything recorded for a subject belongs to a visit.
 
 ## 1. The flow at a glance
 
 ```
-New subject   Register → Screening → Investigations → Diagnosis → Prescribe → Enroll → Follow-up plan
-              (all one BASELINE visit; it closes at Enroll)
+New subject   Register → Screening → Investigations → Diagnosis → Prescribe → (Admission) → Enroll → Follow-up plan
+              (all one BASELINE visit; it closes by itself at Enroll)
 
 Enrolled      Appointment day → Attend → FOLLOW-UP visit: Forms → Investigations → Prescribe → (Admission) → Close
               Between appointments → UNSCHEDULED visit: Forms → (Investigations) → (Prescribe) → (Admission) → Close
@@ -28,7 +28,7 @@ Enrolled      Appointment day → Attend → FOLLOW-UP visit: Forms → Investig
 | Prescribe | Clinician | Baseline → Prescribe, or inside a visit |
 | Dispense | Pharmacist / dispenser | Pharmacy → Dispensing |
 | Enroll | Clinician | Baseline → Enroll |
-| Follow-up plan | Clinician | Baseline → **Follow-up plan** tab |
+| Follow-up schedule (per programme) | Clinician | Baseline → **Follow-up plan** tab |
 | Vital signs and forms | Nurse, clinician, data clerk | Inside the visit → Forms |
 | Admission and discharge | Clinician | Inside the visit → Admission / Discharge |
 | Close the visit | Nurse, clinician, data clerk | Inside the visit → Close visit |
@@ -44,7 +44,7 @@ Do not book an appointment for a subject seen today. Appointments are only for f
 ### Step 1. Register
 
 1. Subjects → Subject register → **Register subject**.
-2. Enter the name, sex, date of birth (or age), phone, residence and next of kin.
+2. Enter the name, sex, date of birth (or age), phone, residence and next of kin. The **Registration facility** lists only the active PEN-Plus sites you work at; with one, it is filled in for you.
 3. If the system shows **possible duplicates**, open them. Use the existing subject if it is the same person; register a new one only if it is not, and the reason is recorded.
 4. Save. The subject gets an NCD number and their page opens.
 
@@ -74,29 +74,33 @@ Do not book an appointment for a subject seen today. Appointments are only for f
    - **Confirmed**: the results support it.
    - **Suspected**: not yet supported, for example a known NCD with no result yet.
    - **Ruled out**: the disease was looked for and not found.
-3. Save. This also gives the screening its result: confirmed counts as positive, ruled out as negative.
-4. **No disease found:** press **Not diagnosed** on each screened disease (on the progress bar under Baseline) instead of recording a diagnosis. When every screened disease is not diagnosed, the baseline visit closes as *screening only*, and the subject continues routine care in GoTHOMIS.
-5. Afterwards the diagnosis can only be viewed, edited or deleted (Baseline → **Diagnosis** tab). When a suspected diagnosis is later supported by results, edit it to Confirmed.
+3. A ticked **Other** condition (for example *Cardiomyopathy – Other*, *Other diabetes*, *Other haemoglobinopathy*) needs a short description in the box under it: say what it is. It is saved as part of the diagnosis.
+4. Save. This also gives the screening its result: confirmed counts as positive, ruled out as negative.
+5. **No disease found:** press **Not diagnosed** on each screened disease (on the progress bar under Baseline) instead of recording a diagnosis. When every screened disease is not diagnosed, the baseline visit closes as *screening only*, and the subject continues routine care in GoTHOMIS.
+6. Afterwards the diagnosis can only be viewed, edited or deleted (Baseline → **Diagnosis** tab). When a suspected diagnosis is later supported by results, edit it to Confirmed.
 
 ### Step 5. Prescribe (clinician; optional)
 
 1. **Baseline** → **Prescribe**, if treatment starts today. Add one or more medicines on the same prescription.
 2. The pharmacist dispenses it (Pharmacy → **Dispensing**).
 
+**Admission (optional).** If the subject has to be admitted during the baseline visit (for example in DKA), use **Baseline** → **Admission** (section 5). While admitted the step shows **Discharge**.
+
 ### Step 6. Enroll (clinician)
 
-1. **Baseline** → **Enroll**. The page lists the programme of every **confirmed** disease, ticked together.
-2. Save. One save enrolls the subject in the programme(s) and in the PEN-Plus study; the screening consent is the study consent.
-3. The baseline visit closes. Enrolling is what puts the subject into the indicators, the HbA1c due list and the lists of disease-assigned staff.
+1. **Baseline** → **Enroll**. The page lists the clinic of every **confirmed** disease (Diabetes Clinic, Cardiac Clinic, SCD Clinic), ticked together.
+2. Save. One save enrolls the subject in the clinic(s) and in the PEN-Plus study; the screening consent is the study consent.
+3. The baseline visit closes by itself. There is no Close button for it, because it stays open across days while results come back; a line under the Baseline steps says whether it is open or closed. Enrolling is what puts the subject into the indicators, the HbA1c due list and the lists of disease-assigned staff.
 
 **Enroll the same day?** Yes, if the clinician confirms the diagnosis that day. No, if the subject is suspected and waiting for tests: book the review appointment and enroll then. A suspected diagnosis or a known NCD alone is not enough to enroll.
 
-### Step 7. Follow-up plan (clinician; after enrollment)
+### Step 7. Follow-up schedule (clinician; after enrollment)
 
 1. **Baseline** → **Follow-up plan** tab (it opens only after enrollment).
-2. The study is PEN-Plus, already chosen. Choose the **interval** (monthly, every 2, 3 or 6 months, or yearly), the start date (the enrollment date by default) and the **number of future visits** (1 to 12; it starts at 1).
-3. Save. The system books the appointments. Subjects who consented to SMS get reminders.
-4. A subject has **one** active schedule. A new or re-activated schedule stops the old one and cancels its future appointments. Extra one-off appointments are also booked here (**Book appointment**).
+2. Tick the **programme clinics** the schedule is for. A subject in one programme has only that one, already ticked. A subject in two or more (for example diabetes and cardiac) can have one schedule for all of them, or one schedule per programme, for example the diabetes clinic monthly and the cardiac clinic every 3 months.
+3. The study is PEN-Plus, already chosen. Choose the **interval** (monthly, every 2, 3 or 6 months, or yearly), the start date (the enrollment date by default) and the **number of future visits** (1 to 12; it starts at 1).
+4. Save. The system books the appointments; each shows the programme(s) it is for. Subjects who consented to SMS get reminders.
+5. Each programme follows **one** active schedule. Ticking a programme on a new schedule moves it from its old one; a schedule left with no programme stops and its future appointments are cancelled. Extra one-off appointments are also booked here (**Book appointment**).
 
 ## 3. Follow-up visit (subject has an appointment)
 
@@ -104,7 +108,7 @@ Do not book an appointment for a subject seen today. Appointments are only for f
    - A subject who comes a few days early or late still uses **Attend** on that appointment, so it counts as attended, not missed.
 2. The visit opens, linked to the appointment. Its steps:
    1. **Forms**: vital signs first, then the forms listed for the visit (Required or Optional). Mark a form **N/A** with a reason if it does not apply. Watch for the HbA1c banner when a test is due.
-   2. **Investigations**: request any tests; results follow the same path as at baseline.
+   2. **Investigations**: request the tests for this visit; results follow the same path as at baseline. Every visit makes its own requests: a test requested at an earlier visit (still waiting for its result) is shown for information, and **Already requested** appears only for a test requested earlier in the same visit.
    3. **Prescribe**: the medicines for this visit.
    4. **Admission**: only if the subject is admitted from this visit (section 5).
    5. **Close visit** when the work is done.
@@ -112,7 +116,7 @@ Do not book an appointment for a subject seen today. Appointments are only for f
 
 **Subject does not come.** Leave the appointment. It becomes **Missed** when attendance for the clinic day is closed, or staff mark it Missed. Follow up by phone or home visit. Missed appointments feed the loss to follow-up (LTFU) count.
 
-**Only one follow-up visit is expected per month.** A second one in the same month raises a data issue (section 7).
+**One follow-up visit per schedule is expected per month.** A subject with a diabetes and a cardiac schedule can attend both clinics in the same month. A second visit for the same schedule, or one with no appointment, raises a data issue (section 7).
 
 ## 4. Unscheduled visit (no appointment)
 
@@ -128,36 +132,63 @@ A visit left open on an earlier day does not stop a new one; close it once its w
 
 ## 5. Admission and discharge
 
-1. Inside the visit: **Admission** → ward, date and reason. The subject's Admission tab and Care → Admissions list it.
+1. Inside the visit (baseline, follow-up or unscheduled): **Admission** → ward, date and reason. The subject's Admission tab and Care → Admissions list it.
 2. While admitted, the same step shows **Discharge**: record the discharge date, outcome and summary.
-3. A subject who dies in hospital: discharge with outcome **Died**, then **More actions → Record death** so the subject's status changes.
+3. **Admitted more than once.** A subject can have many admissions, one at a time: discharge the current stay before admitting again. A new admission is recorded from the visit at which the subject comes back (usually an unscheduled visit). If the last stay ended within 30 days, **Readmission of** is filled in with it; clear it if the new admission is not related. Every stay is listed on the subject's Admission tab and under Care → Admissions.
+4. A subject who dies in hospital: discharge with outcome **Died** and give the **date and cause of death**. Saving also records the death on the subject: the status changes to deceased, programmes and the study close, and future appointments are cancelled.
 
 ## 6. Outcomes and leaving
 
 All from **More actions** on the subject page, at any time:
 
-- **Transfer out** to another PEN-Plus facility.
-- **Outcome** for a programme: LTFU, stopped, and later **Return to care**.
+- **Transfer to another PEN-Plus site** (for example Kondoa to Karatu): the subject moves and stays in the study. Only active PEN-Plus sites are offered.
+- **Refer to another hospital** (for example BMH or KCMC, or any hospital written in): the subject **stays enrolled** and comes back. Record the referral date, hospital and reason; when the subject is back, open the referral (Admission tab → Referrals → **Return / feedback**) and record the date back and the feedback.
+- **Transfer out of PEN-Plus**: the subject leaves the PEN-Plus clinic for care elsewhere. Every open clinic closes as *transferred out*, the study enrollment closes, and future appointments and schedules stop. If the subject comes back later, use **Return to care**.
+- **Outcome** for one clinic: LTFU, stopped, and later **Return to care**.
 - **Record death**.
 - **Withdraw / leave the study**: closes the care enrollment here too, and the subject continues routine care in GoTHOMIS. Closing one disease's programme closes the study only if no other programme is active.
 
 ## 7. Checks and corrections
 
-- **Subjects → Stuck in the flow** lists subjects waiting between two steps: screened over 14 days with no decision, positive with no diagnosis, diagnosed but not enrolled, enrolled without a baseline visit, and enrolled with no follow-up plan or upcoming appointment. Work through it every week.
+- **Subjects → Stuck in the flow** lists subjects waiting between two steps: screened over 14 days with no decision, positive with no diagnosis, diagnosed but not enrolled, enrolled without a baseline visit, and a programme with no follow-up schedule and no upcoming appointment. Work through it every week.
 - **Suspected diagnoses**: if confirming results have not come within 60 days, a data issue says the diagnosis is still suspected; when results arrive, it says "results available: confirm the diagnosis".
 - **Correcting**: edit the record. **Removing a duplicate entry**: delete it (a reason is asked). Only a superuser can restore a deleted record.
 - **Screening for another disease later**: edit the screening form and tick it. **Screening again** after a negative or inconclusive result: Overview → Screening card → **Re-screen** on that disease, with the reason. The earlier record is kept.
 
 ### Two follow-up visits in the same month
 
-When a subject has two or more baseline or follow-up visits in one month, the system assumes the extra ones were unscheduled and raises **"2 follow-up visits in <month>"** under Data quality → Data issues.
+When a subject has more baseline or follow-up visits in one month than schedules (two visits for the same schedule, or a visit with no appointment next to another), the system assumes the extra ones were unscheduled and raises **"2 follow-up visits in <month>"** under Data quality → Data issues.
 
 1. Open the issue; it lists every visit that month.
-2. Keep the real monthly visit (the one linked to the appointment).
+2. Keep the real monthly visit of each schedule (the one linked to its appointment).
 3. Click **Unscheduled** on each extra visit. It becomes Unscheduled and is unlinked from its appointment; an appointment left with no visit is cancelled ("Visit reclassified as unscheduled during data review").
-4. The issue closes by itself when one follow-up visit is left.
+4. The issue closes by itself when one follow-up visit per schedule is left.
 
 If none of the visits has an appointment, click **Monthly visit** on the planned one; the system creates an attended appointment for it. If the visits are right as recorded, close the issue with **No change needed** and a note. Admissions and screening are not counted in this check.
+
+## 8. Clinic days (specialist clinics)
+
+When specialists come for a few days or weeks, all active subjects of one programme are booked together, for example the Diabetes Clinic this week, the Cardiac Clinic next week and the SCD Clinic next month. One clinic day is for one clinic.
+
+1. Care → **Clinic days** → **New clinic day**.
+2. Choose the **clinic**: Diabetes Clinic, Cardiac Clinic or SCD Clinic. The subjects of that programme are invited.
+3. Give the first day and, for a clinic over several days or weeks, the last day and the start time. Choose whether everyone comes on the first day or is spread over the days, and whether existing appointments that month move to the clinic day. Add the specialists' names under **Team**, and the contact phone for subjects.
+4. Check the preview, then **Schedule appointments**. The site's staff get an SMS and an email with the clinic, the dates and how many subjects are booked.
+5. **Send SMS invitations** to the booked subjects. Subjects who said No to SMS never receive one.
+6. **Dates changed?** Edit the clinic day. The booked appointments move to the new dates, staff are told again, and the subject invitations are sent again with **Send SMS invitations**.
+7. On the day, subjects are attended from their appointment (**Attend**). After the clinic, **Close attendance** marks those who did not come as missed.
+8. **Cancel** a clinic day with a reason: its appointments are cancelled and staff are told. **Notify site staff** sends the staff notice again at any time.
+
+The staff notice goes to active staff assigned to that facility who have a phone number (SMS) or an email address on their profile. It names no subject.
+
+## 9. Sites (system administrator)
+
+Administration → **Sites** lists every hospital. **Add site** or **Edit** to set:
+
+- **PEN-Plus clinic site**: subjects are registered and seen here. Offered for registration, visits, appointments, clinic days and schedules, to staff assigned to that site.
+- **Active**: an inactive site is not offered for new records; its old records keep it.
+
+An active site that is not a PEN-Plus clinic site (a referral or mentoring hospital) is offered only when referring or transferring a subject out of PEN-Plus.
 
 ## Reference: appointment and visit
 

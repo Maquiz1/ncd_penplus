@@ -125,6 +125,41 @@ class ClinicDayTests(BaseTestCase):
         self.assertEqual(enrollment.status, 'active')
         self.assertEqual(enrollment.events.get().kind, 'return')
 
+    def test_one_clinic_from_the_list_dates_move_and_site_staff_told(self):
+        from django.core import mail
+        nurse = self.make_user('nurse_c', 'Nurse / Triage Officer', facility=self.ilala)
+        nurse.phone, nurse.email = '0754000222', 'nurse@example.org'
+        nurse.save()
+        elsewhere = self.make_user('nurse_m', 'Nurse / Triage Officer', facility=self.mwanza)
+        elsewhere.phone, elsewhere.email = '0754000333', 'other@example.org'
+        elsewhere.save()
+        self.client.force_login(self.manager)
+        form = self.client.get(reverse('encounters:clinic_create')).context['form']
+        self.assertEqual({str(c) for _v, c in form.fields['clinic'].choices if _v},
+                         {'Diabetes Clinic', 'Cardiac Clinic', 'SCD Clinic'})
+        self.client.post(reverse('encounters:clinic_create'), {
+            'clinic': self.dm.pk, 'facility': self.ilala.pk, 'start_date': self.start.isoformat(),
+            'allocation': 'same_day', 'skip_weekends': 'on', 'move_existing': 'on', 'team': 'Dr Endo',
+            'sms_template': ClinicSession._meta.get_field('sms_template').default})
+        session = ClinicSession.objects.latest('pk')
+        self.assertEqual((session.name, list(session.programmes.all())), ('Diabetes Clinic', [self.dm]))
+        self.client.post(reverse('encounters:clinic_action', args=[session.pk, 'schedule']))
+        staff_sms = SmsMessage.objects.filter(purpose='staff_clinic')
+        self.assertEqual(list(staff_sms.values_list('phone', flat=True)), ['255754000222'])   # this site only
+        self.assertIn('Diabetes Clinic', staff_sms.get().body)
+        recipients = [m.to[0] for m in mail.outbox]
+        self.assertIn('nurse@example.org', recipients)
+        self.assertNotIn('other@example.org', recipients)
+        # New dates: the booked appointments move with them, and staff are told again.
+        later = self.start + datetime.timedelta(days=7)
+        self.client.post(reverse('encounters:clinic_update', args=[session.pk]), {
+            'facility': self.ilala.pk, 'start_date': later.isoformat(), 'allocation': 'same_day',
+            'skip_weekends': 'on', 'move_existing': 'on', 'team': 'Dr Endo',
+            'sms_template': session.sms_template})
+        self.assertEqual(set(session.appointments.values_list('scheduled_date', flat=True)), {later})
+        self.assertEqual(staff_sms.count(), 2)
+        self.assertIn('moved to', staff_sms.latest('pk').body)
+
     def test_pages_and_permissions(self):
         session = self.session()
         self.client.force_login(self.manager)
@@ -135,7 +170,7 @@ class ClinicDayTests(BaseTestCase):
         self.assertContains(self.client.get(session.get_absolute_url()), 'Eligible subjects')
         self.client.post(reverse('encounters:clinic_action', args=[session.pk, 'schedule']))
         self.client.post(reverse('encounters:clinic_action', args=[session.pk, 'sms']))
-        self.assertEqual(SmsMessage.objects.filter(status='sent').count(), 2)
+        self.assertEqual(SmsMessage.objects.filter(status='sent', purpose='clinic_invite').count(), 2)
         self.client.force_login(self.clinician_ilala)
         self.assertEqual(self.client.post(reverse('encounters:clinic_action', args=[session.pk, 'sms'])).status_code, 403)
 

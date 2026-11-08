@@ -205,3 +205,15 @@ body { background-color: var(--bs-body-bg); }
   .flow-disease { min-width: 0; width: 100%; }
 }
 
+
+/* SOP page: the markdown of documentations/sop.md */
+.sop-body { max-width: 900px; }
+.sop-body h2 { font-size: 1.35rem; margin: 1.75rem 0 .75rem; color: var(--bs-primary); }
+.sop-body h2:first-child { margin-top: 0; }
+.sop-body h3 { font-size: 1.1rem; margin: 1.25rem 0 .5rem; }
+.sop-body table { width: 100%; margin-bottom: 1rem; font-size: .92rem; }
+.sop-body th, .sop-body td { border: 1px solid var(--bs-border-color); padding: .35rem .55rem; vertical-align: top; }
+.sop-body th { background: var(--bs-tertiary-bg); }
+.sop-body pre { background: var(--bs-tertiary-bg); padding: .75rem; border-radius: .375rem; font-size: .82rem; white-space: pre; overflow-x: auto; }
+.sop-body li { margin-bottom: .25rem; }
+@media (max-width:575.98px) { .sop-body table { display: block; overflow-x: auto; } }

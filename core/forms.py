@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 
-from facilities.scope import facilities_for_user
+from facilities.scope import clinic_sites_for_user
 
 
 def apply_bootstrap(fields):
@@ -63,10 +63,9 @@ class PatientChildForm(BootstrapModelForm):
         self.user = user
         self.locked_visit = None
         super().__init__(*args, **kwargs)
-        if user is not None:
-            for name in ('facility',):
-                if name in self.fields:
-                    self.fields[name].queryset = facilities_for_user(user)
+        if user is not None and 'facility' in self.fields:
+            # Records are made at the PEN-Plus clinic sites the user works at (an existing record keeps its own).
+            self.fields['facility'].queryset = clinic_sites_for_user(user, keep=getattr(self.instance, 'facility_id', None))
         if patient is not None:
             related = {
                 'encounter': patient.encounters.all(),

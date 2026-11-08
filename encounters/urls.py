@@ -25,4 +25,6 @@ urlpatterns = [
     path('admissions/', views.AdmissionListView.as_view(), name='admission_list'),
     path('patients/<int:patient_pk>/admissions/add/', views.AdmissionCreateView.as_view(), name='admission_add'),
     path('admissions/<int:pk>/discharge/', views.AdmissionDischargeView.as_view(), name='admission_discharge'),
+    path('patients/<int:patient_pk>/referrals/add/', views.ReferralCreateView.as_view(), name='referral_add'),
+    path('referrals/<int:pk>/edit/', views.ReferralUpdateView.as_view(), name='referral_update'),
 ]

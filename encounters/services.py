@@ -78,6 +78,9 @@ def generate_visits(plan, user):
     today = timezone.localdate()
     existing = set(Appointment.objects.filter(plan=plan, plan_version=plan.version).values_list('sequence', flat=True))
     kept_dates = set(Appointment.objects.filter(plan=plan).exclude(status='cancelled').values_list('scheduled_date', flat=True))
+    # A schedule for one programme books that programme's clinic; one for several leaves it to the schedule.
+    covered = list(plan.programmes.all()[:2])
+    programme = covered[0] if len(covered) == 1 else plan.programme_enrollment
     created = 0
     for sequence, date in planned_dates(plan):
         if sequence in existing or date in kept_dates:
@@ -88,7 +91,7 @@ def generate_visits(plan, user):
         Appointment.objects.create(
             patient=plan.patient, facility=plan.facility, scheduled_date=date, stage='follow_up',
             status=Appointment.Status.EXPECTED if date < today else Appointment.Status.SCHEDULED,
-            programme_enrollment=plan.programme_enrollment, study_enrollment=plan.study_enrollment,
+            programme_enrollment=programme, study_enrollment=plan.study_enrollment,
             plan=plan, plan_version=plan.version, sequence=sequence, created_by=user, origin='schedule',
         )
         created += 1
@@ -123,21 +126,31 @@ def todays_encounter(patient):
 
 @transaction.atomic
 def retire_other_plans(plan, user, request=None):
-    """A subject follows one schedule at a time: the others stop, and their future visits not yet started are
-    cancelled. Returns how many visits were cancelled."""
+    """Each programme follows one schedule at a time: this schedule takes its programmes from the subject's other
+    schedules. A schedule left with no programme stops, and its future visits not yet started are cancelled.
+    Returns how many visits were cancelled."""
     if not plan.is_active:
         return 0
-    others = list(FollowUpPlan.objects.filter(patient=plan.patient, is_active=True).exclude(pk=plan.pk))
-    if not others:
-        return 0
-    FollowUpPlan.objects.filter(pk__in=[o.pk for o in others]).update(is_active=False)
-    cancelled = Appointment.objects.filter(
-        plan__in=others, scheduled_date__gte=timezone.localdate(), status__in=['scheduled', 'confirmed', 'rescheduled'],
-        encounters__isnull=True,
-    ).update(status=Appointment.Status.CANCELLED, reason_for_change=f'Replaced by the schedule "{plan}"'[:255])
-    for other in others:
+    mine = set(plan.programmes.values_list('pk', flat=True))
+    cancelled = 0
+    for other in FollowUpPlan.objects.filter(patient=plan.patient, is_active=True).exclude(pk=plan.pk):
+        theirs = set(other.programmes.values_list('pk', flat=True))
+        if mine and theirs and not theirs & mine:
+            continue  # the schedule of other programmes
+        if mine and theirs - mine:
+            other.programmes.remove(*(theirs & mine))
+            log_event(actor=user, request=request, action=AuditEvent.Action.UPDATE, obj=other,
+                      reason=f'Programmes moved to the schedule "{plan}"',
+                      changes={'programmes_removed': sorted(theirs & mine)})
+            continue
+        other.is_active = False
+        other.save(update_fields=['is_active', 'updated_at'])
+        count = Appointment.objects.filter(
+            plan=other, scheduled_date__gte=timezone.localdate(), status__in=['scheduled', 'confirmed', 'rescheduled'],
+            encounters__isnull=True,
+        ).update(status=Appointment.Status.CANCELLED, reason_for_change=f'Replaced by the schedule "{plan}"'[:255])
+        cancelled += count
         log_event(actor=user, request=request, action=AuditEvent.Action.UPDATE, obj=other,
                   reason=f'Replaced by the schedule "{plan}"', changes={'is_active': [True, False],
-                                                                        'future_visits_cancelled': cancelled})
+                                                                        'future_visits_cancelled': count})
     return cancelled
-

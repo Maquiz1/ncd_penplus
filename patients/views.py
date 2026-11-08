@@ -99,12 +99,15 @@ class PatientDetailView(PermissionRequiredMixin, DetailView):
             eligibility=p.study_eligibility.select_related('study'),
             consents=p.consents.select_related('study'),
             study_enrollments=p.study_enrollments.select_related('study', 'facility'),
-            appointments=p.appointments.select_related('facility', 'plan').annotate(
+            appointments=p.appointments.select_related('facility', 'plan').prefetch_related(
+                'plan__programmes__programme').annotate(
                 visits=Count('encounters', filter=Q(encounters__is_deleted=False))).order_by('scheduled_date')[:100],
-            plans=p.followup_plans.select_related('facility'),
+            plans=p.followup_plans.select_related('facility').prefetch_related('programmes__programme'),
             baseline_visits=p.encounters.filter(stage__in=['baseline', 'screening']).select_related('facility', 'staff')
             .order_by('-encounter_date'),
             admissions=p.admissions.select_related('facility', 'encounter', 'readmission_of').order_by('-admitted_at'),
+            referrals=p.referrals.select_related('to_facility'),
+            has_open_programme=p.programme_enrollments.filter(status__in=['pending', 'active']).exists(),
             family_members=p.family_members.all(),
             # Siblings are screened for sickle cell: the tab shows for subjects with sickle cell.
             show_scd_family=(p.family_members.exists() or p.screenings.filter(disease__code='scd').exists()
@@ -244,15 +247,8 @@ class TransferCreateView(PatientChildCreateMixin, CreateView):
     permission_required = 'patients.add_patienttransfer'
     model = PatientTransfer
     form_class = PatientTransferForm
-    title = 'Request transfer out'
+    title = 'Transfer to another PEN-Plus site'
     success_tab = '#transfers'
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        from facilities.models import Facility
-        form.fields['to_facility'].queryset = Facility.objects.filter(is_active=True).exclude(
-            pk=self.patient.current_facility_id)
-        return form
 
     def form_valid(self, form):
         if self.patient.transfers.filter(status__in=['requested', 'approved', 'sent']).exists():
