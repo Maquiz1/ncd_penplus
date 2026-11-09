@@ -38,6 +38,9 @@ def sms_eligibility(patient, allow_without_consent=False):
 
 def queue_message(patient, purpose, body, *, appointment=None, clinic_session=None, for_date=None, user=None,
                   allow_without_consent=False):
+    from .models import SmsSettings
+    if not SmsSettings.load().sms_to_subjects:
+        return None, 'SMS to subjects switched off'
     phone, who, reason = sms_eligibility(patient, allow_without_consent)
     if reason:
         return None, reason
@@ -63,6 +66,7 @@ def still_relevant(message):
 def process_queue(limit=200):
     """Send queued messages through the gateway. Retries failures up to MAX_ATTEMPTS. Returns counts."""
     backend = get_backend()
+    test_phone = sms_config().test_phone   # test mode: everything goes to this number instead
     counts = {'sent': 0, 'failed': 0, 'cancelled': 0}
     for message in SmsMessage.objects.filter(status__in=['queued', 'failed'], attempts__lt=MAX_ATTEMPTS).order_by('pk')[:limit]:
         if not still_relevant(message):
@@ -73,7 +77,8 @@ def process_queue(limit=200):
         message.attempts += 1
         message.backend = backend.name
         try:
-            message.provider_reference = backend.send(message.phone, message.body)[:100]
+            message.provider_reference = backend.send(test_phone or message.phone, message.body)[:100]
+            message.test_redirect = test_phone
             message.status, message.sent_at, message.error = SmsMessage.Status.SENT, timezone.now(), ''
             counts['sent'] += 1
         except SmsError as exc:

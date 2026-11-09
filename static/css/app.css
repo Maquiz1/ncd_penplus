@@ -217,3 +217,14 @@ body { background-color: var(--bs-body-bg); }
 .sop-body pre { background: var(--bs-tertiary-bg); padding: .75rem; border-radius: .375rem; font-size: .82rem; white-space: pre; overflow-x: auto; }
 .sop-body li { margin-bottom: .25rem; }
 @media (max-width:575.98px) { .sop-body table { display: block; overflow-x: auto; } }
+
+/* Dashboard tiles share the full width; on phones the last odd tile spans the row. */
+.stat-card .card-body { display: block; height: 100%; }
+@media (max-width: 575.98px) {
+  .stat-row > .col:last-child:nth-child(odd) { flex: 0 0 100%; max-width: 100%; }
+  .stat-card .stat-value { font-size: 1.5rem; }
+  .stat-card .card-body { padding: .75rem; }
+}
+@media (min-width: 576px) and (max-width: 1199.98px) {
+  .stat-row > .col:last-child:nth-child(3n+2) { flex: 0 0 66.666%; max-width: 66.666%; }
+}

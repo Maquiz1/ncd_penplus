@@ -72,7 +72,6 @@
               <div class="collapse" id="nav-care" data-bs-parent="#sidebar-nav">
               {% if perms.encounters.view_appointment %}<a class="nav-link {% if 'appointments' in path %}active{% endif %}" href="{% url 'encounters:appointment_list' %}"><i class="bi bi-calendar-check"></i> Appointments</a>{% endif %}
               {% if perms.encounters.view_clinicsession %}<a class="nav-link {% if 'clinic-days' in path %}active{% endif %}" href="{% url 'encounters:clinic_list' %}"><i class="bi bi-calendar-week"></i> Clinic days</a>{% endif %}
-              {% if perms.notifications.view_smsmessage %}<a class="nav-link {% if '/sms/' in path %}active{% endif %}" href="{% url 'notifications:log' %}"><i class="bi bi-chat-dots"></i> SMS log</a>{% endif %}
               {% if perms.encounters.view_encounter %}<a class="nav-link {% if path == '/encounters/' %}active{% endif %}" href="{% url 'encounters:encounter_list' %}"><i class="bi bi-clipboard2-pulse"></i> Encounters</a>{% endif %}
               {% if perms.clinical.view_screening %}<a class="nav-link {% if 'screenings' in path %}active{% endif %}" href="{% url 'clinical:screening_list' %}"><i class="bi bi-search-heart"></i> Screenings</a>{% endif %}
               {% if perms.clinical.view_screeningsession %}<a class="nav-link {% if 'sessions' in path %}active{% endif %}" href="{% url 'clinical:session_list' %}"><i class="bi bi-people-fill"></i> Screening sessions</a>{% endif %}
@@ -203,12 +202,22 @@
               {% if perms.users.view_position %}<a class="nav-link {% if '/staff/positions' in path %}active{% endif %}" href="{% url 'users:positions' %}"><i class="bi bi-person-vcard"></i> Positions</a>{% endif %}
               {% if perms.clinical.view_disease %}<a class="nav-link {% if '/diseases/' in path %}active{% endif %}" href="{% url 'diseases:list' %}"><i class="bi bi-virus"></i> Diseases</a>{% endif %}
               {% if perms.facilities.view_facility %}<a class="nav-link {% if '/facilities/' in path %}active{% endif %}" href="{% url 'facilities:list' %}"><i class="bi bi-building"></i> Sites</a>{% endif %}
-              {% if perms.notifications.view_emaillog %}<a class="nav-link {% if path == '/email/' %}active{% endif %}" href="{% url 'email:log' %}"><i class="bi bi-envelope"></i> Email log</a>{% endif %}
-              {% if perms.notifications.view_siteconfiguration %}<a class="nav-link {% if '/email/settings' in path %}active{% endif %}" href="{% url 'email:settings' %}"><i class="bi bi-gear"></i> Email settings</a>{% endif %}
-              {% if perms.notifications.view_smssettings %}<a class="nav-link {% if '/sms/settings' in path %}active{% endif %}" href="{% url 'notifications:settings' %}"><i class="bi bi-phone"></i> SMS settings</a>{% endif %}
               {% if perms.laboratory.view_monitoringrule %}<a class="nav-link {% if '/lab/monitoring/settings' in path %}active{% endif %}" href="{% url 'laboratory:monitoring_rules' %}"><i class="bi bi-sliders"></i> Monitoring settings</a>{% endif %}
               {% if perms.audit.view_auditevent %}<a class="nav-link {% if 'audit' in path %}active{% endif %}" href="{% url 'audit:list' %}"><i class="bi bi-shield-check"></i> Audit trail</a>{% endif %}
               {% if perms.patients.restore_patient %}<a class="nav-link {% if 'deleted' in path %}active{% endif %}" href="{% url 'patients:deleted' %}"><i class="bi bi-trash3"></i> Deleted subjects</a>{% endif %}
+              </div>
+            </div>
+            {% endif %}
+            {% if perms.notifications.change_smssettings %}
+            <div class="sidebar-section">{# system administrators and superusers #}
+              <button class="sidebar-heading sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-system" aria-expanded="false" aria-controls="nav-system"><i class="bi bi-sliders2"></i><span>System settings</span><i class="bi bi-chevron-down ms-auto"></i></button>
+              <div class="collapse" id="nav-system" data-bs-parent="#sidebar-nav">
+              <a class="nav-link {% if path == '/system/' %}active{% endif %}" href="{% url 'system:home' %}"><i class="bi bi-speedometer2"></i> Overview</a>
+              <a class="nav-link {% if '/email/settings' in path %}active{% endif %}" href="{% url 'email:settings' %}"><i class="bi bi-gear"></i> Site &amp; email settings</a>
+              <a class="nav-link {% if path == '/email/' %}active{% endif %}" href="{% url 'email:log' %}"><i class="bi bi-envelope"></i> Email log</a>
+              <a class="nav-link {% if '/sms/settings' in path %}active{% endif %}" href="{% url 'notifications:settings' %}"><i class="bi bi-phone"></i> SMS settings</a>
+              <a class="nav-link {% if path == '/sms/' %}active{% endif %}" href="{% url 'notifications:log' %}"><i class="bi bi-chat-dots"></i> SMS log</a>
+              <a class="nav-link {% if '/system/jobs' in path %}active{% endif %}" href="{% url 'system:jobs' %}"><i class="bi bi-clock-history"></i> Scheduled jobs</a>
               </div>
             </div>
             {% endif %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}{% load ncd %}
+{% block title %}System settings{% endblock %}
+{% block content %}
+<div class="mb-3"><h1 class="h3 mb-0">System settings</h1>
+  <div class="small text-body-secondary">Email, SMS and the scheduled background jobs. For system administrators.</div></div>
+
+{% if test.test_phone or test.test_email %}
+<div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div><i class="bi bi-cone-striped"></i> <strong>Test mode is on.</strong>
+    {% if test.test_phone %}Every SMS goes to <strong>{{ test.test_phone }}</strong>{% endif %}{% if test.test_phone and test.test_email %}, and every{% elif test.test_email %}Every{% endif %}
+    {% if test.test_email %} email goes to <strong>{{ test.test_email }}</strong>{% endif %}, not to subjects or staff.</div>
+  <a class="btn btn-sm btn-outline-dark" href="{% url 'notifications:settings' %}">Change</a>
+</div>
+{% else %}
+<div class="alert alert-light border small"><i class="bi bi-info-circle"></i> Test mode is off: SMS and emails go to the real subjects and staff. To try clinic days, reminders and staff notices without reaching anyone, set your own phone and email under <a href="{% url 'notifications:settings' %}">SMS settings → Test mode</a>.</div>
+{% endif %}
+
+<div class="row row-cols-1 row-cols-lg-3 g-3">
+  <div class="col"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-envelope"></i> Email</div>
+    <div class="card-body small">
+      <dl class="row mb-0">
+        <dt class="col-5">Site address</dt><dd class="col-7 text-break">{{ site_url }}</dd>
+        <dt class="col-5">Sender</dt><dd class="col-7 text-break">{{ sender }}</dd>
+        <dt class="col-5">Mail service</dt><dd class="col-7"><code>{{ email_backend }}</code>{% if email_backend == 'filebased' %} <span class="text-body-secondary">(saved to files, nothing is sent)</span>{% endif %}</dd>
+        <dt class="col-5">Last 7 days</dt><dd class="col-7">{{ email_week.sent|default:0 }} sent · <span class="{% if email_week.failed %}text-danger{% endif %}">{{ email_week.failed|default:0 }} failed</span></dd>
+      </dl>
+    </div>
+    <div class="card-footer bg-body d-flex flex-wrap gap-2"><a class="btn btn-sm btn-outline-primary" href="{% url 'email:settings' %}">Email settings</a><a class="btn btn-sm btn-outline-secondary" href="{% url 'email:log' %}">Email log</a></div>
+  </div></div>
+
+  <div class="col"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-phone"></i> SMS</div>
+    <div class="card-body small">
+      {% if sms_error %}<div class="alert alert-danger py-1 mb-2">{{ sms_error }}</div>{% else %}
+      <dl class="row mb-0">
+        <dt class="col-5">Gateway</dt><dd class="col-7"><code>{{ sms.backend }}</code>{% if sms.backend == 'console' %} <span class="text-body-secondary">(off: nothing is sent)</span>{% endif %}</dd>
+        <dt class="col-5">Sender ID</dt><dd class="col-7">{{ sms.sender_id|default:"—" }}</dd>
+        <dt class="col-5">To subjects</dt><dd class="col-7">{% if test.sms_to_subjects %}<span class="badge text-bg-success">On</span>{% else %}<span class="badge text-bg-secondary">Off</span>{% endif %}</dd>
+        <dt class="col-5">To staff</dt><dd class="col-7">{% if test.sms_to_staff %}<span class="badge text-bg-success">On</span>{% else %}<span class="badge text-bg-secondary">Off</span>{% endif %}</dd>
+        <dt class="col-5">Waiting to send</dt><dd class="col-7">{{ sms_queued }}</dd>
+        <dt class="col-5">Last 7 days</dt><dd class="col-7">{{ sms_week.sent|default:0 }} sent · {{ sms_week.delivered|default:0 }} delivered · <span class="{% if sms_week.failed %}text-danger{% endif %}">{{ sms_week.failed|default:0 }} failed</span></dd>
+      </dl>{% endif %}
+    </div>
+    <div class="card-footer bg-body d-flex flex-wrap gap-2"><a class="btn btn-sm btn-outline-primary" href="{% url 'notifications:settings' %}">SMS settings</a><a class="btn btn-sm btn-outline-secondary" href="{% url 'notifications:log' %}">SMS log</a></div>
+  </div></div>
+
+  <div class="col"><div class="card shadow-sm h-100">
+    <div class="card-header bg-body fw-semibold"><i class="bi bi-clock-history"></i> Scheduled jobs</div>
+    <div class="card-body small">
+      <dl class="row mb-0">
+        <dt class="col-5">Jobs on</dt><dd class="col-7">{{ tasks_enabled }} of {{ tasks|length }}</dd>
+        <dt class="col-5">Last run</dt><dd class="col-7">{{ last_run|date:"d M Y H:i"|default:"Not yet" }}</dd>
+        <dt class="col-5">Background worker</dt><dd class="col-7">{% if eager %}<span class="badge text-bg-secondary">Runs in the web request</span>{% elif broker %}<span class="badge text-bg-success">Reachable</span>{% else %}<span class="badge text-bg-danger">Not reachable</span>{% endif %}</dd>
+      </dl>
+    </div>
+    <div class="card-footer bg-body"><a class="btn btn-sm btn-outline-primary" href="{% url 'system:jobs' %}">Scheduled jobs</a></div>
+  </div></div>
+</div>
+{% endblock %}

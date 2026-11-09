@@ -40,6 +40,9 @@ class SmsMessage(TimeStampedModel):
     attempts = models.PositiveSmallIntegerField(default=0)
     error = models.CharField(max_length=255, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    delivery_status = models.CharField(max_length=50, blank=True, help_text="The provider's delivery report.")
+    delivery_updated_at = models.DateTimeField(null=True, blank=True)
+    test_redirect = models.CharField('Sent in test mode to', max_length=20, blank=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -103,6 +106,17 @@ class SmsSettings(models.Model):
                                         help_text='Only for older accounts without an API token.')
     nextsms_password_encrypted = models.TextField(blank=True)
     nextsms_token_encrypted = models.TextField(blank=True)
+    # Who receives SMS: each group can be switched off on its own (a switched-off group is not even queued).
+    sms_to_subjects = models.BooleanField('SMS to subjects', default=True,
+                                          help_text='Appointment reminders and clinic day invitations.')
+    sms_to_staff = models.BooleanField('SMS to staff', default=True,
+                                       help_text='Clinic day notices to the site\'s staff. Emails to staff still go.')
+    # Test mode: while set, every SMS / email goes here instead of to subjects and staff (the logs keep the real
+    # recipient). For trying clinic days, reminders and staff notices without reaching anyone.
+    test_phone = models.CharField('Test mode: send every SMS to', max_length=30, blank=True,
+                                  help_text='Your own mobile number. Leave blank to send to the real recipients.')
+    test_email = models.EmailField('Test mode: send every email to', blank=True,
+                                   help_text='Your own address. Leave blank to send to the real recipients.')
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name='+')

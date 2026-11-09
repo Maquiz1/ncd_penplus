@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Scheduled jobs{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div><h1 class="h3 mb-0">Scheduled jobs</h1>
+    <div class="small text-body-secondary">Work the system does by itself in the background (times in {{ timezone }}).</div></div>
+  <a class="btn btn-outline-secondary" href="{% url 'system:home' %}"><i class="bi bi-gear"></i> System settings</a>
+</div>
+<div class="card shadow-sm mb-3"><div class="card-body small">
+  <strong>How it works.</strong> Two background services run next to the website: the <strong>scheduler</strong> (Celery beat) looks at this list every minute and starts each job at its time, and the <strong>worker</strong> (Celery worker) does the job: sending SMS, closing LTFU, data checks, the monthly report. Both read the same list, so switching a job off here stops it at the next check. <strong>Run now</strong> starts a job immediately{% if not broker and not eager %}; the worker is <span class="text-danger fw-semibold">not reachable</span> now, so it runs here, inside this page{% endif %}.
+</div></div>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead class="table-light"><tr><th>Job</th><th>When</th><th>Last run</th><th class="text-end">Runs</th><th>On</th><th class="text-end">Action</th></tr></thead>
+  <tbody>{% for t, when in rows %}<tr>
+    <td><div class="fw-semibold">{{ t.name }}</div><div class="small text-body-secondary">{{ t.description }}</div></td>
+    <td class="small text-nowrap">{{ when }}</td>
+    <td class="small text-nowrap">{{ t.last_run_at|date:"d M Y H:i"|default:"—" }}</td>
+    <td class="text-end">{{ t.total_run_count }}</td>
+    <td>{% if t.enabled %}<span class="badge text-bg-success">On</span>{% else %}<span class="badge text-bg-secondary">Off</span>{% endif %}</td>
+    <td class="text-end text-nowrap">
+      <form class="d-inline" method="post" action="{% url 'system:job_action' t.pk 'run' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary"><i class="bi bi-play"></i> Run now</button></form>
+      <form class="d-inline" method="post" action="{% url 'system:job_action' t.pk 'toggle' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% if t.enabled %}Switch off{% else %}Switch on{% endif %}</button></form>
+    </td></tr>
+  {% empty %}<tr><td colspan="6" class="text-body-secondary">No scheduled jobs yet. Run <code>python manage.py setup_periodic_tasks</code> (the deploy script does).</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

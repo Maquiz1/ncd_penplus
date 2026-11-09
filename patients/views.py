@@ -47,6 +47,9 @@ class PatientListView(PermissionRequiredMixin, ListView):
             qs = qs.filter(status=params['status'])
         if params.get('facility'):
             qs = qs.filter(current_facility_id=params['facility'])
+        if params.get('screening') == 'none':
+            from reporting.services import not_screened
+            qs = not_screened(qs)
         return qs
 
     def get_context_data(self, **kwargs):

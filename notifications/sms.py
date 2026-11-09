@@ -44,6 +44,7 @@ class SmsConfig:
     nextsms_username: str
     nextsms_password: str
     source: str             # 'SMS settings' or '.env', for display
+    test_phone: str = ''    # test mode: every SMS goes to this number instead
 
 
 def sms_config():
@@ -77,6 +78,7 @@ def sms_config():
         nextsms_token=secret('nextsms_token_encrypted', settings.NEXTSMS_API_TOKEN, 'NextSMS API token'),
         nextsms_username=page.nextsms_username or settings.NEXTSMS_USERNAME,
         nextsms_password=secret('nextsms_password_encrypted', settings.NEXTSMS_PASSWORD, 'NextSMS password'),
+        test_phone=normalize_tz_phone(page.test_phone),
     )
 
 
@@ -179,3 +181,61 @@ def get_backend(config=None):
         return BACKENDS[config.backend](config)
     except KeyError:
         raise SmsError(f'Unknown SMS gateway "{config.backend}".')
+
+
+# ---------------------------------------------------------------- delivery reports (NextSMS)
+
+NEXTSMS_REPORTS_URL = 'https://messaging-service.co.tz/api/v2/reports'
+DELIVERED = {'DELIVERED'}
+UNDELIVERED = {'REJECTED', 'FAILED', 'UNDELIVERABLE', 'EXPIRED', 'UNDELIVERED'}
+
+
+def delivery_report_token():
+    """Secret in the delivery report URL, also the Verify Token entered in NextSMS's webhook settings."""
+    import hashlib
+    import hmac
+    return hmac.new(settings.SECRET_KEY.encode(), b'sms-delivery-report', hashlib.sha256).hexdigest()[:40]
+
+
+def delivery_report_url():
+    from django.urls import reverse
+
+    from .email import site_url
+    return site_url() + reverse('notifications:delivery_report', args=[delivery_report_token()])
+
+
+def record_delivery(message_id, status):
+    """Store a provider's delivery result on the matching SMS. Returns how many were updated."""
+    from django.utils import timezone
+
+    from .models import SmsMessage
+    if not (message_id and status):
+        return 0
+    status = str(status).upper()[:50]
+    fields = {'delivery_status': status, 'delivery_updated_at': timezone.now()}
+    if any(word in status for word in DELIVERED):
+        fields['status'] = SmsMessage.Status.DELIVERED
+    elif any(word in status for word in UNDELIVERED):
+        fields.update(status=SmsMessage.Status.FAILED, error=f'Not delivered: {status}'[:255])
+    return SmsMessage.objects.filter(provider_reference=str(message_id)).update(**fields)
+
+
+def collect_nextsms_reports(max_pages=20):
+    """Fetch the delivery results NextSMS has not handed over yet (each is returned only once). Catches callbacks
+    that were missed: NextSMS does not retry them."""
+    config = sms_config()
+    if config.backend != 'nextsms' or not config.nextsms_token:
+        return 0  # reports need the v2 API token
+    updated = 0
+    for _page in range(max_pages):
+        data = _call(urllib.request.Request(NEXTSMS_REPORTS_URL, method='GET', headers={
+            'Authorization': f'Bearer {config.nextsms_token}', 'Accept': 'application/json'}))
+        results = data.get('results') or []
+        if not results:
+            break
+        for item in results:
+            status = item.get('status') or {}
+            updated += record_delivery(item.get('messageId'),
+                                       status.get('groupName') or status.get('name') or item.get('delivery') or '')
+    return updated
+

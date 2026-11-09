@@ -164,7 +164,7 @@ class ClinicDayTests(BaseTestCase):
         session = self.session()
         self.client.force_login(self.manager)
         for url in (reverse('encounters:clinic_list'), reverse('encounters:clinic_create'), session.get_absolute_url(),
-                    reverse('encounters:clinic_update', args=[session.pk]), reverse('notifications:log')):
+                    reverse('encounters:clinic_update', args=[session.pk])):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
         self.assertContains(self.client.get(session.get_absolute_url()), 'Eligible subjects')
@@ -326,7 +326,7 @@ class EmailTests(BaseTestCase):
         self.assertEqual(self.client.get(reverse('email:settings')).status_code, 403)
         manager = self.make_user('dm_e', 'Data Manager', facility=self.ilala)
         self.client.force_login(manager)
-        self.assertEqual(self.client.get(reverse('email:log')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('email:log')).status_code, 403)   # System settings: admins only
         self.assertEqual(self.client.get(reverse('email:settings_add')).status_code, 403)
 
 
@@ -358,3 +358,75 @@ class SmsSettingsTests(BaseTestCase):
     def test_only_permitted_roles(self):
         self.client.force_login(self.clinician_ilala)
         self.assertEqual(self.client.get(reverse('notifications:settings')).status_code, 403)
+
+
+class SystemSettingsTests(BaseTestCase):
+    def setUp(self):
+        from .models import SmsSettings
+        self.sysadmin = self.make_user('sys_x', 'System Administrator', level='national')
+        SmsSettings.objects.create(mode='console', test_phone='0754 000 999', test_email='me@example.org')
+
+    def test_test_mode_sends_sms_and_email_to_the_tester(self):
+        from django.core import mail
+
+        from .email import send_logged_email
+        from .models import EmailLog
+        patient = self.make_patient(phone='0712000001')
+        message = SmsMessage.objects.create(patient=patient, purpose='other', phone='255712000001', body='Hello')
+        with mock.patch('notifications.sms.ConsoleBackend.send', return_value='ref-1') as send:
+            process_queue()
+        send.assert_called_once_with('255754000999', 'Hello')               # not the subject's phone
+        message.refresh_from_db()
+        self.assertEqual((message.status, message.phone, message.test_redirect), ('sent', '255712000001', '255754000999'))
+        send_logged_email('nurse@example.org', 'Clinic day', 'Body')
+        self.assertEqual(mail.outbox[-1].to, ['me@example.org'])
+        self.assertIn('[TEST for nurse@example.org]', mail.outbox[-1].subject)
+        self.assertEqual(EmailLog.objects.latest('pk').recipient, 'nurse@example.org')
+
+    def test_delivery_report_resend_and_admin_only_pages(self):
+        from .sms import delivery_report_token
+        sms = SmsMessage.objects.create(purpose='other', phone='255712000001', body='Hi', status='sent',
+                                        provider_reference='abc')
+        url = reverse('notifications:delivery_report', args=[delivery_report_token()])
+        self.client.post(url, json.dumps({'token': delivery_report_token(), 'messageId': 'abc', 'status': 'DELIVERED'}),
+                         content_type='application/json')
+        sms.refresh_from_db()
+        self.assertEqual((sms.status, sms.delivery_status), ('delivered', 'DELIVERED'))
+        self.assertEqual(self.client.post(reverse('notifications:delivery_report', args=['wrong']), '{}',
+                                          content_type='application/json').status_code, 404)
+        failed = SmsMessage.objects.create(purpose='other', phone='255712000002', body='Again', status='failed')
+        self.client.force_login(self.sysadmin)
+        self.client.post(reverse('notifications:resend', args=[failed.pk]))
+        self.assertEqual(SmsMessage.objects.filter(body='Again', status='sent').count(), 1)
+        for name in ('system:home', 'system:jobs', 'notifications:log', 'notifications:settings', 'email:log',
+                     'email:settings'):
+            self.assertEqual(self.client.get(reverse(name)).status_code, 200, name)
+        self.assertContains(self.client.get(reverse('system:home')), 'Test mode is on')
+        manager = self.make_user('dm_sys', 'Data Manager', facility=self.ilala)
+        self.client.force_login(manager)
+        self.assertEqual(self.client.get(reverse('system:home')).status_code, 403)
+        self.assertEqual(self.client.get(reverse('notifications:log')).status_code, 403)
+        self.assertNotContains(self.client.get(reverse('dashboard')), reverse('system:home'))
+
+    def test_scheduled_jobs_switch_and_run_now(self):
+        from django.core.management import call_command
+        from django_celery_beat.models import PeriodicTask
+        call_command('setup_periodic_tasks', stdout=open('/dev/null', 'w'))
+        job = PeriodicTask.objects.get(name='SMS delivery reports (NextSMS)')
+        self.client.force_login(self.sysadmin)
+        self.client.post(reverse('system:job_action', args=[job.pk, 'toggle']))
+        job.refresh_from_db()
+        self.assertFalse(job.enabled)
+        with mock.patch('notifications.system_views.broker_reachable', return_value=False):
+            response = self.client.post(reverse('system:job_action', args=[job.pk, 'run']), follow=True)
+        self.assertContains(response, 'run here')
+
+    def test_sms_to_subjects_and_to_staff_switch_off_separately(self):
+        from .models import SmsSettings
+        from .services import queue_message
+        SmsSettings.objects.update(sms_to_subjects=False)
+        patient = self.make_patient(phone='0712000001', sms_consent=True)
+        self.assertEqual(queue_message(patient, 'other', 'Hi'), (None, 'SMS to subjects switched off'))
+        SmsSettings.objects.update(sms_to_subjects=True)
+        self.assertIsNotNone(queue_message(patient, 'other', 'Hi')[0])
+

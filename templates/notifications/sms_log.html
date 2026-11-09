@@ -2,7 +2,7 @@
 {% block title %}SMS log{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-  <div><h1 class="h3 mb-0">SMS log</h1><div class="small text-body-secondary">Gateway: <strong>{{ backend }}</strong>{% if backend == 'console' %} – messages are only logged, nothing is sent to phones yet{% endif %}{% if perms.notifications.view_smssettings %} · <a href="{% url 'notifications:settings' %}">SMS settings</a>{% endif %}</div></div>
+  <div><h1 class="h3 mb-0">SMS log</h1><div class="small text-body-secondary">Gateway: <strong>{{ backend }}</strong>{% if backend == 'console' %} – messages are only logged, nothing is sent to phones yet{% endif %}{% if perms.notifications.view_smssettings %} · <a href="{% url 'notifications:settings' %}">SMS settings</a>{% endif %}{% if test_phone %} · <span class="badge text-bg-warning">Test mode: all SMS go to {{ test_phone }}</span>{% endif %}</div></div>
   {% if perms.notifications.add_smsmessage %}<form method="post" action="{% url 'notifications:send_queued' %}">{% csrf_token %}<button class="btn btn-outline-primary"><i class="bi bi-send"></i> Send queued / retry failed</button></form>{% endif %}
 </div>
 <form class="row g-2 mb-3" method="get">
@@ -11,16 +11,17 @@
   <div class="col-md-2 d-grid"><button class="btn btn-primary">Filter</button></div>
 </form>
 <div class="card shadow-sm"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
-  <thead class="table-light"><tr><th>Created</th><th>Subject</th><th>To</th><th>Type</th><th>Message</th><th>Status</th><th>Sent</th></tr></thead>
+  <thead class="table-light"><tr><th>Created</th><th>Subject</th><th>To</th><th>Type</th><th>Message</th><th>Status</th><th>Sent</th><th></th></tr></thead>
   <tbody>{% for m in object_list %}<tr>
     <td class="text-nowrap small">{{ m.created_at|date:"d M Y H:i" }}</td>
-    <td>{% if m.patient %}<a href="{{ m.patient.get_absolute_url }}">{{ m.patient }}</a>{% else %}<span class="text-body-secondary">— (test)</span>{% endif %}</td>
-    <td class="small text-nowrap">{% if can_view_identity %}+{{ m.phone }}{% else %}{{ m.phone|slice:":5" }}•••{% endif %}<div class="text-body-secondary">{{ m.recipient }}</div></td>
+    <td>{% if m.patient %}<a href="{{ m.patient.get_absolute_url }}">{{ m.patient }}</a>{% elif m.purpose == 'staff_clinic' %}<span class="text-body-secondary">— (staff)</span>{% else %}<span class="text-body-secondary">— (test)</span>{% endif %}</td>
+    <td class="small text-nowrap">{% if can_view_identity %}+{{ m.phone }}{% else %}{{ m.phone|slice:":5" }}•••{% endif %}<div class="text-body-secondary">{{ m.recipient }}</div>{% if m.test_redirect %}<div><span class="badge text-bg-warning" title="Test mode: sent to {{ m.test_redirect }} instead">test → {{ m.test_redirect|slice:":5" }}•••{{ m.test_redirect|slice:"-3:" }}</span></div>{% endif %}</td>
     <td class="small">{{ m.get_purpose_display }}{% if m.clinic_session %}<div><a href="{{ m.clinic_session.get_absolute_url }}">{{ m.clinic_session.name|truncatechars:30 }}</a></div>{% endif %}</td>
     <td class="small">{{ m.body }}</td>
-    <td>{% status_badge m.status m.get_status_display %}{% if m.error %}<div class="small text-danger">{{ m.error|truncatechars:60 }}</div>{% endif %}</td>
-    <td class="small text-nowrap">{{ m.sent_at|date:"d M H:i"|default:"—" }}{% if m.attempts > 1 %} ({{ m.attempts }} tries){% endif %}</td></tr>
-  {% empty %}<tr><td colspan="7" class="text-center text-body-secondary py-4">No messages.</td></tr>{% endfor %}</tbody>
+    <td>{% status_badge m.status m.get_status_display %}{% if m.delivery_status %}<div class="small text-body-secondary" title="Delivery report {{ m.delivery_updated_at|date:'d M H:i' }}">{{ m.delivery_status|lower|capfirst }}</div>{% endif %}{% if m.error %}<div class="small text-danger">{{ m.error|truncatechars:60 }}</div>{% endif %}</td>
+    <td class="small text-nowrap">{{ m.sent_at|date:"d M H:i"|default:"—" }}{% if m.attempts > 1 %} ({{ m.attempts }} tries){% endif %}</td>
+    <td class="text-end">{% if m.status == 'failed' or m.status == 'cancelled' %}<form method="post" action="{% url 'notifications:resend' m.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-arrow-repeat"></i> Resend</button></form>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-body-secondary py-4">No messages.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% include "_pagination.html" %}
 {% endblock %}

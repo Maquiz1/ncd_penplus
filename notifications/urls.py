@@ -9,4 +9,6 @@ urlpatterns = [
     path('send-queued/', views.SmsSendQueuedView.as_view(), name='send_queued'),
     path('settings/', views.SmsSettingsView.as_view(), name='settings'),
     path('settings/test/', views.SendTestSmsView.as_view(), name='test'),
+    path('<int:pk>/resend/', views.SmsResendView.as_view(), name='resend'),
+    path('delivery/<str:token>/', views.DeliveryReportView.as_view(), name='delivery_report'),
 ]

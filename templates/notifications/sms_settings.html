@@ -26,6 +26,11 @@
         <dt class="col-5">Last changed</dt><dd class="col-7">{% if saved.pk %}{{ saved.updated_at|date:"d M Y H:i" }}{% if saved.updated_by %} by {{ saved.updated_by }}{% endif %}{% else %}Never (.env only){% endif %}</dd>
       </dl>{% endif %}
     </div></div>
+    <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Delivery reports (NextSMS)</div><div class="card-body small">
+      <p class="mb-2">To see whether each SMS reached the phone, enter these in NextSMS → webhook / delivery report settings. Reports NextSMS could not send there are also fetched every 30 minutes (Scheduled jobs).</p>
+      <div class="mb-1">Delivery report URL</div><code class="d-block text-break mb-2">{{ delivery_url }}</code>
+      <div class="mb-1">Verify token</div><code class="d-block text-break">{{ verify_token }}</code>
+    </div></div>
     {% if can_change %}
     <div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Send a test SMS</div><div class="card-body">
       <form method="post" action="{% url 'notifications:test' %}" novalidate>{% csrf_token %}

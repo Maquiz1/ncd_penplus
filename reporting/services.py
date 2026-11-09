@@ -33,6 +33,13 @@ def screened_counts(user, screenings):
     return {'screened': len(screened), 'screened_consented': len(consented & screened), 'screened_new_month': len(new)}
 
 
+def not_screened(patients):
+    """Registered subjects with no screening form and no disease screening."""
+    from clinical.models import PreScreening
+    return patients.exclude(pk__in=PreScreening.objects.values('patient_id')).exclude(
+        pk__in=Screening.objects.values('patient_id'))
+
+
 def dashboard_stats(user):
     today = timezone.localdate()
     month_start = today.replace(day=1)
@@ -72,9 +79,14 @@ def dashboard_stats(user):
             to_facility__in=facilities_for_user(user), status='sent').count(),
         'programmes_by_disease': list(
             programmes.filter(status='active').values('programme__disease__name').annotate(n=Count('id')).order_by('-n')),
+        # Subjects (not records: a re-screening is the same subject) screened for each disease, by result.
         'screening_by_disease': list(
-            screenings.values('disease__name')
-            .annotate(total=Count('id'), positive=Count('id', filter=Q(result='positive'))).order_by('disease__name')),
+            screenings.values('disease_id', 'disease__name').annotate(
+                total=Count('patient', distinct=True),
+                positive=Count('patient', distinct=True, filter=Q(result='positive')),
+                negative=Count('patient', distinct=True, filter=Q(result='negative')),
+                pending=Count('patient', distinct=True, filter=Q(result='pending'))).order_by('disease__name')),
+        'not_screened': not_screened(patients).count(),
     }
 
 

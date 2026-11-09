@@ -23,12 +23,15 @@ class SmsSettingsForm(BootstrapModelForm):
                                        help_text='Only for older accounts without an API token.')
     clear_secrets = forms.BooleanField(label='Clear the saved keys (use .env instead)', required=False)
 
-    field_order = ['mode', 'provider', 'sender_id', 'default_contact', 'beem_api_key', 'beem_secret_key', 'at_username',
+    field_order = ['mode', 'provider', 'sender_id', 'default_contact', 'sms_to_subjects', 'sms_to_staff',
+                   'test_phone', 'test_email', 'beem_api_key', 'beem_secret_key', 'at_username',
                    'at_api_key', 'nextsms_token', 'nextsms_username', 'nextsms_password', 'clear_secrets']
 
     class Meta:
         model = SmsSettings
-        fields = ['mode', 'provider', 'sender_id', 'default_contact', 'at_username', 'nextsms_username']
+        fields = ['mode', 'provider', 'sender_id', 'default_contact', 'sms_to_subjects', 'sms_to_staff', 'test_phone',
+                  'test_email', 'at_username',
+                  'nextsms_username']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -50,6 +53,13 @@ class SmsSettingsForm(BootstrapModelForm):
         if commit:
             settings_row.save()
         return settings_row
+
+    def clean_test_phone(self):
+        from .sms import normalize_tz_phone
+        value = self.cleaned_data['test_phone'].strip()
+        if value and not normalize_tz_phone(value):
+            raise forms.ValidationError('Enter a valid Tanzanian mobile number, or leave it blank.')
+        return value
 
 
 class TestSmsForm(BootstrapForm):

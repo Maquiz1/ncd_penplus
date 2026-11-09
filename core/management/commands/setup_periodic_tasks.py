@@ -8,6 +8,8 @@ from django_celery_beat.models import CrontabSchedule, PeriodicTask
 TASKS = [
     ('SMS: reminders and sending', 'notifications.send_sms', ('*/15', '7-18', '*', '*'),
      'Every 15 minutes, 07:00–18:45: queue day-before / same-day reminders and send queued SMS (with retries).'),
+    ('SMS delivery reports (NextSMS)', 'notifications.collect_delivery_reports', ('*/30', '*', '*', '*'),
+     'Every 30 minutes: fetch delivery results NextSMS did not send to the delivery report URL.'),
     ('Default / LTFU rule', 'clinical.apply_ltfu_rule', ('0', '1', '*', '*'),
      'Daily 01:00: no attended visit for LTFU_MONTHS months → default / LTFU (care and research).'),
     ('Data-quality checks', 'issues.detect_data_issues', ('30', '1', '*', '*'),

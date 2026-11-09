@@ -171,11 +171,13 @@ def notify_staff(session, user, event, request=None):
                 'cancelled': f'{session.name} at {session.facility.name} on {_when(session)} is cancelled.'}[event]
     team = f' Team: {session.team}.' if session.team else ''
     sms = f'PEN-Plus: {headline}' + ('' if event == 'cancelled' else f' {booked} subjects booked.{team}')
+    from notifications.models import SmsSettings
     url = site_url() + session.get_absolute_url()
     counts = Counter()
+    staff_sms = SmsSettings.load().sms_to_staff
     for person in site_staff(session):
         phone = normalize_tz_phone(person.phone)
-        if phone:
+        if phone and staff_sms:
             SmsMessage.objects.create(purpose=SmsMessage.Purpose.STAFF_CLINIC, phone=phone, recipient='staff',
                                       body=sms[:480], clinic_session=session, for_date=session.start_date,
                                       created_by=user)

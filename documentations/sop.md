@@ -190,6 +190,18 @@ Administration → **Sites** lists every hospital. **Add site** or **Edit** to s
 
 An active site that is not a PEN-Plus clinic site (a referral or mentoring hospital) is offered only when referring or transferring a subject out of PEN-Plus.
 
+## 10. System settings (system administrator)
+
+**System settings** in the menu (system administrators and superusers only):
+
+- **Overview**: email, SMS and scheduled jobs at a glance, and whether test mode is on.
+- **Site & email settings** and **Email log**: the address in emails, the sender, and every email sent or failed.
+- **SMS settings**: gateway (NextSMS, sender name PENPLUS), **SMS to subjects** and **SMS to staff** switched on or off separately, the NextSMS delivery report URL, and a test SMS.
+- **SMS log**: every SMS with its status and delivery report; **Resend** a failed one.
+- **Scheduled jobs**: the work done in the background (SMS reminders and sending, LTFU rule, data checks, monthly report, delivery reports). Switch a job off or on, or **Run now**.
+
+**Test mode** (SMS settings): enter your own phone and email. While they are set, every SMS and email goes to you instead of subjects and staff, and the logs show who it was meant for. Clear both boxes to go live.
+
 ## Reference: appointment and visit
 
 | | Appointment | Visit |

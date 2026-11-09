@@ -32,7 +32,12 @@ def send_logged_email(recipient, subject, body, purpose='other', user=None, sent
     log = EmailLog(recipient=recipient, subject=subject[:255], purpose=purpose, user=user,
                    sent_by=sent_by if getattr(sent_by, 'pk', None) else None,
                    backend=settings.EMAIL_BACKEND.rsplit('.', 2)[-2] if '.' in settings.EMAIL_BACKEND else '')
-    message = EmailMultiAlternatives(subject, body, from_email(), [recipient])
+    from .models import SmsSettings
+    test_email = SmsSettings.load().test_email   # test mode: every email goes to this address instead
+    if test_email:
+        log.backend = f'{log.backend} (test mode: sent to {test_email})'[:100]
+        subject = f'[TEST for {recipient}] {subject}'
+    message = EmailMultiAlternatives(subject, body, from_email(), [test_email or recipient])
     if html_body:
         message.attach_alternative(html_body, 'text/html')
     try:

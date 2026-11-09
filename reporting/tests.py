@@ -52,6 +52,9 @@ class ReportTests(BaseTestCase):
         self.assertEqual(rows['Screened'][2:4], ['50', '50'])          # % of registered, % of previous step
         page = self.client.get(reverse('dashboard'))
         self.assertContains(page, 'Screened')
+        self.assertContains(page, 'Not screened: <strong>1</strong>')
+        listed = self.client.get(reverse('patients:list') + '?screening=none').context['object_list']
+        self.assertEqual([p.first_name for p in listed], ['Only'])
         self.assertContains(page, '1 active now')
         self.assertNotContains(page, '> Registered<')
 

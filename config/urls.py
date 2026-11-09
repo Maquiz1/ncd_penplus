@@ -35,4 +35,5 @@ urlpatterns = [
     path('issues/', include('issues.urls')),
     path('sms/', include('notifications.urls')),
     path('email/', include('notifications.email_urls')),
+    path('system/', include('notifications.system_urls')),
 ]

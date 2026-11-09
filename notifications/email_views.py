@@ -17,7 +17,7 @@ from .models import EmailLog, SiteConfiguration
 
 
 class EmailLogView(PermissionRequiredMixin, ListView):
-    permission_required = 'notifications.view_emaillog'
+    permission_required = 'notifications.change_smssettings'
     template_name = 'notifications/email_log.html'
     paginate_by = 50
 
@@ -53,7 +53,7 @@ class SiteConfigurationForm(BootstrapModelForm):
 
 
 class SiteConfigurationListView(PermissionRequiredMixin, ListView):
-    permission_required = 'notifications.view_siteconfiguration'
+    permission_required = 'notifications.change_smssettings'
     model = SiteConfiguration
     template_name = 'notifications/site_settings.html'
 
@@ -111,7 +111,7 @@ class SiteConfigurationActivateView(PermissionRequiredMixin, View):
 class SendTestEmailView(PermissionRequiredMixin, View):
     """Send a test email to the signed-in staff member's own address."""
 
-    permission_required = 'notifications.view_siteconfiguration'
+    permission_required = 'notifications.change_smssettings'
 
     def post(self, request):
         if not request.user.email:

@@ -7,12 +7,12 @@ from core.tests import BaseTestCase
 class ScheduledJobTests(BaseTestCase):
     def test_setup_creates_jobs_once_and_keeps_admin_changes(self):
         call_command('setup_periodic_tasks', stdout=open('/dev/null', 'w'))
-        self.assertEqual(PeriodicTask.objects.count(), 5)
+        self.assertEqual(PeriodicTask.objects.count(), 6)
         job = PeriodicTask.objects.get(name='Default / LTFU rule')
         job.enabled = False
         job.save()
         call_command('setup_periodic_tasks', stdout=open('/dev/null', 'w'))
-        self.assertEqual(PeriodicTask.objects.count(), 5)
+        self.assertEqual(PeriodicTask.objects.count(), 6)
         self.assertFalse(PeriodicTask.objects.get(name='Default / LTFU rule').enabled)
 
     def test_tasks_are_registered_and_run(self):
