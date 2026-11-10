@@ -1,11 +1,10 @@
 {% load ncd %}{% if study %}
-<div class="row g-3 mb-3">
-  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Assessed</div><div class="stat-value">{{ assessed }}</div></div></div></div>
-  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Eligible</div><div class="stat-value">{{ eligible }}</div></div></div></div>
-  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Consented</div><div class="stat-value">{{ consented }}</div>{% if consent_withdrawn %}<div class="small text-danger">{{ consent_withdrawn }} withdrew consent</div>{% endif %}</div></div></div>
-  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Enrolled</div><div class="stat-value">{{ total }}</div></div></div></div>
-  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Active</div><div class="stat-value">{{ totals.active|default:0 }}</div></div></div></div>
-  <div class="col-6 col-lg-2"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Lost to follow-up</div><div class="stat-value">{{ totals.ltfu|default:0 }}</div></div></div></div>
+<div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-2 g-md-3 mb-3 stat-row">
+  <div class="col"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Assessed</div><div class="stat-value">{{ assessed }}</div></div></div></div>
+  <div class="col"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Eligible</div><div class="stat-value">{{ eligible }}</div></div></div></div>
+  <div class="col"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Enrolled in the period</div><div class="stat-value">{{ total }}</div></div></div></div>
+  <div class="col"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Active</div><div class="stat-value">{{ totals.active|default:0 }}</div></div></div></div>
+  <div class="col"><div class="card shadow-sm stat-card h-100"><div class="card-body"><div class="small text-body-secondary">Lost to follow-up</div><div class="stat-value">{{ totals.ltfu|default:0 }}</div></div></div></div>
 </div>
 <div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">By site</div><div class="table-responsive"><table class="table table-sm mb-0">
   <thead><tr><th>Site</th><th class="text-end">Enrolled</th>{% for v, l in statuses %}<th class="text-end">{{ l }}</th>{% endfor %}<th class="text-end">Retention</th></tr></thead>

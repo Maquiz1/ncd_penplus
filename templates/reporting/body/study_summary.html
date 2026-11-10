@@ -1,5 +1,5 @@
 {# The subject flow for the subjects registered in the period: how many reached each step. #}
-<div class="card shadow-sm mb-3"><div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0">
+<div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">From registration to enrollment</div><div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0">
   <thead class="table-light"><tr><th>Step</th><th class="text-end">Subjects</th><th style="min-width:9rem">% of registered</th><th class="text-end">% of previous step</th>
     {% for d in data.diseases %}<th class="text-end">{{ d.name }}</th>{% endfor %}</tr></thead>
   <tbody>{% for r in data.rows %}<tr>
@@ -11,3 +11,31 @@
   </tr>{% endfor %}</tbody>
 </table></div>
 <div class="card-footer bg-body small text-body-secondary">Counts are subjects registered in the period at the chosen sites (each counted once), and how many of them reached each step so far. A subject in two programmes counts once in Subjects and in each of its diseases. “—”: the step is not per disease.</div></div>
+
+{# Where the enrolled subjects are now: one status per subject. #}
+<div class="card shadow-sm"><div class="card-header bg-body fw-semibold">Where enrolled subjects are now <span class="small fw-normal text-body-secondary">· {{ data.enrolled }} enrolled (ever)</span></div>
+<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0">
+  <thead class="table-light"><tr><th>Status</th><th class="text-end">Subjects</th><th style="min-width:9rem">% of enrolled</th>
+    {% for d in data.diseases %}<th class="text-end">{{ d.name }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for r in data.outcomes %}<tr>
+    <td class="fw-semibold">{{ r.label }}</td>
+    <td class="text-end fw-semibold">{% if perms.clinical.view_programmeenrollment %}<a href="{% url 'clinical:enrollment_list' %}?status={{ r.status }}">{{ r.count }}</a>{% else %}{{ r.count }}{% endif %}</td>
+    <td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:.5rem" role="presentation"><div class="progress-bar{% if r.status == 'active' %} bg-success{% elif r.status == 'deceased' %} bg-dark{% elif r.status == 'ltfu' %} bg-warning{% else %} bg-secondary{% endif %}" style="width: {{ r.pct }}%"></div></div><span class="small text-nowrap">{{ r.pct }}%</span></div></td>
+    {% for n in r.by_disease %}<td class="text-end">{{ n }}</td>{% endfor %}
+  </tr>{% endfor %}</tbody>
+</table></div>
+<div class="card-footer bg-body small text-body-secondary">Each enrolled subject counts once, by where they are now: a subject who died counts as Deceased; one still active in any clinic counts as Active; otherwise the latest closure (lost to follow-up = 3 months without an attended visit). In the disease columns a subject counts once per clinic, by their status in that clinic.</div></div>
+
+{# Each site on one line, from registration to where the enrolled are now. #}
+<div class="card shadow-sm mt-3"><div class="card-header bg-body fw-semibold">By site</div>
+<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Site</th><th class="text-end">Registered</th><th class="text-end">Screened</th><th class="text-end">Diagnosed</th><th class="text-end">Enrolled</th>
+    <th class="text-end">Active</th><th class="text-end">Lost to follow-up</th><th class="text-end">Transferred out</th><th class="text-end">Withdrawn</th><th class="text-end">Deceased</th><th class="text-end">Retention</th></tr></thead>
+  <tbody>{% for l in data.sites %}<tr{% if l.site == 'Total' %} class="table-light fw-semibold"{% endif %}>
+    <td>{{ l.site }}</td><td class="text-end">{{ l.registered|default:0 }}</td><td class="text-end">{{ l.screened|default:0 }}</td><td class="text-end">{{ l.diagnosed|default:0 }}</td><td class="text-end fw-semibold">{{ l.enrolled|default:0 }}</td>
+    <td class="text-end text-success fw-semibold">{{ l.active|default:0 }}</td><td class="text-end">{{ l.ltfu|default:0 }}</td><td class="text-end">{{ l.transferred_out|default:0 }}</td><td class="text-end">{{ l.withdrawn|default:0 }}</td><td class="text-end">{{ l.deceased|default:0 }}</td>
+    <td class="text-end">{% if l.retention is not None %}{{ l.retention }}%{% else %}—{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="11" class="text-center text-body-secondary py-3">No subjects registered in this period.</td></tr>{% endfor %}</tbody>
+</table></div>
+<div class="card-footer bg-body small text-body-secondary">Sites are where the subject was registered. Retention = active subjects as a share of those enrolled.</div></div>
+

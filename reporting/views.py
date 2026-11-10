@@ -130,6 +130,17 @@ class StudySummaryView(ReportPage):
         for r in data['rows']:
             yield ([r['label'], r['count'], r['of_registered'], '' if r['of_previous'] is None else r['of_previous']]
                    + (r['by_disease'] or [''] * len(data['diseases'])))
+        yield []
+        yield ['Where enrolled subjects are now', 'Subjects', '% of enrolled', ''] + [d.name for d in data['diseases']]
+        for r in data['outcomes']:
+            yield [r['label'], r['count'], r['pct'], ''] + r['by_disease']
+        yield []
+        keys = ['registered', 'screened', 'diagnosed', 'enrolled', 'active', 'ltfu', 'transferred_out', 'withdrawn',
+                'deceased']
+        yield ['Site', 'Registered', 'Screened', 'Diagnosed', 'Enrolled', 'Active', 'Lost to follow-up',
+               'Transferred out', 'Withdrawn', 'Deceased', 'Retention (%)']
+        for line in data['sites']:
+            yield [line['site']] + [line.get(k, 0) for k in keys] + [line['retention'] if line['retention'] is not None else '']
 
 
 class ConditionReportView(ReportPage):
@@ -218,7 +229,7 @@ class StudyProgressView(ReportPage):
     with_disease = False
 
     def get_context_data(self, **kwargs):
-        from research.models import ConsentRecord, Study, StudyEligibilityAssessment, StudyEnrollment
+        from research.models import Study, StudyEligibilityAssessment, StudyEnrollment
 
         f = self.get_filters()
         studies = Study.objects.all()
@@ -227,8 +238,10 @@ class StudyProgressView(ReportPage):
                                        hidden_filters={'study': study.pk} if study else {}, **kwargs)
         if study is None:
             return ctx
-        enrollments = study.enrollments.filter(facility__in=f.facilities, enrollment_date__lte=f.end,
-                                               patient__is_deleted=False)  # deleted subjects are not counted
+        # The filters apply to the cards and the tables alike: subjects enrolled in the period at the chosen sites,
+        # with their status today. Deleted subjects are not counted.
+        enrollments = study.enrollments.filter(facility__in=f.facilities, enrollment_date__range=(f.start, f.end),
+                                               patient__is_deleted=False)
         sites = []
         for facility in f.facilities.filter(pk__in=enrollments.values('facility')).order_by('name'):
             counts = dict(enrollments.filter(facility=facility).values_list('status').annotate(n=Count('id')))
@@ -238,8 +251,6 @@ class StudyProgressView(ReportPage):
         totals = dict(enrollments.values_list('status').annotate(n=Count('id')))
         assessed = StudyEligibilityAssessment.objects.filter(study=study, patient__current_facility__in=f.facilities,
                                                              assessed_on__range=(f.start, f.end), patient__is_deleted=False)
-        consents = ConsentRecord.objects.filter(study=study, patient__current_facility__in=f.facilities,
-                                                patient__is_deleted=False)
         first = enrollments.order_by('enrollment_date').values_list('enrollment_date', flat=True).first()
         monthly, cumulative = [], 0
         if first:
@@ -250,9 +261,7 @@ class StudyProgressView(ReportPage):
                 if month >= f.start.replace(day=1):
                     monthly.append((month, n, cumulative))
         ctx.update(sites=sites, statuses=StudyEnrollment.Status.choices, totals=totals, total=sum(totals.values()),
-                   assessed=assessed.count(), eligible=assessed.filter(is_eligible=True).count(),
-                   consented=consents.filter(decision='consented').count(),
-                   consent_withdrawn=consents.filter(decision='withdrawn').count(), monthly=monthly[-24:])
+                   assessed=assessed.count(), eligible=assessed.filter(is_eligible=True).count(), monthly=monthly[-24:])
         return ctx
 
 

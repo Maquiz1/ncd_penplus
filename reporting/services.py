@@ -21,16 +21,14 @@ def scoped(model, user, field='patient__current_facility'):
 
 
 def screened_counts(user, screenings):
-    """Subjects screened (screening form, or screened for a disease) and how many of them consented."""
+    """Subjects screened (screening form, or screened for a disease), and how many this month."""
     from clinical.models import PreScreening
     forms = scoped(PreScreening, user)
     screened = set(forms.values_list('patient_id', flat=True)) | set(screenings.values_list('patient_id', flat=True))
-    consented = set(forms.filter(consent_obtained=True).values_list('patient_id', flat=True)) | set(
-        screenings.filter(consent_obtained=True).values_list('patient_id', flat=True))
     month_start = timezone.localdate().replace(day=1)
     new = set(forms.filter(date__gte=month_start).values_list('patient_id', flat=True)) | set(
         screenings.filter(screening_date__gte=month_start).values_list('patient_id', flat=True))
-    return {'screened': len(screened), 'screened_consented': len(consented & screened), 'screened_new_month': len(new)}
+    return {'screened': len(screened), 'screened_new_month': len(new)}
 
 
 def screening_rows(user, screenings, disease_ids):

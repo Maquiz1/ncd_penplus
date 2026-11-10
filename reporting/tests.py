@@ -47,8 +47,11 @@ class ReportTests(BaseTestCase):
         self.client.force_login(self.manager)
         body = self.client.get(reverse('reporting:study_summary') + '?period=all&format=csv').content.decode()
         rows = {line.split(',')[0]: line.split(',') for line in body.splitlines()[1:]}
-        self.assertEqual([rows[k][1] for k in ('Registered', 'Screened', 'Consented', 'Diagnosed (confirmed)',
-                                                'Enrolled (ever)', 'Enrolled (active now)')], ['2', '1', '1', '1', '1', '1'])
+        self.assertEqual([rows[k][1] for k in ('Registered', 'Screened', 'Diagnosed (confirmed)',
+                                                'Enrolled (ever)', 'Enrolled (active now)')], ['2', '1', '1', '1', '1'])
+        self.assertNotIn('Consented', rows)
+        self.assertEqual(rows['Active'][1], '1')                          # where enrolled subjects are now
+        self.assertEqual(rows['Lost to follow-up'][1], '0')
         self.assertEqual(rows['Screened'][2:4], ['50', '50'])          # % of registered, % of previous step
         page = self.client.get(reverse('dashboard'))
         self.assertContains(page, 'Screened')

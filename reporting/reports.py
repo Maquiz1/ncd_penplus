@@ -74,11 +74,9 @@ def recruitment_by_site(filters):
 
 def study_summary(filters):
     """The subjects registered in the period at the chosen sites, and how many of them reached each step:
-    screened, consented, diagnosed (confirmed), enrolled (ever) and enrolled (active now). Per disease where the
+    screened, diagnosed (confirmed), enrolled (ever) and enrolled (active now). Per disease where the
     step belongs to a disease."""
     from clinical.models import PreScreening
-    from research.models import ConsentRecord
-
     diseases = [filters.disease] if filters.disease else list(filters.diseases)
     cohort = Patient.objects.filter(registration_facility__in=filters.facilities,
                                     registration_date__range=(filters.start, filters.end))
@@ -91,15 +89,10 @@ def study_summary(filters):
         return set(qs.values_list(field, flat=True))
 
     screened = subjects(PreScreening.objects.filter(patient_id__in=ids)) | subjects(screenings)
-    consented = (subjects(PreScreening.objects.filter(patient_id__in=ids, consent_obtained=True))
-                 | subjects(screenings.filter(consent_obtained=True))
-                 | subjects(ConsentRecord.objects.filter(patient_id__in=ids, decision='consented')))
     steps = [
         ('registered', 'Registered', ids, 'Registered at the site in the period.', None),
         ('screened', 'Screened', screened, 'Screening form filled, or screened for a disease.',
          lambda d: subjects(screenings.filter(disease=d))),
-        ('consented', 'Consented', consented & screened, 'Consented in the screening form (or a study consent).',
-         None),
         ('diagnosed', 'Diagnosed (confirmed)', subjects(diagnosed), 'A diagnosis the doctor confirmed.',
          lambda d: subjects(diagnosed.filter(disease=d))),
         ('enrolled', 'Enrolled (ever)', subjects(enrolled), 'Enrolled in a programme, whatever the status now.',
@@ -117,7 +110,75 @@ def study_summary(filters):
                      'of_previous': round(100 * count / previous) if previous else None,
                      'by_disease': [len(per_disease(d)) for d in diseases] if per_disease else None})
         previous = count
-    return {'rows': rows, 'diseases': diseases, 'total': total}
+    outcomes = study_outcomes(ids, diseases)
+    return {'rows': rows, 'diseases': diseases, 'total': total, **outcomes,
+            'sites': summary_by_site(filters, cohort, screened, subjects(diagnosed), outcomes['status_of'])}
+
+
+def summary_by_site(filters, cohort, screened, diagnosed, status_of):
+    """One line per site (where the subject was registered): the flow and where the enrolled are now."""
+    site_of = dict(cohort.values_list('pk', 'registration_facility_id'))
+    names = dict(filters.facilities.values_list('pk', 'name'))
+    lines = {}
+    for pid, site in site_of.items():
+        line = lines.setdefault(site, Counter())
+        line['registered'] += 1
+        line['screened'] += pid in screened
+        line['diagnosed'] += pid in diagnosed
+        if pid in status_of:
+            line['enrolled'] += 1
+            line[status_of[pid]] += 1
+    result = []
+    for site, line in sorted(lines.items(), key=lambda kv: names.get(kv[0], '')):
+        line = dict(line, site=names.get(site, '—'))
+        line['retention'] = round(100 * line.get('active', 0) / line['enrolled'], 1) if line.get('enrolled') else None
+        result.append(line)
+    if len(result) > 1:
+        total = Counter()
+        for line in result:
+            total.update({k: v for k, v in line.items() if isinstance(v, int) and k != 'retention'})
+        total = dict(total, site='Total')
+        total['retention'] = round(100 * total.get('active', 0) / total['enrolled'], 1) if total.get('enrolled') else None
+        result.append(total)
+    return result
+
+
+OUTCOME_ORDER = ['active', 'ltfu', 'transferred_out', 'withdrawn', 'deceased', 'completed', 'other', 'pending']
+ALWAYS_SHOWN = {'active', 'ltfu', 'transferred_out', 'withdrawn', 'deceased'}
+
+
+def study_outcomes(patient_ids, diseases):
+    """Where the enrolled subjects are now: one status per subject (and per subject in each disease's clinic).
+    Died wins over everything; else active, else pending, else the latest closure."""
+    from clinical.models import EnrollmentStatus
+    rows = (ProgrammeEnrollment.objects.filter(patient_id__in=patient_ids, programme__disease__in=diseases)
+            .values_list('patient_id', 'programme__disease_id', 'status', 'outcome_date', 'enrollment_date',
+                         'patient__vital_status'))
+
+    def pick(items):
+        if any(dead == 'deceased' for *_rest, dead in items):
+            return 'deceased'
+        statuses = {status for _d, status, *_rest in items}
+        for wanted in ('active', 'pending'):
+            if wanted in statuses:
+                return wanted
+        latest = max(items, key=lambda i: (i[2] or i[3], i[3]))
+        return latest[1]
+
+    by_subject, by_disease = defaultdict(list), defaultdict(list)
+    for patient_id, disease_id, status, outcome, enrolled, vital in rows:
+        by_subject[patient_id].append((disease_id, status, outcome, enrolled, vital))
+        by_disease[(patient_id, disease_id)].append((disease_id, status, outcome, enrolled, vital))
+    status_of = {pid: pick(items) for pid, items in by_subject.items()}
+    overall = Counter(status_of.values())
+    per_disease = Counter((key[1], pick(items)) for key, items in by_disease.items())
+    enrolled = len(by_subject)
+    labels = dict(EnrollmentStatus.choices)
+    outcome_rows = [{'status': code, 'label': labels[code], 'count': overall.get(code, 0),
+                     'pct': round(100 * overall.get(code, 0) / enrolled) if enrolled else 0,
+                     'by_disease': [per_disease.get((d.pk, code), 0) for d in diseases]}
+                    for code in OUTCOME_ORDER if code in ALWAYS_SHOWN or overall.get(code)]
+    return {'outcomes': outcome_rows, 'enrolled': enrolled, 'status_of': status_of}
 
 
 # ------------------------------------------------------------------ patients by condition

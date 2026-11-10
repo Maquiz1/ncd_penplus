@@ -48,7 +48,9 @@ class ReportFilters:
         get = request.GET
         self.user = request.user
         self.with_disease = with_disease
-        self.scope = facilities_for_user(request.user)
+        # PEN-Plus clinic sites only (inactive ones too, for history); referral hospitals and placeholders have
+        # no subjects of their own.
+        self.scope = facilities_for_user(request.user).filter(is_research_site=True)
         self.zones = Zone.objects.filter(regions__districts__facilities__in=self.scope).distinct()
         self.regions = Region.objects.filter(districts__facilities__in=self.scope).distinct()
         self.districts = District.objects.filter(facilities__in=self.scope).distinct()
