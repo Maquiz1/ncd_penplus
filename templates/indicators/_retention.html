@@ -1,0 +1,20 @@
+{# Clinic indicators: leaving care and coming back. Each number opens its subjects. #}
+<div class="alert alert-light border small">Clinic indicators, not part of the official PEN-Plus list. Counts are subjects at the chosen sites and clinics; choose a clinic in the Disease filter to see one clinic. Click a number to see the subjects.</div>
+{% for head, subs in groups %}
+<div class="card shadow-sm mb-3"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead class="table-light"><tr><th>{{ head.label }}</th><th class="text-end">Subjects</th><th style="min-width:9rem">% of the group</th>{% for s in sites %}<th class="text-end">{{ s.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    <tr class="fw-semibold"><td>All</td><td class="text-end"><a href="?{{ query }}&amp;show={{ head.key }}">{{ head.count }}</a></td><td></td>{% for n in head.sites %}<td class="text-end">{{ n }}</td>{% endfor %}</tr>
+    {% for r in subs %}<tr><td class="ps-4">{{ r.label|capfirst }}</td>
+      <td class="text-end"><a href="?{{ query }}&amp;show={{ r.key }}">{{ r.count }}</a></td>
+      <td>{% if r.pct is not None %}<div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:.5rem" role="presentation"><div class="progress-bar" style="width: {{ r.pct }}%"></div></div><span class="small text-nowrap">{{ r.pct }}%</span></div>{% else %}—{% endif %}</td>
+      {% for n in r.sites %}<td class="text-end">{{ n }}</td>{% endfor %}</tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% endfor %}
+<div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Referrals by hospital</div><div class="table-responsive"><table class="table table-sm mb-0">
+  <thead class="table-light"><tr><th>Referred to</th><th class="text-end">Referred</th><th class="text-end">Came back</th><th class="text-end">Not back yet</th></tr></thead>
+  <tbody>{% for h in hospitals %}<tr><td>{{ h.name }}</td><td class="text-end">{{ h.referred }}</td><td class="text-end">{{ h.back }}</td><td class="text-end{% if h.not_back %} text-warning-emphasis fw-semibold{% endif %}">{{ h.not_back }}</td></tr>
+  {% empty %}<tr><td colspan="4" class="text-body-secondary">No referrals in this period.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+<div class="small text-body-secondary">Returned from LTFU: returned to care in the period. Missed 3 or more visits in a row: three appointments marked Missed one after the other, the third in the period (imported EDCS months without a visit are "expected", not missed). Transferred out and came back: returned in the period after a transfer out of PEN-Plus. Referred: referral date in the period.</div>

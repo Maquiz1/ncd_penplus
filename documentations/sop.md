@@ -217,6 +217,8 @@ An active site that is not a PEN-Plus clinic site (a referral or mentoring hospi
 
 ## Reports
 
+- **Study summary** (Reports): the flow from registration to enrollment, where the enrolled subjects are now (active, LTFU, transferred out, withdrawn, deceased) and the same by site.
+- **Retention & returns** (Indicators; clinic indicators, not on the official PEN-Plus list): subjects who returned from LTFU (still active or inactive again), who missed 3 or more visits in a row and what happened next, who came back after a transfer out, and who were referred to another hospital (back or not back yet). Click any number to see the subjects.
 - **Follow-up & retention** shows, per month: visits due, attended, missed, attendance %, **unscheduled visits**, LTFU, returns and deaths.
 - Attendance counts appointments only. Unscheduled visits are shown separately and do not raise or lower attendance.
 - Visits migrated from EDCS as UV (unscheduled visit) are imported as **Unscheduled**.

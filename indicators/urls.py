@@ -9,4 +9,5 @@ urlpatterns = [
     path('clinical/', views.ClinicalView.as_view(), name='clinical'),
     path('sociodemographic/', views.SociodemographicView.as_view(), name='socio'),
     path('patients/', views.DrillView.as_view(), name='drill'),
+    path('retention/', views.RetentionView.as_view(), name='retention'),
 ]

@@ -157,3 +157,37 @@ class HelperTests(BaseTestCase):
         self.assertEqual(clinical.after_enrollment(self.FakeCohort({}, d(3)), 1, d(6)), d(3, 16))
         self.assertEqual(clinical.after_enrollment(self.FakeCohort({}, datetime.date(Y - 3, 1, 1)), 1, d(6)),
                          d(6, year=Y - 1))
+
+
+class RetentionTests(BaseTestCase):
+    def test_returns_missed_visits_transfers_and_referrals(self):
+        from encounters.models import Appointment, Referral
+        today = timezone.localdate()
+        day = lambda n: today - datetime.timedelta(days=n)
+        p = self.make_patient()
+        enrollment = ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala, status='active',
+                                                        programme=ClinicalProgramme.objects.get(code='dm-care'))
+        for n in (120, 90, 60):                                   # three missed in a row ...
+            Appointment.objects.create(patient=p, facility=self.ilala, scheduled_date=day(n), status='missed')
+        EnrollmentEvent.objects.create(enrollment=enrollment, from_status='active', to_status='ltfu', event_date=day(50))
+        EnrollmentEvent.objects.create(enrollment=enrollment, kind='return', from_status='ltfu', to_status='active',
+                                       event_date=day(10))         # ... LTFU, then back
+        Appointment.objects.create(patient=p, facility=self.ilala, scheduled_date=day(10), status='attended')
+        Referral.objects.create(patient=p, facility=self.ilala, to_other='KCMC', reason='Echo', referral_date=day(5))
+        manager = self.make_user('dm_ret', 'Data Manager', facility=self.ilala)
+        self.client.force_login(manager)
+        url = reverse('indicators:retention') + '?period=all'
+        body = self.client.get(url + '&format=csv').content.decode()
+        import csv
+        import io
+        rows = {r[0].strip(): r for r in csv.reader(io.StringIO(body.lstrip('\ufeff'))) if r}
+        self.assertEqual(rows['Returned from LTFU'][1], '1')
+        self.assertEqual(rows['still active'][1], '1')
+        self.assertEqual(rows['became LTFU, then returned'][1], '1')
+        self.assertEqual(rows['Referred to another hospital'][1], '1')
+        self.assertEqual(rows['not back yet'][1], '1')
+        self.assertEqual(rows['KCMC'][1:], ['1', '0', '1'])
+        drill = self.client.get(url + '&show=ltfu_returned')
+        self.assertContains(drill, p.patient_number)
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertEqual(self.client.get(url + '&format=pdf')['Content-Type'], 'application/pdf')

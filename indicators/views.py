@@ -174,3 +174,69 @@ class DrillView(IndicatorPermission, View):
             'title': title, 'subtitle': subtitle, 'patients': patients, 'back': back,
             'with_visits': last_visit is not None, 'csv_url': '?' + request.GET.urlencode() + '&format=csv'
             if last_visit is not None else ''})
+
+
+# ---------------------------------------------------------------- retention & returns (clinic indicators)
+
+from reporting.views import ReportPage  # noqa: E402
+
+from .retention import LABELS, retention_indicators  # noqa: E402
+
+RETENTION_GROUPS = [
+    ('returned', ['still_active', 'inactive_again']),
+    ('missed_three', ['came_back', 'ltfu_returned', 'ltfu_not_back', 'still_missing', 'left_other']),
+    ('transfer_returned', ['transfer_still_active']),
+    ('referred', ['referral_back', 'referral_not_back']),
+]
+
+
+class RetentionView(ReportPage):
+    """Clinic indicators on leaving care and coming back; each number opens the list of its subjects."""
+
+    report_title = 'Retention & returns'
+    body_template = 'indicators/_retention.html'
+    default_period = 'this_year'
+
+    def get_context_data(self, **kwargs):
+        f = self.get_filters()
+        sets, by_hospital = retention_indicators(f)
+        site_of = dict(Patient.objects.filter(pk__in=set().union(*sets.values()))
+                       .values_list('pk', 'current_facility_id'))
+        sites = list(f.facilities.filter(pk__in=set(site_of.values())).order_by('name'))
+
+        def line(key, base=None):
+            ids = sets[key]
+            return {'key': key, 'label': LABELS[key], 'count': len(ids),
+                    'pct': round(100 * len(ids) / len(base)) if base else None,
+                    'sites': [sum(1 for pid in ids if site_of.get(pid) == s.pk) for s in sites]}
+        groups = [(line(head), [line(sub, sets[head]) for sub in subs]) for head, subs in RETENTION_GROUPS]
+        hospitals = [{'name': name, 'referred': len(v['referred']), 'back': len(v['back']),
+                      'not_back': len(v['referred'] - v['back'])} for name, v in by_hospital.items()]
+        return super().get_context_data(groups=groups, sites=sites, hospitals=hospitals,
+                                        query=f.querystring(), **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        key = request.GET.get('show')
+        if key in LABELS:
+            f = self.get_filters()
+            sets, _ = retention_indicators(f)
+            head = next((h for h, subs in RETENTION_GROUPS if key == h or key in subs), key)
+            title = LABELS[key] if key == head else f'{LABELS[head]}: {LABELS[key]}'
+            patients = list(with_old_study_id(Patient.objects.filter(pk__in=sets[key])
+                                              .select_related('current_facility').order_by('patient_number')))
+            return render(request, 'indicators/drill.html', {
+                'title': title, 'subtitle': f.description, 'patients': patients,
+                'back': reverse('indicators:retention') + '?' + f.querystring()})
+        return super().get(request, *args, **kwargs)
+
+    def csv_rows(self, context):
+        sites = context['sites']
+        yield ['Indicator', 'Subjects', '% of the group'] + [s.name for s in sites]
+        for head, subs in context['groups']:
+            yield [head['label'], head['count'], ''] + head['sites']
+            for sub in subs:
+                yield ['  ' + sub['label'], sub['count'], '' if sub['pct'] is None else sub['pct']] + sub['sites']
+        yield []
+        yield ['Referred to', 'Referred', 'Came back', 'Not back yet']
+        for h in context['hospitals']:
+            yield [h['name'], h['referred'], h['back'], h['not_back']]
