@@ -640,9 +640,11 @@ class PatientFlowTests(BaseTestCase):
         url = reverse('encounters:admission_discharge', args=[second.pk])
         died = {'discharged_at': timezone.now().strftime('%Y-%m-%dT%H:%M'), 'discharge_outcome': 'died'}
         self.assertContains(self.client.post(url, died), 'Give the date of death.')
-        self.client.post(url, {**died, 'date_of_death': timezone.localdate().isoformat(), 'cause_of_death': 'DKA'})
+        self.client.post(url, {**died, 'date_of_death': timezone.localdate().isoformat(), 'cause_of_death': 'DKA',
+                               'cause_of_death_category': 'ncd'})
         p.refresh_from_db()
-        self.assertEqual((p.vital_status, p.date_of_death, p.cause_of_death), ('deceased', timezone.localdate(), 'DKA'))
+        self.assertEqual((p.vital_status, p.date_of_death, p.cause_of_death, p.cause_of_death_category),
+                         ('deceased', timezone.localdate(), 'DKA', 'ncd'))
 
     def test_subject_page_has_five_tabs_and_baseline_cards_on_overview(self):
         import re

@@ -63,6 +63,19 @@ class ReportTests(BaseTestCase):
         self.assertContains(page, '1 active now')
         self.assertNotContains(page, '> Registered<')
 
+    def test_study_summary_splits_transfers_and_deaths(self):
+        moved = self.make_patient(first_name='Moved')
+        ProgrammeEnrollment.objects.create(patient=moved, facility=self.ilala, status='transferred_out',
+                                           transfer_to_type='referral', transfer_to='KCMC',
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        self.client.force_login(self.manager)
+        body = self.client.get(reverse('reporting:study_summary') + '?period=all&format=csv').content.decode()
+        self.assertIn('  To: Referral hospital,1', body)
+        page = self.client.get(reverse('reporting:study_summary') + '?period=all')
+        self.assertContains(page, '?status=transferred_out&amp;transfer_to=referral')
+        listed = self.client.get(reverse('clinical:enrollment_list') + '?status=transferred_out&transfer_to=referral')
+        self.assertContains(listed, moved.patient_number)
+
     def test_recruitment_counts_enrolment(self):
         self.client.force_login(self.manager)
         body = self.client.get(reverse('reporting:recruitment') + '?period=all&format=csv').content.decode()

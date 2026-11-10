@@ -194,6 +194,25 @@ def study_outcomes(patient_ids, diseases):
                      'pct': round(100 * overall.get(code, 0) / enrolled) if enrolled else 0,
                      'by_disease': [per_disease.get((d.pk, code), 0) for d in diseases]}
                     for code in OUTCOME_ORDER if code in ALWAYS_SHOWN or overall.get(code)]
+    # Transferred out: where to; deceased: the cause.
+    from patients.models import Patient
+    kinds = {'transferred_out': ('transfer_to', dict(ProgrammeEnrollment._meta.get_field('transfer_to_type').choices)),
+             'deceased': ('cause', dict(Patient._meta.get_field('cause_of_death_category').choices))}
+    moved = {pid for pid, s in status_of.items() if s == 'transferred_out'}
+    transfer_type = {}
+    for pid, kind in (ProgrammeEnrollment.objects.filter(patient_id__in=moved, status='transferred_out')
+                      .order_by('outcome_date').values_list('patient_id', 'transfer_to_type')):
+        transfer_type[pid] = kind or transfer_type.get(pid, '')
+    died = {pid for pid, s in status_of.items() if s == 'deceased'}
+    cause = dict(Patient.all_objects.filter(pk__in=died).values_list('pk', 'cause_of_death_category'))
+    for row in outcome_rows:
+        if row['status'] not in kinds:
+            continue
+        param, labels = kinds[row['status']]
+        values = transfer_type if row['status'] == 'transferred_out' else cause
+        split = Counter(values.get(pid, '') for pid, s in status_of.items() if s == row['status'])
+        row['split'] = [{'label': labels.get(code, 'Not recorded'), 'code': code or 'none', 'param': param,
+                         'count': n} for code, n in sorted(split.items(), key=lambda kv: (kv[0] == '', -kv[1]))]
     return {'outcomes': outcome_rows, 'enrolled': enrolled, 'status_of': status_of}
 
 

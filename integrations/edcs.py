@@ -119,6 +119,8 @@ OUTCOMES = {'1': ('active', ''), '2': ('ltfu', 'Defaulted (EDCS)'), '3': ('withd
 TERMINAL_OUTCOMES = {'2', '3', '4', '5'}  # default, stopped/withdrawn, transfer out, death
 STUDY_STATUS = {'active': 'active', 'ltfu': 'ltfu', 'other': 'other', 'withdrawn': 'withdrawn', 'transferred_out': 'transferred',
                 'deceased': 'deceased'}
+TRANSFER_TO = {'1': 'ncd_clinic', '2': 'referral', '96': 'other'}   # summary.transfer_out
+DEATH_CAUSE = {'1': 'ncd', '2': 'unknown', '96': 'other'}          # summary.cause_death
 MED_ACTIONS = {'1': 'continue', '2': 'start', '3': 'stop', '4': 'not_eligible'}
 # EDCS uses these as 'not done / missing' in lab fields (e.g. 93 of 96 sodium values are 98 or 99).
 def edcs_lab_request(patient_pk, date):
@@ -611,7 +613,12 @@ class Importer:
             if code == '5':
                 death_date = parse_date(summary.get('death_date')) or outcome_date
                 cause = text(summary.get('death_other')) or option_label('summary', 'cause_death', summary.get('cause_death'))
-                self.deaths[patient.pk] = (death_date, cause or 'Recorded as death in EDCS')
+                self.deaths[patient.pk] = (death_date, cause or 'Recorded as death in EDCS',
+                                           DEATH_CAUSE.get(text(summary.get('cause_death')), ''))
+            transfer = {}
+            if code == '4' and summary:
+                transfer = {'transfer_to_type': TRANSFER_TO.get(text(summary.get('transfer_out')), ''),
+                            'transfer_to': text(summary.get('transfer_other'))[:200]}
             diseases = [d for column, d in (('cardiac', 'cardiac'), ('diabetes', 'diabetes'), ('sickle_cell', 'scd'))
                         if text(row.get(column)) == '1']
             if not diseases and CATEGORY_DISEASE.get(text(row.get('dignosis_type'))):
@@ -624,7 +631,7 @@ class Importer:
                 enrollment = ProgrammeEnrollment.objects.create(
                     patient=patient, programme=self.programmes[disease], facility=facility, enrollment_date=start,
                     status=status, outcome_date=outcome_date if status != 'active' else None,
-                    outcome_reason=reason, responsible_team='PEN-Plus clinic', created_by=self.import_user)
+                    outcome_reason=reason, responsible_team='PEN-Plus clinic', created_by=self.import_user, **transfer)
                 self.remember(f'clients.programme.{disease}', row['id'], enrollment)
                 self.counts['programme enrollments created'] += 1
             if self.mapped('clients', row['id'], StudyEnrollment):
@@ -938,11 +945,11 @@ class Importer:
 
     # ------------------------------------------------------------ final steps
     def apply_deaths(self):
-        for patient_pk, (date, cause) in self.deaths.items():
+        for patient_pk, (date, cause, category) in self.deaths.items():
             patient = Patient.all_objects.get(pk=patient_pk)
             if patient.vital_status == 'deceased':
                 continue
-            record_death(patient, date or self.today, cause[:255], self.import_user)
+            record_death(patient, date or self.today, cause[:255], self.import_user, category=category)
             self.counts['deaths recorded'] += 1
 
     def apply_soft_deletes(self):

@@ -73,6 +73,8 @@ class Patient(SoftDeleteModel):
     vital_status = models.CharField(max_length=10, choices=VitalStatus.choices, default=VitalStatus.ALIVE, editable=False)
     date_of_death = models.DateField(null=True, blank=True, editable=False)
     cause_of_death = models.CharField(max_length=255, blank=True, editable=False)
+    cause_of_death_category = models.CharField('Cause of death', max_length=10, blank=True, editable=False,
+                                               choices=[('ncd', 'NCD'), ('unknown', 'Unknown'), ('other', 'Other')])
 
     objects = PatientManager()
     all_objects = PatientQuerySet.as_manager()

@@ -22,7 +22,9 @@
     <td class="text-end fw-semibold">{% if perms.clinical.view_programmeenrollment %}<a href="{% url 'clinical:enrollment_list' %}?status={{ r.status }}">{{ r.count }}</a>{% else %}{{ r.count }}{% endif %}</td>
     <td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:.5rem" role="presentation"><div class="progress-bar{% if r.status == 'active' %} bg-success{% elif r.status == 'deceased' %} bg-dark{% elif r.status == 'ltfu' %} bg-warning{% else %} bg-secondary{% endif %}" style="width: {{ r.pct }}%"></div></div><span class="small text-nowrap">{{ r.pct }}%</span></div></td>
     {% for n in r.by_disease %}<td class="text-end">{{ n }}</td>{% endfor %}
-  </tr>{% endfor %}</tbody>
+  </tr>{% for x in r.split %}<tr class="small text-body-secondary"><td class="ps-4">{% if x.param == 'cause' %}Cause: {% else %}To: {% endif %}{{ x.label }}</td>
+    <td class="text-end">{% if x.param == 'cause' and perms.patients.view_patient %}<a href="{% url 'patients:list' %}?death_cause={{ x.code }}">{{ x.count }}</a>{% elif x.param == 'transfer_to' and perms.clinical.view_programmeenrollment %}<a href="{% url 'clinical:enrollment_list' %}?status=transferred_out&amp;transfer_to={{ x.code }}">{{ x.count }}</a>{% else %}{{ x.count }}{% endif %}</td>
+    <td colspan="{{ data.diseases|length|add:1 }}"></td></tr>{% endfor %}{% endfor %}</tbody>
 </table></div>
 <div class="card-footer bg-body small text-body-secondary">Each enrolled subject counts once, by where they are now: a subject who died counts as Deceased; one still active in any clinic counts as Active; otherwise the latest closure (lost to follow-up = 3 months without an attended visit). In the disease columns a subject counts once per clinic, by their status in that clinic.</div></div>
 

@@ -141,11 +141,16 @@ class DischargeForm(PatientChildForm):
     # Died in hospital: the death is recorded on the subject too (status, programmes, future visits).
     date_of_death = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}),
                                     help_text='Only when the outcome is Died.')
-    cause_of_death = forms.CharField(max_length=255, required=False, help_text='Only when the outcome is Died.')
+    cause_of_death_category = forms.ChoiceField(label='Cause of death', required=False,
+                                                choices=[('', 'Choose…'), ('ncd', 'NCD'), ('unknown', 'Unknown'),
+                                                         ('other', 'Other')], help_text='Only when the outcome is Died.')
+    cause_of_death = forms.CharField(label='Cause / circumstances', max_length=255, required=False,
+                                     help_text='Only when the outcome is Died.')
 
     class Meta:
         model = Admission
-        fields = ['discharged_at', 'discharge_outcome', 'date_of_death', 'cause_of_death', 'discharge_summary']
+        fields = ['discharged_at', 'discharge_outcome', 'date_of_death', 'cause_of_death_category', 'cause_of_death',
+                  'discharge_summary']
         labels = {'discharged_at': 'Discharged / left hospital at'}
 
     def __init__(self, *args, **kwargs):
@@ -155,6 +160,7 @@ class DischargeForm(PatientChildForm):
         if self.patient is not None and self.patient.is_deceased:
             self.initial.setdefault('date_of_death', self.patient.date_of_death)
             self.initial.setdefault('cause_of_death', self.patient.cause_of_death)
+            self.initial.setdefault('cause_of_death_category', self.patient.cause_of_death_category)
 
     def clean(self):
         cleaned = super().clean()
@@ -166,8 +172,10 @@ class DischargeForm(PatientChildForm):
                 self.add_error('date_of_death', 'The date of death cannot be in the future.')
             elif died < timezone.localtime(self.instance.admitted_at).date():
                 self.add_error('date_of_death', 'The date of death is before the admission.')
+            if not cleaned.get('cause_of_death_category'):
+                self.add_error('cause_of_death_category', 'Choose NCD, Unknown or Other.')
             if not cleaned.get('cause_of_death', '').strip():
-                self.add_error('cause_of_death', 'Give the cause of death (or "Unknown").')
+                self.add_error('cause_of_death', 'Describe the cause (or write "Unknown").')
         return cleaned
 
 

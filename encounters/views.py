@@ -326,7 +326,7 @@ class AdmissionDischargeView(PatientChildUpdateMixin, UpdateView):
         if data['discharge_outcome'] == Admission.DischargeOutcome.DIED and not patient.is_deceased:
             from patients.services import record_death
             record_death(patient, data['date_of_death'], data['cause_of_death'].strip(), self.request.user,
-                         self.request)
+                         self.request, category=data['cause_of_death_category'])
             messages.info(self.request, 'The death was recorded on the subject: programmes closed and future '
                                         'appointments cancelled.')
         return response

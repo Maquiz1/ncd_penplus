@@ -95,9 +95,14 @@ class PatientTransferForm(PatientChildForm):
         return facility
 
 
+DEATH_CAUSES = [('ncd', 'NCD'), ('unknown', 'Unknown'), ('other', 'Other')]
+
+
 class RecordDeathForm(BootstrapForm):
     date_of_death = forms.DateField()
-    cause = forms.CharField(label='Cause / circumstances', max_length=255)
+    cause_category = forms.ChoiceField(label='Cause of death', choices=[('', 'Choose…')] + DEATH_CAUSES)
+    cause = forms.CharField(label='Cause / circumstances', max_length=255,
+                            help_text='What is known; for "Other", say what the cause was.')
 
 
 class TransferActionForm(BootstrapForm):

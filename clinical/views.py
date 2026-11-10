@@ -451,7 +451,9 @@ class TransferOutView(PermissionRequiredMixin, View):
                 old = enrollment.status
                 enrollment.status, enrollment.outcome_date, enrollment.outcome_reason = (
                     'transferred_out', data['date'], reason)
-                enrollment.save(update_fields=['status', 'outcome_date', 'outcome_reason', 'updated_at'])
+                enrollment.transfer_to_type, enrollment.transfer_to = data['to_type'], where[:200]
+                enrollment.save(update_fields=['status', 'outcome_date', 'outcome_reason', 'transfer_to_type',
+                                               'transfer_to', 'updated_at'])
                 EnrollmentEvent.objects.create(enrollment=enrollment, from_status=old,
                                                to_status='transferred_out', event_date=data['date'], reason=reason,
                                                created_by=request.user)
@@ -571,6 +573,9 @@ class ProgrammeEnrollmentListView(PermissionRequiredMixin, ScopedQuerysetMixin, 
             qs = qs.filter(programme_id=self.request.GET['programme'])
         if self.request.GET.get('status'):
             qs = qs.filter(status=self.request.GET['status'])
+        if self.request.GET.get('transfer_to'):
+            value = self.request.GET['transfer_to']
+            qs = qs.filter(transfer_to_type='' if value == 'none' else value)
         return qs
 
     def get_context_data(self, **kwargs):

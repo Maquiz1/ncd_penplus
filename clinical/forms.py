@@ -192,7 +192,8 @@ class ProgrammeEnrollmentForm(PatientChildForm):
     class Meta:
         model = ProgrammeEnrollment
         fields = ['programme', 'facility', 'enrollment_date', 'status', 'responsible_team', 'care_plan',
-                  'outcome_date', 'outcome_reason']
+                  'outcome_date', 'outcome_reason', 'transfer_to_type', 'transfer_to']
+        help_texts = {'transfer_to_type': 'Only when the status is Transferred out.'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -407,9 +408,12 @@ class TransferOutForm(BootstrapForm):
 
     date = forms.DateField(label='Transfer date', initial=timezone.localdate,
                            widget=forms.DateInput(attrs={'type': 'date'}))
+    to_type = forms.ChoiceField(label='Transferred to', choices=[('', 'Choose…'), ('ncd_clinic', 'Other NCD clinic'),
+                                                                ('referral', 'Referral hospital'), ('other', 'Other')])
     to_facility = forms.ModelChoiceField(queryset=None, required=False, label='Transferred to',
                                          empty_label='Not in the list (write it below)')
-    to_other = forms.CharField(max_length=200, required=False, label='Other hospital / place')
+    to_other = forms.CharField(max_length=200, required=False, label='Hospital / place not in the list',
+                               help_text='For "Other", say where.')
     reason = forms.CharField(max_length=200, label='Reason')
 
     def __init__(self, *args, patient=None, **kwargs):

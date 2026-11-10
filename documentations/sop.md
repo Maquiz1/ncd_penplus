@@ -143,9 +143,9 @@ All from **More actions** on the subject page, at any time:
 
 - **Transfer to another PEN-Plus site** (for example Kondoa to Karatu): the subject moves and stays in the study. Only active PEN-Plus sites are offered.
 - **Refer to another hospital** (for example BMH or KCMC, or any hospital written in): the subject **stays enrolled** and comes back. Record the referral date, hospital and reason; when the subject is back, open the referral (Admission tab → Referrals → **Return / feedback**) and record the date back and the feedback.
-- **Transfer out of PEN-Plus**: the subject leaves the PEN-Plus clinic for care elsewhere. Every open clinic closes as *transferred out*, the study enrollment closes, and future appointments and schedules stop. If the subject comes back later, use **Return to care**.
+- **Transfer out of PEN-Plus**: the subject leaves the PEN-Plus clinic for care elsewhere. Choose **Transferred to** (Other NCD clinic, Referral hospital or Other) and the hospital or place. Every open clinic closes as *transferred out*, the study enrollment closes, and future appointments and schedules stop. If the subject comes back later, use **Return to care**.
 - **Outcome** for one clinic: LTFU, stopped, and later **Return to care**.
-- **Record death**.
+- **Record death**: the date, the **Cause of death** (NCD, Unknown or Other) and what is known about it. Discharging an admission with outcome Died asks the same.
 - **Withdraw / leave the study**: closes the care enrollment here too, and the subject continues routine care in GoTHOMIS. Closing one disease's programme closes the study only if no other programme is active.
 
 ## 7. Checks and corrections

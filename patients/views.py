@@ -69,6 +69,9 @@ class PatientListView(PermissionRequiredMixin, ListView):
             else:
                 qs = qs.filter(pk__in=forms.values('patient_id')).exclude(
                     pk__in=forms.filter(known_ncd=True).values('patient_id'))
+        if params.get('death_cause'):
+            value = params['death_cause']
+            qs = qs.filter(vital_status='deceased', cause_of_death_category='' if value == 'none' else value)
         multi = params.get('multi')
         from reporting.services import MULTI_BASIS, more_than_one_disease
         if multi in MULTI_BASIS:
@@ -270,7 +273,8 @@ class PatientRecordDeathView(PermissionRequiredMixin, View):
         form = RecordDeathForm(request.POST)
         if not form.is_valid():
             return self.render_form(request, patient, form)
-        record_death(patient, form.cleaned_data['date_of_death'], form.cleaned_data['cause'], request.user, request)
+        record_death(patient, form.cleaned_data['date_of_death'], form.cleaned_data['cause'], request.user, request,
+                     category=form.cleaned_data['cause_category'])
         messages.success(request, 'Death recorded.')
         return redirect(patient.get_absolute_url())
 

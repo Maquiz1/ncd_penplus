@@ -253,6 +253,11 @@ class ProgrammeEnrollment(TimeStampedModel):
     care_plan = models.TextField(blank=True)
     outcome_date = models.DateField(null=True, blank=True)
     outcome_reason = models.CharField(max_length=255, blank=True)
+    # Transferred out: where to (the EDCS summary form's "Transfer out to").
+    transfer_to_type = models.CharField('Transferred to', max_length=10, blank=True,
+                                        choices=[('ncd_clinic', 'Other NCD clinic'), ('referral', 'Referral hospital'),
+                                                 ('other', 'Other')])
+    transfer_to = models.CharField('Transferred to (hospital / place)', max_length=200, blank=True)
 
     class Meta:
         ordering = ['-enrollment_date', '-pk']

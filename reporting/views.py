@@ -134,6 +134,8 @@ class StudySummaryView(ReportPage):
         yield ['Where enrolled subjects are now', 'Subjects', '% of enrolled', ''] + [d.name for d in data['diseases']]
         for r in data['outcomes']:
             yield [r['label'], r['count'], r['pct'], ''] + r['by_disease']
+            for x in r.get('split', []):
+                yield [('  Cause: ' if x['param'] == 'cause' else '  To: ') + x['label'], x['count']]
         yield []
         keys = ['registered', 'screened', 'diagnosed', 'enrolled', 'active', 'ltfu', 'transferred_out', 'withdrawn',
                 'deceased']

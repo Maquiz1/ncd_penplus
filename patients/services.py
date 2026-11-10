@@ -90,7 +90,7 @@ def apply_transfer_action(transfer, action, user, request=None, notes=''):
 
 
 @transaction.atomic
-def record_death(patient, date_of_death, cause, user, request=None):
+def record_death(patient, date_of_death, cause, user, request=None, category=''):
     """Death is a patient-level event: close active pathways and cancel future visits."""
     from clinical.models import ProgrammeEnrollment
     from pharmacy.models import Prescription
@@ -100,7 +100,9 @@ def record_death(patient, date_of_death, cause, user, request=None):
     patient.vital_status = Patient.VitalStatus.DECEASED
     patient.date_of_death = date_of_death
     patient.cause_of_death = cause
-    patient.save(update_fields=['vital_status', 'date_of_death', 'cause_of_death', 'updated_at'])
+    patient.cause_of_death_category = category
+    patient.save(update_fields=['vital_status', 'date_of_death', 'cause_of_death', 'cause_of_death_category',
+                                'updated_at'])
     closed = {}
     for model in (ProgrammeEnrollment, StudyEnrollment):
         count = model.objects.filter(patient=patient, status__in=['pending', 'active']).update(

@@ -631,10 +631,12 @@ class SiteRulesTests(BaseTestCase):
         self.client.force_login(self.clinician_ilala)
         url = reverse('clinical:transfer_out', args=[patient.pk])
         self.assertContains(self.client.get(url), 'Diabetes Clinic')
-        self.client.post(url, {'date': timezone.localdate().isoformat(), 'to_other': 'Muhimbili', 'reason': 'Moved to Dar'})
+        self.client.post(url, {'date': timezone.localdate().isoformat(), 'to_type': 'ncd_clinic', 'to_other': 'Muhimbili',
+                               'reason': 'Moved to Dar'})
         enrollment.refresh_from_db()
         future.refresh_from_db()
-        self.assertEqual((enrollment.status, future.status), ('transferred_out', 'cancelled'))
+        self.assertEqual((enrollment.status, future.status, enrollment.transfer_to_type, enrollment.transfer_to),
+                         ('transferred_out', 'cancelled', 'ncd_clinic', 'Muhimbili'))
         self.assertIn('Muhimbili', enrollment.outcome_reason)
         self.assertEqual(self.client.get(url).status_code, 403)          # nothing left to transfer out
 
