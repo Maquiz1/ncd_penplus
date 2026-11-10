@@ -279,6 +279,41 @@ class PatientRecordDeathView(PermissionRequiredMixin, View):
         return redirect(patient.get_absolute_url())
 
 
+class PatientDeathDetailsView(PermissionRequiredMixin, View):
+    """Correct or complete the date and cause of a death already recorded (nothing else changes)."""
+
+    permission_required = 'patients.record_death'
+
+    def get_patient(self, request, pk):
+        return get_object_or_404(Patient.objects.in_scope(request.user), pk=pk, vital_status='deceased')
+
+    def render_form(self, request, patient, form):
+        return render(request, 'confirm_action.html', {
+            'title': 'Death details', 'patient': patient, 'form': form, 'button': 'Save',
+            'cancel_url': patient.get_absolute_url(), 'message': 'Correct or complete the date and cause of death.'})
+
+    def get(self, request, pk):
+        patient = self.get_patient(request, pk)
+        return self.render_form(request, patient, RecordDeathForm(initial={
+            'date_of_death': patient.date_of_death, 'cause': patient.cause_of_death,
+            'cause_category': patient.cause_of_death_category}))
+
+    def post(self, request, pk):
+        patient = self.get_patient(request, pk)
+        form = RecordDeathForm(request.POST)
+        if not form.is_valid():
+            return self.render_form(request, patient, form)
+        old = {'date_of_death': str(patient.date_of_death), 'cause': patient.cause_of_death,
+               'category': patient.cause_of_death_category}
+        Patient.all_objects.filter(pk=patient.pk).update(
+            date_of_death=form.cleaned_data['date_of_death'], cause_of_death=form.cleaned_data['cause'],
+            cause_of_death_category=form.cleaned_data['cause_category'])
+        log_event(request=request, action=AuditEvent.Action.UPDATE, obj=patient, reason='Death details corrected',
+                  changes={'before': old})
+        messages.success(request, 'Death details saved.')
+        return redirect(patient.get_absolute_url())
+
+
 class IdentifierCreateView(PatientChildCreateMixin, CreateView):
     permission_required = ('patients.add_patientidentifier', 'patients.view_patient_identity')
     model = PatientIdentifier

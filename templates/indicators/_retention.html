@@ -12,9 +12,9 @@
   </tbody>
 </table></div></div>
 {% endfor %}
-<div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Referrals by hospital</div><div class="table-responsive"><table class="table table-sm mb-0">
+{% if hospitals %}<div class="card shadow-sm mb-3"><div class="card-header bg-body fw-semibold">Referrals by hospital</div><div class="table-responsive"><table class="table table-sm mb-0">
   <thead class="table-light"><tr><th>Referred to</th><th class="text-end">Referred</th><th class="text-end">Came back</th><th class="text-end">Not back yet</th></tr></thead>
   <tbody>{% for h in hospitals %}<tr><td>{{ h.name }}</td><td class="text-end">{{ h.referred }}</td><td class="text-end">{{ h.back }}</td><td class="text-end{% if h.not_back %} text-warning-emphasis fw-semibold{% endif %}">{{ h.not_back }}</td></tr>
   {% empty %}<tr><td colspan="4" class="text-body-secondary">No referrals in this period.</td></tr>{% endfor %}</tbody>
-</table></div></div>
+</table></div></div>{% endif %}
 <div class="small text-body-secondary">Returned from LTFU: returned to care in the period. Missed 3 or more visits in a row: three appointments marked Missed one after the other, the third in the period (imported EDCS months without a visit are "expected", not missed). Transferred out and came back: returned in the period after a transfer out of PEN-Plus. Referred: referral date in the period.</div>

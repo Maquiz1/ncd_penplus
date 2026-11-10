@@ -261,7 +261,8 @@ class ReferralForm(PatientChildForm):
         destination.queryset = Facility.objects.filter(
             Q(is_active=True) | Q(pk=self.instance.to_facility_id)).exclude(
             pk=getattr(self.patient, 'current_facility_id', None)).order_by('-is_research_site', 'name')
-        destination.help_text = 'The subject stays enrolled in the PEN-Plus clinic.'
+        destination.help_text = ('The subject stays enrolled and comes back. If their care moves there for good, use '
+                                 'Transfer out of PEN-Plus instead.')
         if not self.instance.pk:
             del self.fields['returned_on']
             del self.fields['feedback']

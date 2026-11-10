@@ -409,7 +409,10 @@ class TransferOutForm(BootstrapForm):
     date = forms.DateField(label='Transfer date', initial=timezone.localdate,
                            widget=forms.DateInput(attrs={'type': 'date'}))
     to_type = forms.ChoiceField(label='Transferred to', choices=[('', 'Choose…'), ('ncd_clinic', 'Other NCD clinic'),
-                                                                ('referral', 'Referral hospital'), ('other', 'Other')])
+                                                                ('referral', 'Referral hospital (care continues there)'),
+                                                                ('other', 'Other')],
+                                help_text='The subject leaves the PEN-Plus clinic. If they will come back, use Refer '
+                                          'to another hospital instead.')
     to_facility = forms.ModelChoiceField(queryset=None, required=False, label='Transferred to',
                                          empty_label='Not in the list (write it below)')
     to_other = forms.CharField(max_length=200, required=False, label='Hospital / place not in the list',

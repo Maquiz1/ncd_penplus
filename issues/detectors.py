@@ -381,9 +381,81 @@ def diagnosis_without_clinic(patient_ids=None):
     return created
 
 
+def _auto_close(code, still_needed, patient_ids, note):
+    stale = DataIssue.objects.open().filter(code=code).exclude(key__in=still_needed)
+    if patient_ids is not None:
+        stale = stale.filter(patient_id__in=patient_ids)
+    stale.update(status=DataIssue.Status.RESOLVED, resolved_at=timezone.now(), resolution_note=note)
+
+
+def death_without_cause(patient_ids=None):
+    """A recorded death with no cause (NCD, unknown or other). Closes once the cause is entered."""
+    deaths = Patient.objects.filter(vital_status='deceased', cause_of_death_category='')
+    if patient_ids is not None:
+        deaths = deaths.filter(pk__in=patient_ids)
+    created, still_needed = 0, set()
+    for patient in deaths:
+        key = f'death-no-cause:{patient.pk}'
+        still_needed.add(key)
+        when = f' on {patient.date_of_death:%d %b %Y}' if patient.date_of_death else ''
+        _, new = raise_issue(key, 'death_without_cause', DataIssue.Category.CLINICAL, 'Death recorded without a cause',
+                             f'Death recorded{when}{" (" + patient.cause_of_death + ")" if patient.cause_of_death else ""}. '
+                             f'Choose the cause (NCD, Unknown or Other): More actions \u2192 Death details.',
+                             patient=patient, related_date=patient.date_of_death)
+        created += new
+    # A clinic closed as "deceased" while the subject is still alive: the death itself was never recorded.
+    from clinical.models import ProgrammeEnrollment
+    unrecorded = Patient.objects.filter(vital_status='alive', pk__in=ProgrammeEnrollment.objects.filter(
+        status='deceased').values('patient_id'))
+    if patient_ids is not None:
+        unrecorded = unrecorded.filter(pk__in=patient_ids)
+    for patient in unrecorded:
+        key = f'death-not-recorded:{patient.pk}'
+        still_needed.add(key)
+        _, new = raise_issue(key, 'death_without_cause', DataIssue.Category.CLINICAL,
+                             'Clinic says deceased, but the death is not recorded',
+                             'A clinic enrollment is closed as deceased, but the subject is still marked alive. If the '
+                             'subject died, use More actions \u2192 Record death (date and cause); otherwise correct the '
+                             'clinic outcome.', patient=patient)
+        created += new
+    _auto_close('death_without_cause', still_needed, patient_ids,
+                'Death and its cause recorded, or the outcome corrected (closed automatically).')
+    return created
+
+
+REFERRAL_DAYS = 90
+
+
+def referral_not_back(patient_ids=None):
+    """Referred to another hospital 3+ months ago and not back: record the return, or transfer the subject out if
+    their care stayed there. Closes once the return is recorded or the subject left care."""
+    from encounters.models import Referral
+    cutoff = timezone.localdate() - datetime.timedelta(days=REFERRAL_DAYS)
+    referrals = (Referral.objects.filter(returned_on__isnull=True, referral_date__lte=cutoff, patient__is_deleted=False,
+                                         patient__vital_status='alive',
+                                         patient__programme_enrollments__status__in=['pending', 'active'])
+                 .distinct().select_related('patient', 'to_facility'))
+    if patient_ids is not None:
+        referrals = referrals.filter(patient_id__in=patient_ids)
+    created, still_needed = 0, set()
+    for r in referrals:
+        key = f'referral-not-back:{r.pk}'
+        still_needed.add(key)
+        _, new = raise_issue(
+            key, 'referral_not_back', DataIssue.Category.VISITS,
+            f'Referred to {r.destination} on {r.referral_date:%d %b %Y}, not back yet',
+            f'{r.reason}. If the subject is back, record the date (Admission tab \u2192 Referrals \u2192 Return / '
+            f'feedback). If their care stayed at {r.destination}, use More actions \u2192 Transfer out of PEN-Plus '
+            f'(Transferred to: Referral hospital).', patient=r.patient, obj=r, related_date=r.referral_date)
+        created += new
+    _auto_close('referral_not_back', still_needed, patient_ids,
+                'Return recorded, or the subject left care (closed automatically).')
+    return created
+
+
 DETECTORS = [visits_same_month, duplicate_identifiers, duplicate_people, missing_date_of_birth, consent_to_verify,
              address_problems, diagnosis_prompts, hba1c_overdue, study_without_programme, programme_without_study,
-             diagnosis_without_clinic]
+             diagnosis_without_clinic, death_without_cause, referral_not_back]
 
 
 def run_all():

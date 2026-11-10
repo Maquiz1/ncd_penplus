@@ -16,6 +16,7 @@
       {% if perms.research.change_studyenrollment %}{% for e in study_enrollments %}{% if e.status == 'active' or e.status == 'pending' %}
       <li><a class="dropdown-item" href="{% url 'research:enrollment_update' e.pk %}"><i class="bi bi-mortarboard me-2"></i>Withdraw / leave the study</a></li>{% endif %}{% endfor %}{% endif %}
       {% if perms.patients.record_death and not patient.is_deceased %}<li><a class="dropdown-item" href="{% url 'patients:record_death' patient.pk %}"><i class="bi bi-flower1 me-2"></i>Record death</a></li>{% endif %}
+      {% if perms.patients.record_death and patient.is_deceased %}<li><a class="dropdown-item" href="{% url 'patients:death_details' patient.pk %}"><i class="bi bi-flower1 me-2"></i>Death details (date, cause)</a></li>{% endif %}
       {% if perms.patients.delete_patient %}<li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-danger" href="{% url 'patients:delete' patient.pk %}"><i class="bi bi-trash me-2"></i>Delete record</a></li>{% endif %}
     </ul>
   </div>

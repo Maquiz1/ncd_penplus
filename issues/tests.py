@@ -278,3 +278,34 @@ class MultiDiseaseTests(BaseTestCase):
         diagnosis_without_clinic()
         issue.refresh_from_db()
         self.assertEqual(issue.status, DataIssue.Status.RESOLVED)
+
+
+class OutcomeIssueTests(BaseTestCase):
+    def test_death_without_cause_and_referral_not_back(self):
+        import datetime as dt
+
+        from clinical.models import ClinicalProgramme, ProgrammeEnrollment
+        from encounters.models import Referral
+
+        from .detectors import death_without_cause, referral_not_back
+        dead = self.make_patient(first_name='Dead')
+        dead.vital_status, dead.date_of_death = 'deceased', timezone.localdate()
+        dead.save()
+        self.assertEqual(death_without_cause(), 1)
+        self.client.force_login(self.admin)
+        self.client.post(reverse('patients:death_details', args=[dead.pk]), {
+            'date_of_death': timezone.localdate().isoformat(), 'cause_category': 'ncd', 'cause': 'Heart failure'})
+        death_without_cause()
+        self.assertFalse(DataIssue.objects.open().filter(code='death_without_cause').exists())
+
+        away = self.make_patient(first_name='Away')
+        ProgrammeEnrollment.objects.create(patient=away, facility=self.ilala, status='active',
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        referral = Referral.objects.create(patient=away, facility=self.ilala, to_other='KCMC', reason='Echo',
+                                           referral_date=timezone.localdate() - dt.timedelta(days=100))
+        self.assertEqual(referral_not_back(), 1)
+        self.assertIn('KCMC', DataIssue.objects.get(code='referral_not_back').title)
+        referral.returned_on = timezone.localdate()
+        referral.save()
+        referral_not_back()
+        self.assertFalse(DataIssue.objects.open().filter(code='referral_not_back').exists())

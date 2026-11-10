@@ -148,6 +148,10 @@ All from **More actions** on the subject page, at any time:
 - **Record death**: the date, the **Cause of death** (NCD, Unknown or Other) and what is known about it. Discharging an admission with outcome Died asks the same.
 - **Withdraw / leave the study**: closes the care enrollment here too, and the subject continues routine care in GoTHOMIS. Closing one disease's programme closes the study only if no other programme is active.
 
+**Refer or transfer out?** Ask: *will the subject come back to this PEN-Plus clinic for their routine care?* Yes → **Refer** (they stay enrolled). No → **Transfer out of PEN-Plus**, with "Referral hospital (care continues there)" when a referral hospital takes over. A referral not back after 3 months shows under Data issues: record the return, or change it to a transfer out.
+
+**Death details**: for a subject already recorded as deceased, More actions → **Death details** corrects or completes the date and cause. A death with no cause, or a clinic closed as deceased without the death recorded, shows under Data issues.
+
 ## 7. Checks and corrections
 
 - **Subjects → Stuck in the flow** lists subjects waiting between two steps: screened over 14 days with no decision, positive with no diagnosis, diagnosed but not enrolled, enrolled without a baseline visit, and a programme with no follow-up schedule and no upcoming appointment. Work through it every week.
