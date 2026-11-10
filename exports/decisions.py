@@ -19,7 +19,9 @@ DECISIONS = [
     ('D2', 'High', 'Indicators', 'Food insecurity indicator (socio-economic form)',
      'A subject can be food-insecure on a "yes" to any of the three food questions, or only on "yes" to all three '
      '(the old EDCS rule). The two give different numbers.',
-     'Food-insecure on a "yes" to any of the three questions (option a).', 'PI + M&E officer', '', 'Open'),
+     'Food-insecure on a "yes" to any of the three questions (option a).', 'PI + M&E officer',
+     'Option a (10 Nov 2026): food-insecure when ANY of the three questions is answered 2 "Sometimes (3-10 times)" '
+     'or 3 "Often (>10 times)" on the latest socio-economic form.', 'Answered'),
     ('D3', 'High', 'Indicators', 'Social support indicator',
      'The denominator is not stated: all active subjects, or active subjects whose social support was asked (a '
      'treatment plan in the last 3 months).',

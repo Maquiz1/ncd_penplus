@@ -160,7 +160,8 @@ SOCIODEMOGRAPHIC = [
               kind='avg', unit='days'),
     Indicator('socio-food-insecurity', 'socio', 'Patients facing food insecurity',
               lambda c, p, d: any(c.latest_crf(p, k, d) in ('2', '3') for k in ('no_food', 'sleep_hungry', 'day_hungry')),
-              lambda c, d: {p for p in c.active(d) if c.latest_crf(p, 'no_food', d)},
+              lambda c, d: {p for p in c.active(d)
+                            if any(c.latest_crf(p, k, d) for k in ('no_food', 'sleep_hungry', 'day_hungry'))},
               note='Sometimes or often without food, sleeping or a whole day hungry (latest socio-economic form).'),
     Indicator('socio-distance-km', 'socio', 'Average distance to clinic', lambda c, p, d: latest_number(c, p, ('distance_km',), d),
               lambda c, d: c.active(d), kind='avg', unit='km'),

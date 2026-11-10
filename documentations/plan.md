@@ -11,7 +11,7 @@ Last updated: 25 Oct 2026. Tick items as they are done; add the decision and dat
 | # | Question | Options | Current behaviour |
 |---|----------|---------|-------------------|
 | D1 | **Surgical referral:** what counts as "referred for surgery"? | (a) only *awaiting surgery* and *cardiac surgery / intervention*; (b) also *cardiology referral* | (b) |
-| D2 | **Food insecurity:** when is a patient food-insecure? | (a) a "yes" to **any** of the three food questions; (b) "yes" to **all three** (old EDCS) | (a) |
+| D2 | **Food insecurity:** when is a patient food-insecure? | (a) a "yes" to **any** of the three food questions; (b) "yes" to **all three** (old EDCS) | **Decided (10 Nov 2026): (a)** — any of the three answered 2 (sometimes) or 3 (often) |
 | D3 | **Social support:** which denominator? | (a) all active patients; (b) active patients with a treatment plan (social support answered) in the last 3 months | (b) |
 
 ### HbA1c monitoring
