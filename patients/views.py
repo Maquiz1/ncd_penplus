@@ -47,9 +47,28 @@ class PatientListView(PermissionRequiredMixin, ListView):
             qs = qs.filter(status=params['status'])
         if params.get('facility'):
             qs = qs.filter(current_facility_id=params['facility'])
-        if params.get('screening') == 'none':
+        screening = params.get('screening')
+        if screening == 'none':
             from reporting.services import not_screened
             qs = not_screened(qs)
+        elif screening in ('form', 'known', 'new'):
+            from clinical.models import PreScreening
+            forms = PreScreening.objects.all()
+            known = forms.filter(known_ncd=True)
+            if params.get('disease'):
+                # The disease ticked on the form, or (EDCS forms name none) the subject's diagnosis or clinic.
+                from django.db.models import Q
+                d = params['disease']
+                known = known.filter(Q(known_diseases=d) | Q(known_diseases__isnull=True) & (
+                    Q(patient__diagnoses__disease=d) & ~Q(patient__diagnoses__status='ruled_out')
+                    | Q(patient__programme_enrollments__programme__disease=d)))
+            if screening == 'form':
+                qs = qs.filter(pk__in=forms.values('patient_id'))
+            elif screening == 'known':
+                qs = qs.filter(pk__in=known.values('patient_id'))
+            else:
+                qs = qs.filter(pk__in=forms.values('patient_id')).exclude(
+                    pk__in=forms.filter(known_ncd=True).values('patient_id'))
         return qs
 
     def get_context_data(self, **kwargs):

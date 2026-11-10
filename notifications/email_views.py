@@ -117,7 +117,7 @@ class SendTestEmailView(PermissionRequiredMixin, View):
         if not request.user.email:
             messages.error(request, 'Add an email address to your own account first.')
             return redirect('email:settings')
-        body = (f'This is a test email from the {settings.SITE_NAME}.\n\n'
+        body = (f'This is a test email from {settings.SITE_NAME} ({settings.CLINIC_NAME}).\n\n'
                 f'System address: {site_url()}\nSender: {from_email()}\n\n'
                 'If you received it, staff activation and password-reset emails will be delivered too.')
         try:

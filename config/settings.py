@@ -49,7 +49,9 @@ CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 # Public base URL used in emails (activation / password reset links).
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
-SITE_NAME = 'NCD - PENPLUS CLINIC'
+SITE_NAME = 'RECAPEN'
+SITE_TAGLINE = 'Reporting and Capturing of PEN-Plus'
+CLINIC_NAME = 'NCD - PENPLUS CLINIC'  # the clinic's own name, kept beside the system name
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -194,7 +196,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', False)
 EMAIL_USE_SSL = env_bool('EMAIL_USE_SSL', False)  # port 465 (e.g. smtp.hostinger.com); use TLS for port 587
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '15'))
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'NCD - PENPLUS CLINIC <no-reply@nimr.or.tz>')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'RECAPEN – NCD PEN-Plus Clinic <no-reply@nimr.or.tz>')
 
 # Data exports: private folder (never served as static/media); files are removed after the retention period.
 EXPORT_ROOT = BASE_DIR / os.environ.get('EXPORT_ROOT', 'private_exports')

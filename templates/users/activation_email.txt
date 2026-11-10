@@ -1,6 +1,6 @@
 Hello {{ user.get_full_name|default:user.username }},
 
-An account has been created for you on the {{ site_name }}.
+An account has been created for you on {{ site_name }} (Reporting and Capturing of PEN-Plus) at the NCD - PENPLUS CLINIC.
 
 System address: {{ site_url }}
 Username: {{ user.username }}

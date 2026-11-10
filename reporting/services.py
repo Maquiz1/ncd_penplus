@@ -33,6 +33,48 @@ def screened_counts(user, screenings):
     return {'screened': len(screened), 'screened_consented': len(consented & screened), 'screened_new_month': len(new)}
 
 
+def screening_rows(user, screenings, disease_ids):
+    from clinical.models import Disease, PreScreening
+    results = {r['disease_id']: r for r in screenings.values('disease_id').annotate(
+        total=Count('patient', distinct=True),
+        positive=Count('patient', distinct=True, filter=Q(result='positive')),
+        negative=Count('patient', distinct=True, filter=Q(result='negative')),
+        pending=Count('patient', distinct=True, filter=Q(result='pending')))}
+    # Known NCD per disease: the disease ticked on the screening form; the EDCS forms only say "known NCD", so
+    # their disease comes from the subject's diagnosis or clinic enrollment.
+    from clinical.models import Diagnosis
+    forms = scoped(PreScreening, user).filter(known_ncd=True)
+    known_ids = set(forms.values_list('patient_id', flat=True))
+    ticked = set(forms.filter(known_diseases__isnull=False).values_list('patient_id', 'known_diseases'))
+    unnamed = known_ids - {pid for pid, _d in ticked}
+    found = set(Diagnosis.objects.filter(patient_id__in=unnamed).exclude(status='ruled_out')
+                .values_list('patient_id', 'disease_id'))
+    found |= set(ProgrammeEnrollment.objects.filter(patient_id__in=unnamed)
+                 .values_list('patient_id', 'programme__disease_id'))
+    known = {}
+    for _pid, disease_id in ticked | found:
+        known[disease_id] = known.get(disease_id, 0) + 1
+    diseases = Disease.objects.filter(is_active=True)
+    if disease_ids:
+        diseases = diseases.filter(pk__in=disease_ids)
+    rows = []
+    for d in diseases.order_by('name'):
+        row = {'disease_id': d.pk, 'disease__name': d.name, 'known': known.get(d.pk, 0),
+               **{k: results.get(d.pk, {}).get(k, 0) for k in ('total', 'positive', 'negative', 'pending')}}
+        if row['known'] or row['total']:
+            rows.append(row)
+    return rows
+
+
+def screening_forms(user):
+    """Subjects with a screening form: those who came with a known NCD, and new ones."""
+    from clinical.models import PreScreening
+    forms = scoped(PreScreening, user)
+    known = set(forms.filter(known_ncd=True).values_list('patient_id', flat=True))
+    every = set(forms.values_list('patient_id', flat=True))
+    return {'forms_total': len(every), 'forms_known': len(known), 'forms_new': len(every - known)}
+
+
 def not_screened(patients):
     """Registered subjects with no screening form and no disease screening."""
     from clinical.models import PreScreening
@@ -79,13 +121,10 @@ def dashboard_stats(user):
             to_facility__in=facilities_for_user(user), status='sent').count(),
         'programmes_by_disease': list(
             programmes.filter(status='active').values('programme__disease__name').annotate(n=Count('id')).order_by('-n')),
-        # Subjects (not records: a re-screening is the same subject) screened for each disease, by result.
-        'screening_by_disease': list(
-            screenings.values('disease_id', 'disease__name').annotate(
-                total=Count('patient', distinct=True),
-                positive=Count('patient', distinct=True, filter=Q(result='positive')),
-                negative=Count('patient', distinct=True, filter=Q(result='negative')),
-                pending=Count('patient', distinct=True, filter=Q(result='pending'))).order_by('disease__name')),
+        # Subjects (not records: a re-screening is the same subject) screened for each disease, by result, and
+        # those who came with that disease already known (no screening needed).
+        'screening_by_disease': screening_rows(user, screenings, disease_ids),
+        **screening_forms(user),
         'not_screened': not_screened(patients).count(),
     }
 

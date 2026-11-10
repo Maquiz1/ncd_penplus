@@ -1,6 +1,6 @@
-# SOP: using the NCD PEN-Plus system
+# SOP: using RECAPEN at the NCD PEN-Plus clinic
 
-**Purpose.** How a subject moves through the PEN-Plus clinic in this system, from the first contact to regular follow-up, and who records what at each step.
+**Purpose.** How a subject moves through the PEN-Plus clinic in RECAPEN (Reporting and Capturing of PEN-Plus), the system that replaces EDCS, from the first contact to regular follow-up, and who records what at each step.
 
 **Who uses it.** Everyone who records subject data at a PEN-Plus clinic: registration officers, nurses, clinicians, laboratory, imaging and pharmacy staff, and data clerks.
 

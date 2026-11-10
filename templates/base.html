@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ title|default:"NCD - PENPLUS CLINIC" }}{% endblock %} · NCD - PENPLUS CLINIC</title>
+  <title>{% block title %}{{ title|default:SITE_NAME }}{% endblock %} · {{ SITE_NAME }}</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%230d6efd' d='M8 1.3 1 4.5v3.2c0 3.7 3 6.6 7 7 4-.4 7-3.3 7-7V4.5z'/></svg>">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
@@ -16,7 +16,7 @@
   <button class="btn btn-link text-white d-lg-none p-0 me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Menu">
     <i class="bi bi-list fs-3"></i>
   </button>
-  <a class="navbar-brand fw-semibold me-auto" href="{% url 'dashboard' %}"><i class="bi bi-heart-pulse-fill me-1"></i> NCD - PENPLUS CLINIC</a>
+  <a class="navbar-brand fw-semibold me-auto" href="{% url 'dashboard' %}"><i class="bi bi-heart-pulse-fill me-1"></i> {{ SITE_NAME }} <small class="fw-normal opacity-75 d-none d-sm-inline">· {{ CLINIC_NAME }}</small></a>
   {% if perms.patients.view_patient %}
   {% if perms.patients.view_patient %}<form class="d-none d-md-flex me-3" role="search" action="{% url 'patients:list' %}">
     <input class="form-control form-control-sm" type="search" name="q" placeholder="Find subject (ID{% if can_view_identity %}, name, phone{% endif %})" aria-label="Find subject">
@@ -247,7 +247,7 @@
   <aside class="auth-brand">
     <div class="auth-logo">
       <div class="auth-logo-mark"><i class="bi bi-heart-pulse"></i></div>
-      <div><strong>NCD - PENPLUS CLINIC</strong><span>National Institute for Medical Research · Tanzania</span></div>
+      <div><strong>{{ SITE_NAME }}</strong><span>{{ SITE_TAGLINE }}</span><span>{{ CLINIC_NAME }} · National Institute for Medical Research · Tanzania</span></div>
     </div>
     <div class="auth-pitch">
       <h1>Severe chronic NCD care, close to home.</h1>

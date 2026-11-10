@@ -13,7 +13,7 @@ VERSION = '1.0'
 VERSION_DATE = '2026-11-09'
 
 CHANGE_LOG = [
-    ('1.0', '2026-11-09', 'First version: the subject flow (registration, screening, investigations, diagnosis, '
+    ('1.0', '2026-11-09', 'First version, for RECAPEN (Reporting and Capturing of PEN-Plus): the subject flow (registration, screening, investigations, diagnosis, '
      'prescribing, admission, enrollment, follow-up schedules per programme), follow-up and unscheduled visits, '
      'outcomes, checks and corrections, and the EDCS forms and exports.'),
 ]

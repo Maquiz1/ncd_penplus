@@ -14,7 +14,7 @@ body { background-color: var(--bs-body-bg); }
 .auth-logo-mark { flex: none; width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 22px;
   background: linear-gradient(135deg, #2bd1c4, #1d6fd6); box-shadow: 0 8px 20px rgba(0,0,0,.2); }
 .auth-logo strong { display: block; font-size: 1.05rem; letter-spacing: .06em; }
-.auth-logo span { font-size: .8rem; opacity: .75; }
+.auth-logo span { display: block; font-size: .8rem; opacity: .75; }
 .auth-pitch { position: relative; z-index: 1; max-width: 470px; }
 .auth-pitch h1 { font-size: 2.1rem; font-weight: 700; line-height: 1.2; margin-bottom: 14px; }
 .auth-pitch p { opacity: .85; font-size: 1rem; line-height: 1.6; }

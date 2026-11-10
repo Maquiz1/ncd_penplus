@@ -6,6 +6,8 @@ def site(request):
     user = getattr(request, 'user', None)
     return {
         'SITE_NAME': settings.SITE_NAME,
+        'SITE_TAGLINE': settings.SITE_TAGLINE,
+        'CLINIC_NAME': settings.CLINIC_NAME,
         'access_level_label': access_level_label(user),
         'can_view_identity': bool(user and user.is_authenticated and user.has_perm('patients.view_patient_identity')),
         'service_counts': SimpleLazyObject(lambda: service_counts(user)),

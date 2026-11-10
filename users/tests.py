@@ -291,7 +291,7 @@ class AccountLoginAndActivationTests(BaseTestCase):
         self.client.logout()
         self.client.post(reverse('password_reset'), {'email': 'neema.juma@example.org'})
         reset = mail.outbox[-1]
-        self.assertIn('NCD - PENPLUS CLINIC', reset.subject)
+        self.assertIn('RECAPEN', reset.subject)
         reset_link = re.search(r'https?://\S+/accounts/reset/\S+/', reset.body).group(0)
         self.assertIn(f'href="{reset_link}"', reset.alternatives[0][0])
 

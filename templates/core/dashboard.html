@@ -58,22 +58,22 @@
     </div>
     <div class="card shadow-sm">
       <div class="card-header bg-body fw-semibold"><i class="bi bi-search-heart"></i> Screening (all time)</div>
+      {% with s=stats %}<div class="card-body py-2 small border-bottom">Screening forms: {% if perms.patients.view_patient %}<a href="{% url 'patients:list' %}?screening=form"><strong>{{ s.forms_total }}</strong></a> ({% url 'patients:list' as reg %}<a href="{{ reg }}?screening=known">{{ s.forms_known }} known NCD</a> · <a href="{{ reg }}?screening=new">{{ s.forms_new }} new</a>) · <a href="{{ reg }}?screening=none">Not screened: {{ s.not_screened }}</a>{% else %}<strong>{{ s.forms_total }}</strong> ({{ s.forms_known }} known NCD · {{ s.forms_new }} new) · Not screened: {{ s.not_screened }}{% endif %}</div>{% endwith %}
       <div class="table-responsive">
         <table class="table table-sm mb-0">
-          <thead><tr><th>Disease</th><th class="text-end">Screened</th><th class="text-end">Positive</th><th class="text-end">Negative</th><th class="text-end" title="Waiting for the doctor's decision">Pending</th></tr></thead>
+          <thead><tr><th>Disease</th><th class="text-end" title="Came with the disease already known (diagnosed, referred or transferred in): no screening needed">Known NCD</th><th class="text-end">Screened</th><th class="text-end">Positive</th><th class="text-end">Negative</th><th class="text-end" title="Waiting for the doctor's decision">Pending</th></tr></thead>
           <tbody>
           {% for row in stats.screening_by_disease %}{% url 'clinical:screening_list' as screenings %}<tr><td>{{ row.disease__name }}</td>
+            <td class="text-end">{% if perms.patients.view_patient %}<a href="{% url 'patients:list' %}?screening=known&amp;disease={{ row.disease_id }}">{{ row.known }}</a>{% else %}{{ row.known }}{% endif %}</td>
             <td class="text-end"><a href="{{ screenings }}?disease={{ row.disease_id }}">{{ row.total }}</a></td>
             <td class="text-end"><a href="{{ screenings }}?disease={{ row.disease_id }}&amp;result=positive">{{ row.positive }}</a></td>
             <td class="text-end"><a href="{{ screenings }}?disease={{ row.disease_id }}&amp;result=negative">{{ row.negative }}</a></td>
             <td class="text-end"><a href="{{ screenings }}?disease={{ row.disease_id }}&amp;result=pending">{{ row.pending }}</a></td></tr>
-          {% empty %}<tr><td colspan="5" class="text-body-secondary">No screenings recorded.</td></tr>{% endfor %}
+          {% empty %}<tr><td colspan="6" class="text-body-secondary">No screenings recorded.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>
-      <div class="card-footer bg-body small d-flex flex-wrap justify-content-between gap-2">
-        <span class="text-body-secondary">Subjects screened for each disease, by result (a re-screened subject counts under each of their results). Click a number to see them.</span>
-        {% if perms.patients.view_patient %}<a href="{% url 'patients:list' %}?screening=none">Not screened: <strong>{{ stats.not_screened }}</strong> subject{{ stats.not_screened|pluralize }}</a>{% endif %}
+      <div class="card-footer bg-body small text-body-secondary">Known NCD: came already diagnosed, referred or transferred in, so no screening was needed. Screened: subjects screened for the disease, by result (a re-screened subject counts under each of their results). Click a number to see them.
       </div>
     </div>
   </div>
