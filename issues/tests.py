@@ -250,3 +250,31 @@ class StudyWithoutProgrammeTests(BaseTestCase):
         programme_without_study()
         issue.refresh_from_db()
         self.assertEqual(issue.status, DataIssue.Status.RESOLVED)
+
+
+class MultiDiseaseTests(BaseTestCase):
+    def test_second_confirmed_disease_flagged_and_listed(self):
+        from clinical.models import ClinicalProgramme, Diagnosis, Disease, ProgrammeEnrollment
+
+        from .detectors import diagnosis_without_clinic
+        p = self.make_patient(first_name='Two')
+        diabetes, scd = Disease.objects.get(code='diabetes'), Disease.objects.get(code='scd')
+        ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='dm-care'))
+        for disease in (diabetes, scd):
+            Diagnosis.objects.create(patient=p, disease=disease, description=disease.name, status='confirmed',
+                                     clinician=self.admin)
+        self.assertEqual(diagnosis_without_clinic(), 1)
+        issue = DataIssue.objects.get(code='diagnosis_without_clinic')
+        self.assertIn('not in the SCD Clinic', issue.title)
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse('patients:list') + f'?multi=diagnosed&combo={diabetes.pk}-{scd.pk}')
+        self.assertContains(page, 'Diabetes + Sickle cell disease')
+        self.assertEqual(len(self.client.get(reverse('patients:list') + '?multi=enrolled').context['object_list']), 0)
+        summary = self.client.get(reverse('reporting:study_summary') + '?period=all')
+        self.assertContains(summary, f'?multi=diagnosed&amp;combo={diabetes.pk}-{scd.pk}')
+        ProgrammeEnrollment.objects.create(patient=p, facility=self.ilala,
+                                           programme=ClinicalProgramme.objects.get(code='scd-care'))
+        diagnosis_without_clinic()
+        issue.refresh_from_db()
+        self.assertEqual(issue.status, DataIssue.Status.RESOLVED)

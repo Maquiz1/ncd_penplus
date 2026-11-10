@@ -73,6 +73,36 @@ def screening_forms(user):
     return {'forms_total': len(every), 'forms_known': len(known), 'forms_new': len(every - known)}
 
 
+MULTI_BASIS = {'diagnosed': 'Diagnosed', 'enrolled': 'Enrolled (ever)', 'active': 'Enrolled now (active)'}
+
+
+def disease_sets(basis, patient_ids=None):
+    """{subject id: {disease id: disease name}} by basis: 'diagnosed' (not ruled out), 'enrolled' (any clinic,
+    ever) or 'active' (in a clinic now)."""
+    from clinical.models import Diagnosis
+    if basis == 'diagnosed':
+        rows = Diagnosis.objects.exclude(status='ruled_out').values_list('patient_id', 'disease_id', 'disease__name')
+    else:
+        rows = ProgrammeEnrollment.objects.all()
+        if basis == 'active':
+            rows = rows.filter(status='active')
+        rows = rows.values_list('patient_id', 'programme__disease_id', 'programme__disease__name')
+    rows = rows.filter(patient__is_deleted=False)
+    if patient_ids is not None:
+        rows = rows.filter(patient_id__in=patient_ids)
+    result = {}
+    for patient_id, disease_id, name in rows:
+        result.setdefault(patient_id, {})[disease_id] = name
+    return result
+
+
+def more_than_one_disease(basis, patient_ids=None, combo=None):
+    """Subject ids with two or more diseases by basis; with combo (disease ids), exactly that combination."""
+    sets = disease_sets(basis, patient_ids)
+    return {pid for pid, diseases in sets.items()
+            if len(diseases) > 1 and (combo is None or set(diseases) == set(combo))}
+
+
 def not_screened(patients):
     """Registered subjects with no screening form and no disease screening."""
     from clinical.models import PreScreening

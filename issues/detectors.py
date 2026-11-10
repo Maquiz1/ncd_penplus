@@ -341,8 +341,49 @@ def programme_without_study(patient_ids=None):
     return created
 
 
+def diagnosis_without_clinic(patient_ids=None):
+    """A confirmed diagnosis of a disease whose clinic the subject was never enrolled in, while they are in another
+    clinic: enroll them there too, or correct the diagnosis (suspected / ruled out). Closes by itself."""
+    from clinical.models import Diagnosis, ProgrammeEnrollment
+
+    in_care = ProgrammeEnrollment.objects.filter(status__in=['pending', 'active'], patient__is_deleted=False)
+    if patient_ids is not None:
+        in_care = in_care.filter(patient_id__in=patient_ids)
+    clinics = defaultdict(set)
+    for pid, disease_id in ProgrammeEnrollment.objects.filter(patient_id__in=in_care.values('patient_id')) \
+            .values_list('patient_id', 'programme__disease_id'):
+        clinics[pid].add(disease_id)
+    from clinical.models import ClinicalProgramme
+    clinic_names = dict(ClinicalProgramme.objects.values_list('disease_id', 'name'))
+    created, still_needed = 0, set()
+    seen = set()
+    for dx in (Diagnosis.objects.filter(status='confirmed', patient_id__in=list(clinics), patient__vital_status='alive')
+               .select_related('patient', 'disease').order_by('diagnosis_date')):
+        if dx.disease_id in clinics[dx.patient_id] or (dx.patient_id, dx.disease_id) in seen:
+            continue
+        seen.add((dx.patient_id, dx.disease_id))
+        key = f'dx-no-clinic:{dx.patient_id}:{dx.disease_id}'
+        still_needed.add(key)
+        clinic = clinic_names.get(dx.disease_id) or f'{dx.disease.name} clinic'
+        _, new = raise_issue(
+            key, 'diagnosis_without_clinic', DataIssue.Category.CLINICAL,
+            f'Confirmed {dx.disease.name.lower()}, but not in the {clinic}',
+            f'{dx.description} was confirmed on {dx.diagnosis_date:%d %b %Y}, and the subject is in another clinic but '
+            f'not in the {clinic}. Enroll the subject there too (Baseline \u2192 Enroll), or '
+            f'change the diagnosis to suspected or ruled out if it is not confirmed.',
+            patient=dx.patient, obj=dx, related_date=dx.diagnosis_date)
+        created += new
+    stale = DataIssue.objects.open().filter(code='diagnosis_without_clinic').exclude(key__in=still_needed)
+    if patient_ids is not None:
+        stale = stale.filter(patient_id__in=patient_ids)
+    stale.update(status=DataIssue.Status.RESOLVED, resolved_at=timezone.now(),
+                 resolution_note='Enrolled in the clinic, or the diagnosis changed (closed automatically).')
+    return created
+
+
 DETECTORS = [visits_same_month, duplicate_identifiers, duplicate_people, missing_date_of_birth, consent_to_verify,
-             address_problems, diagnosis_prompts, hba1c_overdue, study_without_programme, programme_without_study]
+             address_problems, diagnosis_prompts, hba1c_overdue, study_without_programme, programme_without_study,
+             diagnosis_without_clinic]
 
 
 def run_all():

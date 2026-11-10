@@ -152,6 +152,7 @@ All from **More actions** on the subject page, at any time:
 
 - **Subjects → Stuck in the flow** lists subjects waiting between two steps: screened over 14 days with no decision, positive with no diagnosis, diagnosed but not enrolled, enrolled without a baseline visit, and a programme with no follow-up schedule and no upcoming appointment. Work through it every week.
 - **Suspected diagnoses**: if confirming results have not come within 60 days, a data issue says the diagnosis is still suspected; when results arrive, it says "results available: confirm the diagnosis".
+- **Subjects with more than one disease**: Subject register → filter **2+ diseases** (diagnosed, enrolled ever, or enrolled now); each subject's diseases show under the name. The Study summary counts them by combination. A confirmed diagnosis whose clinic the subject is not in raises a data issue: enroll them there too, or correct the diagnosis.
 - **Correcting**: edit the record. **Removing a duplicate entry**: delete it (a reason is asked). Only a superuser can restore a deleted record.
 - **Screening for another disease later**: edit the screening form and tick it. **Screening again** after a negative or inconclusive result: Overview → Screening card → **Re-screen** on that disease, with the reason. The earlier record is kept.
 

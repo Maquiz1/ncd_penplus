@@ -39,3 +39,15 @@
 </table></div>
 <div class="card-footer bg-body small text-body-secondary">Sites are where the subject was registered. Retention = active subjects as a share of those enrolled.</div></div>
 
+{# Subjects with more than one disease. #}
+<div class="card shadow-sm mt-3"><div class="card-header bg-body fw-semibold">Subjects with more than one disease</div>
+<div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead class="table-light"><tr><th>Diseases</th><th class="text-end">Diagnosed</th><th class="text-end">Enrolled (ever)</th><th class="text-end">Enrolled now</th></tr></thead>
+  <tbody>{% for m in data.multi %}<tr><td>{{ m.label }}</td>
+    <td class="text-end">{% if perms.patients.view_patient and m.diagnosed %}<a href="{% url 'patients:list' %}?multi=diagnosed&amp;combo={{ m.combo }}">{{ m.diagnosed }}</a>{% else %}{{ m.diagnosed }}{% endif %}</td>
+    <td class="text-end">{% if perms.patients.view_patient and m.enrolled %}<a href="{% url 'patients:list' %}?multi=enrolled&amp;combo={{ m.combo }}">{{ m.enrolled }}</a>{% else %}{{ m.enrolled }}{% endif %}</td>
+    <td class="text-end">{% if perms.patients.view_patient and m.active %}<a href="{% url 'patients:list' %}?multi=active&amp;combo={{ m.combo }}">{{ m.active }}</a>{% else %}{{ m.active }}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="4" class="text-body-secondary">No subject with more than one disease.</td></tr>{% endfor %}</tbody>
+</table></div>
+<div class="card-footer bg-body small text-body-secondary">Diagnosed: a diagnosis in each disease (not ruled out). A subject diagnosed with two diseases but enrolled in one clinic is flagged under Data issues.</div></div>
+

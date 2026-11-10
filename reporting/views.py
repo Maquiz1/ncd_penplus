@@ -141,6 +141,10 @@ class StudySummaryView(ReportPage):
                'Transferred out', 'Withdrawn', 'Deceased', 'Retention (%)']
         for line in data['sites']:
             yield [line['site']] + [line.get(k, 0) for k in keys] + [line['retention'] if line['retention'] is not None else '']
+        yield []
+        yield ['Subjects with more than one disease', 'Diagnosed', 'Enrolled (ever)', 'Enrolled now']
+        for m in data['multi']:
+            yield [m['label'], m['diagnosed'], m['enrolled'], m['active']]
 
 
 class ConditionReportView(ReportPage):

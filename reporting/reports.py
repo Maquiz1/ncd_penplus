@@ -111,8 +111,24 @@ def study_summary(filters):
                      'by_disease': [len(per_disease(d)) for d in diseases] if per_disease else None})
         previous = count
     outcomes = study_outcomes(ids, diseases)
-    return {'rows': rows, 'diseases': diseases, 'total': total, **outcomes,
+    return {'rows': rows, 'diseases': diseases, 'total': total, **outcomes, 'multi': multi_disease(ids, diseases),
             'sites': summary_by_site(filters, cohort, screened, subjects(diagnosed), outcomes['status_of'])}
+
+
+def multi_disease(patient_ids, diseases):
+    """Subjects with more than one disease, by combination: diagnosed, enrolled (ever) and enrolled now."""
+    from .services import disease_sets
+    wanted = {d.pk for d in diseases}
+    combos = {}
+    for basis in ('diagnosed', 'enrolled', 'active'):
+        for pid, found in disease_sets(basis, patient_ids).items():
+            found = {k: v for k, v in found.items() if k in wanted}
+            if len(found) > 1:
+                key = '-'.join(str(k) for k in sorted(found))
+                line = combos.setdefault(key, {'combo': key, 'label': ' + '.join(sorted(found.values())),
+                                               'diagnosed': 0, 'enrolled': 0, 'active': 0})
+                line[basis] += 1
+    return sorted(combos.values(), key=lambda line: (-line['diagnosed'], line['label']))
 
 
 def summary_by_site(filters, cohort, screened, diagnosed, status_of):

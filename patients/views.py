@@ -69,11 +69,28 @@ class PatientListView(PermissionRequiredMixin, ListView):
             else:
                 qs = qs.filter(pk__in=forms.values('patient_id')).exclude(
                     pk__in=forms.filter(known_ncd=True).values('patient_id'))
+        multi = params.get('multi')
+        from reporting.services import MULTI_BASIS, more_than_one_disease
+        if multi in MULTI_BASIS:
+            combo = [int(x) for x in params.get('combo', '').split('-') if x.isdigit()] or None
+            qs = qs.filter(pk__in=more_than_one_disease(multi, combo=combo))
         return qs
 
     def get_context_data(self, **kwargs):
-        return super().get_context_data(facilities=facilities_for_user(self.request.user),
-                                        statuses=Patient.Status.choices, **kwargs)
+        from reporting.services import MULTI_BASIS, disease_sets
+        context = super().get_context_data(**kwargs)
+        multi = self.request.GET.get('multi')
+        if multi in MULTI_BASIS:
+            # Each subject's diseases beside their name.
+            page = list(context['object_list'])
+            sets = disease_sets(multi, [p.pk for p in page])
+            for p in page:
+                p.diseases = ' + '.join(sorted(sets.get(p.pk, {}).values()))
+            context['object_list'] = page
+        return {**context, 'multi_basis': MULTI_BASIS, **self.extra_context_data()}
+
+    def extra_context_data(self):
+        return dict(facilities=facilities_for_user(self.request.user), statuses=Patient.Status.choices)
 
 
 class PatientCreateView(PermissionRequiredMixin, CreateView):
